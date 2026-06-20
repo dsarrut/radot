@@ -178,7 +178,7 @@ def segment_ct(ct_path: Path, output_path: Path, mode: str = "total", fast: bool
     # Dictionary to map TotalSegmentator class IDs to names for this task
     ts_id_to_name = {}
     if mode in class_map:
-        ts_id_to_name = {v: k for k, v in class_map[mode].items()}
+        ts_id_to_name = class_map[mode]
 
     # Construct equivalent CLI command
     ts_cli = f"totalsegmentator -i {ct_path} -o {output_path} --ml"

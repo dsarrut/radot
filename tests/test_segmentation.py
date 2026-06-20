@@ -60,8 +60,8 @@ def test_segment_ct(tmp_path):
         from totalsegmentator.map_to_binary import class_map
         ml_image = sitk.Image([10, 10, 10], sitk.sitkUInt16)
         
-        spleen_id = class_map[task]["spleen"]
-        kidney_left_id = class_map[task]["kidney_left"]
+        spleen_id = [k for k, v in class_map[task].items() if v == "spleen"][0]
+        kidney_left_id = [k for k, v in class_map[task].items() if v == "kidney_left"][0]
         
         ml_image.SetPixel((5, 5, 5), spleen_id)
         ml_image.SetPixel((6, 6, 6), kidney_left_id)
