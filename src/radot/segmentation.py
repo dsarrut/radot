@@ -158,13 +158,15 @@ def get_tg263_id(filename):
     return None
 
 
-def segment_ct(ct_path: Path, output_path: Path, mode: str = "total", fast: bool = False) -> None:
+def segment_ct(ct_path: Path, output_path: Path, mode: str = "total", fast: bool = False, test_mode: bool = False) -> None:
     """
     Segment the given CT image using TotalSegmentator and group/name labels according to AAPM TG-263.
+    Uses the multi-label (ml=True) output option to avoid writing multiple individual mask files.
     """
     import tempfile
     import json
     import numpy as np
+    from totalsegmentator.map_to_binary import class_map
 
     if not ct_path.exists():
         raise FileNotFoundError(f"Input CT file not found: {ct_path}")
@@ -172,60 +174,99 @@ def segment_ct(ct_path: Path, output_path: Path, mode: str = "total", fast: bool
     # Read native CT template
     print(f"Reading CT image from: {ct_path}")
     ct_image = sitk.ReadImage(str(ct_path))
-    ct_shape = ct_image.GetSize()[::-1]  # ITK (X,Y,Z) -> NumPy (Z,Y,X)
-    merged_data = np.zeros(ct_shape, dtype=np.uint16)
 
-    # Dictionary to store TG-263 label mapping
-    json_map = {}
-    fallback_id_counter = 1000
+    # Dictionary to map TotalSegmentator class IDs to names for this task
+    ts_id_to_name = {}
+    if mode in class_map:
+        ts_id_to_name = {v: k for k, v in class_map[mode].items()}
 
-    print(f"Running TotalSegmentator (mode: {mode}, fast: {fast}) via Python API...")
+    print(f"Running TotalSegmentator (mode: {mode}, fast: {fast}, test_mode: {test_mode}) in multi-label mode...")
     with tempfile.TemporaryDirectory() as temp_dir:
-        # Run totalsegmentator
+        temp_output = Path(temp_dir) / "temp_multilabel.nii.gz"
+        
+        if test_mode:
+            print("Test mode enabled: resampling input CT to 5.0mm spacing...")
+            original_spacing = ct_image.GetSpacing()
+            original_size = ct_image.GetSize()
+            target_spacing = (5.0, 5.0, 5.0)
+            
+            new_size = [
+                max(1, int(round(original_size[i] * original_spacing[i] / target_spacing[i])))
+                for i in range(3)
+            ]
+            
+            resampler = sitk.ResampleImageFilter()
+            resampler.SetSize(new_size)
+            resampler.SetOutputSpacing(target_spacing)
+            resampler.SetOutputOrigin(ct_image.GetOrigin())
+            resampler.SetOutputDirection(ct_image.GetDirection())
+            resampler.SetInterpolator(sitk.sitkLinear)
+            resampler.SetDefaultPixelValue(-1000)
+            
+            resampled_ct = resampler.Execute(ct_image)
+            totalseg_input_path = Path(temp_dir) / "ct_5mm.nii.gz"
+            sitk.WriteImage(resampled_ct, str(totalseg_input_path))
+            totalseg_input = str(totalseg_input_path)
+        else:
+            totalseg_input = str(ct_path)
+
+        # Run totalsegmentator with ml=True
         totalsegmentator(
-            input=str(ct_path),
-            output=temp_dir,
+            input=totalseg_input,
+            output=str(temp_output),
             task=mode,
             fast=fast,
+            ml=True,
             quiet=False
         )
 
-        # Parse generated segmentations
-        temp_path = Path(temp_dir)
-        mask_files = list(temp_path.glob("*.nii.gz"))
-        if not mask_files:
-            raise RuntimeError("TotalSegmentator did not produce any label files.")
+        if not temp_output.exists():
+            raise RuntimeError("TotalSegmentator did not produce the multi-label file.")
 
-        for mask_file in sorted(mask_files):
-            tg263_id = get_tg263_id(mask_file.name)
-            tg263_name = get_tg263_name(mask_file.name)
 
+        # Read the generated multi-label image
+        seg_image = sitk.ReadImage(str(temp_output))
+        seg_arr = sitk.GetArrayFromImage(seg_image)
+
+    # Find the unique labels predicted (excluding background)
+    unique_ids = np.unique(seg_arr)
+    unique_ids = [int(i) for i in unique_ids if i > 0]
+
+    # Remap the labels to the AAPM TG-263 system
+    remapped_arr = np.zeros_like(seg_arr, dtype=np.uint16)
+    json_map = {}
+    fallback_id_counter = 1000
+
+    for old_id in unique_ids:
+        class_name = ts_id_to_name.get(old_id)
+        if class_name:
+            tg263_id = get_tg263_id(class_name)
+            tg263_name = get_tg263_name(class_name)
             if tg263_id is None:
-                # Assign a fallback ID for unmapped classes
                 tg263_id = fallback_id_counter
                 fallback_id_counter += 1
+        else:
+            tg263_id = old_id
+            tg263_name = f"unknown_{old_id}"
 
-            # Read the mask
-            mask_img = sitk.ReadImage(str(mask_file))
-            mask_arr = sitk.GetArrayViewFromImage(mask_img)
+        remapped_arr[seg_arr == old_id] = tg263_id
+        json_map[int(tg263_id)] = tg263_name
 
-            # Check for grid alignment and shape matching
-            if mask_arr.shape != merged_data.shape:
-                resampler = sitk.ResampleImageFilter()
-                resampler.SetReferenceImage(ct_image)
-                resampler.SetInterpolator(sitk.sitkNearestNeighbor)
-                mask_img = resampler.Execute(mask_img)
-                mask_arr = sitk.GetArrayViewFromImage(mask_img)
+    # Convert back to SimpleITK Image
+    merged_image = sitk.GetImageFromArray(remapped_arr)
+    merged_image.CopyInformation(seg_image)
 
-            # Paste into the master label map
-            merged_data[mask_arr > 0.5] = tg263_id
-            json_map[int(tg263_id)] = tg263_name
+    # Verify size alignment with the original CT template image
+    if merged_image.GetSize() != ct_image.GetSize():
+        print("Resampling label map to match native CT coordinates...")
+        resampler = sitk.ResampleImageFilter()
+        resampler.SetReferenceImage(ct_image)
+        resampler.SetInterpolator(sitk.sitkNearestNeighbor)
+        merged_image = resampler.Execute(merged_image)
 
     # Write merged label map
     print(f"Saving merged label map to: {output_path}")
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    merged_image = sitk.GetImageFromArray(merged_data)
-    merged_image.CopyInformation(ct_image)
     sitk.WriteImage(merged_image, str(output_path))
 
     # Write JSON mapping file matching the output path name
@@ -237,3 +278,4 @@ def segment_ct(ct_path: Path, output_path: Path, mode: str = "total", fast: bool
         json.dump(sorted_json_map, f, indent=4)
 
     print("Segmentation and TG-263 mapping completed successfully.")
+

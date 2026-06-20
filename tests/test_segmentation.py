@@ -55,14 +55,18 @@ def test_segment_ct(tmp_path):
     # Define output path
     output_path = tmp_path / "output_labels.nii.gz"
     
-    def mock_totalsegmentator(input, output, task, quiet, fast=False):
-        # Create a dummy mask image in the output directory
-        mask_image = sitk.Image([10, 10, 10], sitk.sitkUInt8)
-        mask_image.SetPixel((5, 5, 5), 1)
+    def mock_totalsegmentator(input, output, task, quiet, ml=False, fast=False):
+        # Create a single multi-label image
+        from totalsegmentator.map_to_binary import class_map
+        ml_image = sitk.Image([10, 10, 10], sitk.sitkUInt16)
         
-        # Save two dummy files: spleen and kidney_left
-        sitk.WriteImage(mask_image, str(Path(output) / "spleen.nii.gz"))
-        sitk.WriteImage(mask_image, str(Path(output) / "kidney_left.nii.gz"))
+        spleen_id = class_map[task]["spleen"]
+        kidney_left_id = class_map[task]["kidney_left"]
+        
+        ml_image.SetPixel((5, 5, 5), spleen_id)
+        ml_image.SetPixel((6, 6, 6), kidney_left_id)
+        
+        sitk.WriteImage(ml_image, str(output))
 
     with patch("radot.segmentation.totalsegmentator", side_effect=mock_totalsegmentator) as mock_ts:
         segment_ct(ct_path, output_path, mode="total", fast=True)
@@ -72,6 +76,7 @@ def test_segment_ct(tmp_path):
         assert kwargs["input"] == str(ct_path)
         assert kwargs["task"] == "total"
         assert kwargs["fast"] is True
+        assert kwargs["ml"] is True
         assert kwargs["quiet"] is False
     
     # Verify the output files exist
@@ -89,3 +94,45 @@ def test_segment_ct(tmp_path):
     output_image = sitk.ReadImage(str(output_path))
     assert output_image.GetSize() == ct_image.GetSize()
     assert output_image.GetSpacing() == ct_image.GetSpacing()
+
+def test_segment_ct_test_mode(tmp_path):
+    from unittest.mock import patch
+    import json
+
+    # Create a small dummy CT image with 1mm spacing, size 20x20x20
+    ct_image = sitk.Image([20, 20, 20], sitk.sitkInt16)
+    ct_image.SetSpacing((1.0, 1.0, 1.0))
+    ct_path = tmp_path / "dummy_ct_high_res.nii.gz"
+    sitk.WriteImage(ct_image, str(ct_path))
+    
+    # Define output path
+    output_path = tmp_path / "output_labels.nii.gz"
+    
+    def mock_totalsegmentator(input, output, task, quiet, ml=False, fast=False):
+        # Verify that the input image to totalsegmentator has 5mm spacing
+        input_img = sitk.ReadImage(input)
+        assert input_img.GetSpacing() == (5.0, 5.0, 5.0)
+        assert input_img.GetSize() == (4, 4, 4)
+        
+        # Create a single multi-label image matching input size
+        from totalsegmentator.map_to_binary import class_map
+        ml_image = sitk.Image(input_img.GetSize(), sitk.sitkUInt16)
+        ml_image.CopyInformation(input_img)
+        
+        spleen_id = class_map[task]["spleen"]
+        ml_image.SetPixel((2, 2, 2), spleen_id)
+        
+        sitk.WriteImage(ml_image, str(output))
+
+    with patch("radot.segmentation.totalsegmentator", side_effect=mock_totalsegmentator) as mock_ts:
+        segment_ct(ct_path, output_path, mode="total", test_mode=True)
+        
+        assert mock_ts.call_count == 1
+    
+    # Verify the output files exist
+    assert output_path.exists()
+    
+    output_image = sitk.ReadImage(str(output_path))
+    assert output_image.GetSize() == (20, 20, 20)
+    assert output_image.GetSpacing() == (1.0, 1.0, 1.0)
+
