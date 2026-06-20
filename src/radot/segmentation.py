@@ -158,7 +158,7 @@ def get_tg263_id(filename):
     return None
 
 
-def segment_ct(ct_path: Path, output_path: Path, mode: str = "total", fast: bool = False, test_mode: bool = False) -> None:
+def segment_ct(ct_path: Path, output_path: Path, mode: str = "total", fast: bool = False) -> None:
     """
     Segment the given CT image using TotalSegmentator and group/name labels according to AAPM TG-263.
     Uses the multi-label (ml=True) output option to avoid writing multiple individual mask files.
@@ -180,39 +180,22 @@ def segment_ct(ct_path: Path, output_path: Path, mode: str = "total", fast: bool
     if mode in class_map:
         ts_id_to_name = {v: k for k, v in class_map[mode].items()}
 
-    print(f"Running TotalSegmentator (mode: {mode}, fast: {fast}, test_mode: {test_mode}) in multi-label mode...")
+    # Construct equivalent CLI command
+    ts_cli = f"totalsegmentator -i {ct_path} -o {output_path} --ml"
+    if mode != "total":
+        ts_cli += f" --task {mode}"
+    if fast:
+        ts_cli += " --fast"
+    print(f"Equivalent TotalSegmentator command: {ts_cli}")
+
+    print(f"Running TotalSegmentator (mode: {mode}, fast: {fast}) in multi-label mode...")
+
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_output = Path(temp_dir) / "temp_multilabel.nii.gz"
         
-        if test_mode:
-            print("Test mode enabled: resampling input CT to 5.0mm spacing...")
-            original_spacing = ct_image.GetSpacing()
-            original_size = ct_image.GetSize()
-            target_spacing = (5.0, 5.0, 5.0)
-            
-            new_size = [
-                max(1, int(round(original_size[i] * original_spacing[i] / target_spacing[i])))
-                for i in range(3)
-            ]
-            
-            resampler = sitk.ResampleImageFilter()
-            resampler.SetSize(new_size)
-            resampler.SetOutputSpacing(target_spacing)
-            resampler.SetOutputOrigin(ct_image.GetOrigin())
-            resampler.SetOutputDirection(ct_image.GetDirection())
-            resampler.SetInterpolator(sitk.sitkLinear)
-            resampler.SetDefaultPixelValue(-1000)
-            
-            resampled_ct = resampler.Execute(ct_image)
-            totalseg_input_path = Path(temp_dir) / "ct_5mm.nii.gz"
-            sitk.WriteImage(resampled_ct, str(totalseg_input_path))
-            totalseg_input = str(totalseg_input_path)
-        else:
-            totalseg_input = str(ct_path)
-
         # Run totalsegmentator with ml=True
         totalsegmentator(
-            input=totalseg_input,
+            input=str(ct_path),
             output=str(temp_output),
             task=mode,
             fast=fast,
@@ -222,6 +205,7 @@ def segment_ct(ct_path: Path, output_path: Path, mode: str = "total", fast: bool
 
         if not temp_output.exists():
             raise RuntimeError("TotalSegmentator did not produce the multi-label file.")
+
 
 
         # Read the generated multi-label image
