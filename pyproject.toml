@@ -19,7 +19,8 @@ requires-python = ">=3.9"
 dependencies = [
     "SimpleITK",
     "pydicom",
-    "click"
+    "click",
+    "pytest"
 ]
 
 [project.scripts]

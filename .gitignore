@@ -4,3 +4,4 @@ __pycache__
 venv_*
 .python-version
 activate_*
+data/
