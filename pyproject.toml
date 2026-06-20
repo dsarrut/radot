@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "radot"
+version = "0.1.0"
+description = "Python library and command line tools for radiation dosimetry in radionuclide therapy"
+readme = "README.md"
+authors = [
+    { name = "David Sarrut" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "SimpleITK",
+    "pydicom",
+    "click"
+]
+
+[project.scripts]
+radot = "radot.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
