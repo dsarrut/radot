@@ -16,11 +16,13 @@ def hello(name):
 @main.command()
 @click.argument("ct_path", type=click.Path(exists=True, path_type=Path))
 @click.option("-o", "--output", "output_path", required=True, type=click.Path(path_type=Path), help="Output label image path.")
-def segment(ct_path, output_path):
+@click.option("--mode", default="total", help="TotalSegmentator mode (e.g. total, head_glands_cavities, body, etc.).")
+@click.option("--fast", is_flag=True, help="Run TotalSegmentator in fast mode (lower resolution).")
+def segment(ct_path, output_path, mode, fast):
     """Segment CT and group/name labels according to AAPM TG-263."""
     from radot.segmentation import segment_ct
     try:
-        segment_ct(ct_path, output_path)
+        segment_ct(ct_path, output_path, mode, fast)
     except Exception as e:
         raise click.ClickException(str(e))
 

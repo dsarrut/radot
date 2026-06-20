@@ -20,7 +20,8 @@ dependencies = [
     "SimpleITK",
     "pydicom",
     "click",
-    "pytest"
+    "pytest",
+    "TotalSegmentator"
 ]
 
 [project.scripts]

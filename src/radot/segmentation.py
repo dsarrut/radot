@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import SimpleITK as sitk
+from totalsegmentator.python_api import totalsegmentator
 
 # AAPM TG-263 Official Mapping for TotalSegmentator v2
 # Constructed immediately when the module is imported
@@ -157,29 +158,82 @@ def get_tg263_id(filename):
     return None
 
 
-def segment_ct(ct_path: Path, output_path: Path) -> None:
+def segment_ct(ct_path: Path, output_path: Path, mode: str = "total", fast: bool = False) -> None:
     """
     Segment the given CT image using TotalSegmentator and group/name labels according to AAPM TG-263.
-    (Currently a placeholder implementation).
     """
-    # Verify input exists
+    import tempfile
+    import json
+    import numpy as np
+
     if not ct_path.exists():
         raise FileNotFoundError(f"Input CT file not found: {ct_path}")
 
+    # Read native CT template
     print(f"Reading CT image from: {ct_path}")
-    # Read the CT image to verify it's valid
     ct_image = sitk.ReadImage(str(ct_path))
+    ct_shape = ct_image.GetSize()[::-1]  # ITK (X,Y,Z) -> NumPy (Z,Y,X)
+    merged_data = np.zeros(ct_shape, dtype=np.uint16)
 
-    print(f"Performing segmentation placeholder (size: {ct_image.GetSize()})...")
+    # Dictionary to store TG-263 label mapping
+    json_map = {}
+    fallback_id_counter = 1000
 
-    # Create a dummy label map with the same metadata (spacing, origin, direction)
-    # as the input image, containing zeros.
-    labels_image = sitk.Image(ct_image.GetSize(), sitk.sitkUInt8)
-    labels_image.CopyInformation(ct_image)
+    print(f"Running TotalSegmentator (mode: {mode}, fast: {fast}) via Python API...")
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Run totalsegmentator
+        totalsegmentator(
+            input=str(ct_path),
+            output=temp_dir,
+            task=mode,
+            fast=fast,
+            quiet=False
+        )
 
-    # Save the output image
-    print(f"Saving output labels to: {output_path}")
-    # Ensure directory exists
+        # Parse generated segmentations
+        temp_path = Path(temp_dir)
+        mask_files = list(temp_path.glob("*.nii.gz"))
+        if not mask_files:
+            raise RuntimeError("TotalSegmentator did not produce any label files.")
+
+        for mask_file in sorted(mask_files):
+            tg263_id = get_tg263_id(mask_file.name)
+            tg263_name = get_tg263_name(mask_file.name)
+
+            if tg263_id is None:
+                # Assign a fallback ID for unmapped classes
+                tg263_id = fallback_id_counter
+                fallback_id_counter += 1
+
+            # Read the mask
+            mask_img = sitk.ReadImage(str(mask_file))
+            mask_arr = sitk.GetArrayViewFromImage(mask_img)
+
+            # Check for grid alignment and shape matching
+            if mask_arr.shape != merged_data.shape:
+                resampler = sitk.ResampleImageFilter()
+                resampler.SetReferenceImage(ct_image)
+                resampler.SetInterpolator(sitk.sitkNearestNeighbor)
+                mask_img = resampler.Execute(mask_img)
+                mask_arr = sitk.GetArrayViewFromImage(mask_img)
+
+            # Paste into the master label map
+            merged_data[mask_arr > 0.5] = tg263_id
+            json_map[int(tg263_id)] = tg263_name
+
+    # Write merged label map
+    print(f"Saving merged label map to: {output_path}")
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    sitk.WriteImage(labels_image, str(output_path))
-    print("Segmentation completed successfully.")
+    merged_image = sitk.GetImageFromArray(merged_data)
+    merged_image.CopyInformation(ct_image)
+    sitk.WriteImage(merged_image, str(output_path))
+
+    # Write JSON mapping file matching the output path name
+    json_path = output_path.with_suffix("").with_suffix(".json")
+    print(f"Saving label mapping to: {json_path}")
+    # Sort JSON by ID key
+    sorted_json_map = {str(k): json_map[k] for k in sorted(json_map.keys())}
+    with open(json_path, "w") as f:
+        json.dump(sorted_json_map, f, indent=4)
+
+    print("Segmentation and TG-263 mapping completed successfully.")

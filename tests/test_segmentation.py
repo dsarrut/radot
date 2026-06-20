@@ -44,6 +44,9 @@ def test_get_tg263_id():
     assert get_tg263_id("unknown_organ.nii.gz") is None
 
 def test_segment_ct(tmp_path):
+    from unittest.mock import patch
+    import json
+
     # Create a small dummy CT image
     ct_image = sitk.Image([10, 10, 10], sitk.sitkInt16)
     ct_path = tmp_path / "dummy_ct.nii.gz"
@@ -52,11 +55,35 @@ def test_segment_ct(tmp_path):
     # Define output path
     output_path = tmp_path / "output_labels.nii.gz"
     
-    # Run the segment_ct function
-    segment_ct(ct_path, output_path)
+    def mock_totalsegmentator(input, output, task, quiet, fast=False):
+        # Create a dummy mask image in the output directory
+        mask_image = sitk.Image([10, 10, 10], sitk.sitkUInt8)
+        mask_image.SetPixel((5, 5, 5), 1)
+        
+        # Save two dummy files: spleen and kidney_left
+        sitk.WriteImage(mask_image, str(Path(output) / "spleen.nii.gz"))
+        sitk.WriteImage(mask_image, str(Path(output) / "kidney_left.nii.gz"))
+
+    with patch("radot.segmentation.totalsegmentator", side_effect=mock_totalsegmentator) as mock_ts:
+        segment_ct(ct_path, output_path, mode="total", fast=True)
+        
+        assert mock_ts.call_count == 1
+        kwargs = mock_ts.call_args[1]
+        assert kwargs["input"] == str(ct_path)
+        assert kwargs["task"] == "total"
+        assert kwargs["fast"] is True
+        assert kwargs["quiet"] is False
     
-    # Verify the output file exists
+    # Verify the output files exist
     assert output_path.exists()
+    
+    json_path = output_path.with_suffix("").with_suffix(".json")
+    assert json_path.exists()
+    
+    # Verify JSON content maps correctly
+    with open(json_path, "r") as f:
+        mapping = json.load(f)
+    assert mapping == {"5": "Kidney_L", "12": "Spleen"}
     
     # Verify output properties match input
     output_image = sitk.ReadImage(str(output_path))
