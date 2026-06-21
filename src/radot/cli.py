@@ -295,7 +295,21 @@ def convert_units(image_path, from_unit, to_unit, output_path, weight, activity)
     "acquisition_date",
     help="Acquisition date and time (YYYY-MM-DD HH:MM:SS).",
 )
-def meta(image_path, modality, unit, weight, activity, injection_date, acquisition_date):
+@click.option(
+    "--time-from-injection",
+    "time_from_injection",
+    help="Time elapsed from injection to acquisition (day:hours:min).",
+)
+def meta(
+    image_path,
+    modality,
+    unit,
+    weight,
+    activity,
+    injection_date,
+    acquisition_date,
+    time_from_injection,
+):
     """Read or write image metadata fields."""
     from radot.meta import manage_metadata
 
@@ -308,6 +322,7 @@ def meta(image_path, modality, unit, weight, activity, injection_date, acquisiti
             activity=activity,
             injection_date=injection_date,
             acquisition_date=acquisition_date,
+            time_from_injection=time_from_injection,
         )
     except Exception as e:
         raise click.ClickException(str(e))

@@ -111,3 +111,50 @@ def test_metadata_date_validation(tmp_path):
         
     with pytest.raises(ValueError, match="Invalid acquisition_date format"):
         manage_metadata(image_path, acquisition_date="2026-06-21")
+
+def test_metadata_time_from_injection(tmp_path):
+    image_path = tmp_path / "test_time_inj.nii"
+    image = sitk.Image([5, 5, 5], sitk.sitkFloat32)
+    sitk.WriteImage(image, str(image_path))
+
+    # Case 1: Only injection_date is set, calculate acquisition_date
+    manage_metadata(image_path, injection_date="2026-06-21 10:15:00", time_from_injection="1:2:30")
+    img = sitk.ReadImage(str(image_path))
+    # 2026-06-21 10:15:00 + 1 day, 2 hours, 30 min = 2026-06-22 12:45:00
+    assert get_metadata_case_insensitive(img, "injection_date", image_path) == "2026-06-21 10:15:00"
+    assert get_metadata_case_insensitive(img, "acquisition_date", image_path) == "2026-06-22 12:45:00"
+
+    # Case 2: Only acquisition_date is set (clear injection_date first), calculate injection_date
+    # We clean sidecar first by writing only acquisition_date
+    import json
+    from radot.meta import get_sidecar_path
+    sidecar_path = get_sidecar_path(image_path)
+    with open(sidecar_path, "w") as f:
+        json.dump({"acquisition_date": "2026-06-22 12:45:00"}, f)
+
+    manage_metadata(image_path, time_from_injection="1:2:30")
+    # 2026-06-22 12:45:00 - 1 day, 2 hours, 30 min = 2026-06-21 10:15:00
+    assert get_metadata_case_insensitive(img, "injection_date", image_path) == "2026-06-21 10:15:00"
+    assert get_metadata_case_insensitive(img, "acquisition_date", image_path) == "2026-06-22 12:45:00"
+
+    # Case 3: None are present, defaults injection_date to 2000-01-01 12:00:00
+    with open(sidecar_path, "w") as f:
+        json.dump({}, f)
+    manage_metadata(image_path, time_from_injection="0:5:15")
+    # 2000-01-01 12:00:00 + 5 hours, 15 min = 2000-01-01 17:15:00
+    assert get_metadata_case_insensitive(img, "injection_date", image_path) == "2000-01-01 12:00:00"
+    assert get_metadata_case_insensitive(img, "acquisition_date", image_path) == "2000-01-01 17:15:00"
+
+def test_metadata_time_from_injection_errors(tmp_path):
+    image_path = tmp_path / "test_time_inj_err.nii"
+    image = sitk.Image([5, 5, 5], sitk.sitkFloat32)
+    sitk.WriteImage(image, str(image_path))
+
+    # Error if both dates are present
+    with pytest.raises(ValueError, match="both.*present"):
+        manage_metadata(
+            image_path, 
+            injection_date="2026-06-21 10:15:00", 
+            acquisition_date="2026-06-22 12:45:00", 
+            time_from_injection="1:2:30"
+        )

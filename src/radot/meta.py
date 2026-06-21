@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from typing import Optional
 import SimpleITK as sitk
-from datetime import datetime
+from datetime import datetime, timedelta
 
 METADATA_KEYS = {
     "modality": "modality",
@@ -14,6 +14,7 @@ METADATA_KEYS = {
     "acquisition_date": "acquisition_date",
 }
 
+
 def validate_date(date_str: str) -> bool:
     """Validate that date_str is in 'YYYY-MM-DD HH:MM:SS' format."""
     try:
@@ -22,29 +23,49 @@ def validate_date(date_str: str) -> bool:
     except ValueError:
         return False
 
+
+def parse_time_from_injection(t_str: str) -> timedelta:
+    """Parse a time string formatted as 'day:hours:min' (e.g. '2:15:30') into a timedelta."""
+    parts = t_str.split(":")
+    if len(parts) != 3:
+        raise ValueError(
+            f"Invalid time_from_injection format: {t_str}. Expected 'day:hours:min' (e.g. 2:15:30)"
+        )
+    try:
+        days = int(parts[0])
+        hours = int(parts[1])
+        minutes = int(parts[2])
+        return timedelta(days=days, hours=hours, minutes=minutes)
+    except ValueError:
+        raise ValueError(
+            f"Invalid time_from_injection format: {t_str}. Expected integers 'day:hours:min'"
+        )
+
+
 def get_sidecar_path(image_path: Path) -> Path:
     """Get the path to the JSON sidecar file matching the image file."""
     name_str = image_path.name
     # Strip common medical image extensions
-    for ext in ('.nii.gz', '.nii', '.nrrd', '.mhd', '.mha'):
+    for ext in (".nii.gz", ".nii", ".nrrd", ".mhd", ".mha"):
         if name_str.lower().endswith(ext):
-            base_name = name_str[:-len(ext)]
+            base_name = name_str[: -len(ext)]
             return image_path.parent / f"{base_name}.json"
     return image_path.with_suffix(".json")
+
 
 def parse_description_metadata(desc: str) -> dict:
     """Parse key=value pairs from radot: description metadata string."""
     metadata = {}
-    
+
     key_mapping = {
         "m": "modality",
         "u": "unit",
         "w": "weight",
         "a": "activity",
         "i": "injection_date",
-        "d": "acquisition_date"
+        "d": "acquisition_date",
     }
-    
+
     if desc.startswith("radot:"):
         parts = desc[len("radot:") :].split(";")
         for part in parts:
@@ -57,10 +78,9 @@ def parse_description_metadata(desc: str) -> dict:
                     metadata[resolved_key] = v
     return metadata
 
+
 def get_metadata_case_insensitive(
-    image: Optional[sitk.Image],
-    key: str,
-    image_path: Optional[Path] = None
+    image: Optional[sitk.Image], key: str, image_path: Optional[Path] = None
 ) -> Optional[str]:
     """Retrieve metadata value case-insensitively, preferring JSON sidecar and falling back to image headers."""
     lower_key = key.lower()
@@ -77,7 +97,9 @@ def get_metadata_case_insensitive(
                     if k.lower() == lower_key:
                         return str(v) if v is not None else None
             except Exception as e:
-                print(f"Warning: Failed to read metadata from sidecar {sidecar_path}: {e}")
+                print(
+                    f"Warning: Failed to read metadata from sidecar {sidecar_path}: {e}"
+                )
 
     # 2. Try loading image if not provided but image_path is
     if image is None and image_path is not None and image_path.exists():
@@ -89,24 +111,25 @@ def get_metadata_case_insensitive(
     # 3. Fallback: Parse from loaded image object headers
     if image is not None:
         keys = image.GetMetaDataKeys()
-        
+
         # Try case-insensitive lookup of individual keys
         for k in keys:
             if k.lower() == lower_key:
                 return image.GetMetaData(k)
-                
+
         # Try description field fallback
         desc_val = None
         for k in keys:
             if k.lower() in ("descrip", "itk_filenotes"):
                 desc_val = image.GetMetaData(k)
                 break
-                
+
         if desc_val:
             parsed = parse_description_metadata(desc_val)
             return parsed.get(lower_key)
 
     return None
+
 
 def manage_metadata(
     image_path: Path,
@@ -116,6 +139,7 @@ def manage_metadata(
     activity: Optional[float] = None,
     injection_date: Optional[str] = None,
     acquisition_date: Optional[str] = None,
+    time_from_injection: Optional[str] = None,
 ) -> None:
     """
     Read or write metadata fields in the JSON sidecar file.
@@ -137,7 +161,7 @@ def manage_metadata(
     # Check if we are writing metadata
     is_writing = any(
         v is not None
-        for v in (modality, unit, weight, activity, injection_date, acquisition_date)
+        for v in (modality, unit, weight, activity, injection_date, acquisition_date, time_from_injection)
     )
 
     if is_writing:
@@ -152,16 +176,53 @@ def manage_metadata(
         existing_unit = get_metadata_case_insensitive(image, "unit", image_path)
         existing_weight = get_metadata_case_insensitive(image, "weight", image_path)
         existing_activity = get_metadata_case_insensitive(image, "activity", image_path)
-        existing_injection_date = get_metadata_case_insensitive(image, "injection_date", image_path)
-        existing_acquisition_date = get_metadata_case_insensitive(image, "acquisition_date", image_path)
+        existing_injection_date = get_metadata_case_insensitive(
+            image, "injection_date", image_path
+        )
+        existing_acquisition_date = get_metadata_case_insensitive(
+            image, "acquisition_date", image_path
+        )
 
         # Merge with new values
         final_modality = modality.lower() if modality is not None else existing_modality
         final_unit = unit.lower() if unit is not None else existing_unit
-        final_weight = weight if weight is not None else (float(existing_weight) if existing_weight else None)
-        final_activity = activity if activity is not None else (float(existing_activity) if existing_activity else None)
-        final_injection_date = injection_date if injection_date is not None else existing_injection_date
-        final_acquisition_date = acquisition_date if acquisition_date is not None else existing_acquisition_date
+        final_weight = (
+            weight
+            if weight is not None
+            else (float(existing_weight) if existing_weight else None)
+        )
+        final_activity = (
+            activity
+            if activity is not None
+            else (float(existing_activity) if existing_activity else None)
+        )
+        final_injection_date = (
+            injection_date if injection_date is not None else existing_injection_date
+        )
+        final_acquisition_date = (
+            acquisition_date
+            if acquisition_date is not None
+            else existing_acquisition_date
+        )
+
+        # Apply time_from_injection logic
+        if time_from_injection is not None:
+            delta = parse_time_from_injection(time_from_injection)
+            if final_injection_date is not None and final_acquisition_date is not None:
+                raise ValueError("Cannot specify --time-from-injection when both injection and acquisition dates are present.")
+            elif final_injection_date is not None:
+                inj_dt = datetime.strptime(final_injection_date, "%Y-%m-%d %H:%M:%S")
+                acq_dt = inj_dt + delta
+                final_acquisition_date = acq_dt.strftime("%Y-%m-%d %H:%M:%S")
+            elif final_acquisition_date is not None:
+                acq_dt = datetime.strptime(final_acquisition_date, "%Y-%m-%d %H:%M:%S")
+                inj_dt = acq_dt - delta
+                final_injection_date = inj_dt.strftime("%Y-%m-%d %H:%M:%S")
+            else:
+                final_injection_date = "2000-01-01 12:00:00"
+                inj_dt = datetime.strptime(final_injection_date, "%Y-%m-%d %H:%M:%S")
+                acq_dt = inj_dt + delta
+                final_acquisition_date = acq_dt.strftime("%Y-%m-%d %H:%M:%S")
 
         # Write to JSON sidecar
         meta_dict = {}
@@ -185,7 +246,6 @@ def manage_metadata(
         print("Metadata saved successfully.")
     else:
         # Just reading metadata
-        print("\n--- Image Metadata ---")
         try:
             image = sitk.ReadImage(str(image_path))
         except Exception:
@@ -236,5 +296,3 @@ def manage_metadata(
                 print(f"Time from injection: {time_diff}")
             except Exception:
                 pass
-
-        print("----------------------\n")
