@@ -29,3 +29,5 @@ The following modules represent the current planned architecture and may evolve 
 
 5. **TTV (Total Tumor Volume) Computation**:
    - Compute Total Tumor Volume (TTV) / Metabolic Tumor Volume (MTV) based on segmentation labels and SUV/activity concentration thresholds.
+
+

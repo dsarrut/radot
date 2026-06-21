@@ -67,3 +67,20 @@ def test_convert_validation():
         
     with pytest.raises(ValueError, match="activity.*required"):
         convert_image_units(image, from_unit="bqml", to_unit="suv", weight=75.0, activity=None)
+
+def test_convert_integer_input():
+    # Input is an Int16 image
+    image = sitk.Image(5, 5, 5, sitk.sitkInt16)
+    arr = np.full((5, 5, 5), 10, dtype=np.int16)
+    image = sitk.GetImageFromArray(arr)
+    image.SetSpacing((2.0, 2.0, 2.0))
+    
+    # Convert to bqml: should cast to Float32 and execute correctly
+    converted = convert_image_units(image, from_unit="bq", to_unit="bqml")
+    
+    # Assert output data type is Float32
+    assert converted.GetPixelID() == sitk.sitkFloat32
+    
+    res_arr = sitk.GetArrayFromImage(converted)
+    # 10 Bq / 0.008 mL = 1250.0 Bq/mL
+    assert res_arr[0, 0, 0] == pytest.approx(1250.0)
