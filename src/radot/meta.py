@@ -75,10 +75,16 @@ def get_metadata_case_insensitive(
                     f"Warning: Failed to read metadata from sidecar {sidecar_path}: {e}"
                 )
 
-    # 2. Try loading image if not provided but image_path is
-    if image is None and image_path is not None and image_path.exists():
+    # 2. Try parsing headers using ImageFileReader (no pixel loading)
+    if image_path is not None and image_path.exists():
         try:
-            image = sitk.ReadImage(str(image_path))
+            reader = sitk.ImageFileReader()
+            reader.SetFileName(str(image_path))
+            reader.ReadImageInformation()
+            keys = reader.GetMetaDataKeys()
+            for k in keys:
+                if k.lower() == lower_key:
+                    return reader.GetMetaData(k)
         except Exception:
             pass
 
@@ -158,20 +164,15 @@ def manage_metadata(
     if is_writing:
         print("Writing metadata...")
         # Read existing metadata to merge (using our helper that checks sidecars and falls back to headers)
-        try:
-            image = sitk.ReadImage(str(image_path))
-        except Exception:
-            image = None
-
-        existing_modality = get_metadata_case_insensitive(image, "modality", image_path)
-        existing_unit = get_metadata_case_insensitive(image, "unit", image_path)
-        existing_weight = get_metadata_case_insensitive(image, "weight", image_path)
-        existing_activity = get_metadata_case_insensitive(image, "activity", image_path)
+        existing_modality = get_metadata_case_insensitive(None, "modality", image_path)
+        existing_unit = get_metadata_case_insensitive(None, "unit", image_path)
+        existing_weight = get_metadata_case_insensitive(None, "weight", image_path)
+        existing_activity = get_metadata_case_insensitive(None, "activity", image_path)
         existing_injection_date = get_metadata_case_insensitive(
-            image, "injection_date", image_path
+            None, "injection_date", image_path
         )
         existing_acquisition_date = get_metadata_case_insensitive(
-            image, "acquisition_date", image_path
+            None, "acquisition_date", image_path
         )
 
         # Merge with new values
@@ -238,17 +239,24 @@ def manage_metadata(
             json.dump(meta_dict, f, indent=4)
         print("Metadata saved successfully.")
     else:
-        # Just reading metadata
-        try:
-            image = sitk.ReadImage(str(image_path))
-        except Exception:
-            image = None
+        # Just reading metadata using ImageFileReader to avoid loading pixel array
+        size = None
+        spacing = None
+        origin = None
+        matrix_str = None
+        pixel_type = None
+        num_voxels = None
+        mem_size_str = None
 
-        if image is not None:
-            size = image.GetSize()
-            spacing = image.GetSpacing()
-            origin = image.GetOrigin()
-            dir_matrix = image.GetDirection()
+        try:
+            reader = sitk.ImageFileReader()
+            reader.SetFileName(str(image_path))
+            reader.ReadImageInformation()
+            
+            size = reader.GetSize()
+            spacing = reader.GetSpacing()
+            origin = reader.GetOrigin()
+            dir_matrix = reader.GetDirection()
             if len(dir_matrix) == 9:
                 matrix_str = (
                     f"[{dir_matrix[0]:.4f}, {dir_matrix[1]:.4f}, {dir_matrix[2]:.4f}]\n"
@@ -258,17 +266,20 @@ def manage_metadata(
             else:
                 matrix_str = str(dir_matrix)
 
-            pixel_type = image.GetPixelIDTypeAsString()
+            pixel_type = sitk.GetPixelIDValueAsString(reader.GetPixelID())
             
             # Number of voxels
             num_voxels = 1
             for s in size:
                 num_voxels *= s
 
-            pixel_size = get_pixel_size_bytes(image.GetPixelID()) * image.GetNumberOfComponentsPerPixel()
+            pixel_size = get_pixel_size_bytes(reader.GetPixelID()) * reader.GetNumberOfComponents()
             mem_size = num_voxels * pixel_size
             mem_size_str = format_memory_size(mem_size)
+        except Exception:
+            pass
 
+        if size is not None:
             print(f"Image Size: {size}")
             print(f"Spacing: {spacing}")
             print(f"Origin: {origin}")
@@ -277,37 +288,37 @@ def manage_metadata(
             print(f"Number of Voxels: {num_voxels}")
             print(f"Memory Size: {mem_size_str}")
 
-        mod_val = get_metadata_case_insensitive(image, "modality", image_path)
+        mod_val = get_metadata_case_insensitive(None, "modality", image_path)
         if mod_val:
             print(f"Modality: {mod_val.upper()}")
         else:
             print("Modality: (not set)")
 
-        unit_val = get_metadata_case_insensitive(image, "unit", image_path)
+        unit_val = get_metadata_case_insensitive(None, "unit", image_path)
         if unit_val:
             print(f"Unit: {unit_val.lower()}")
         else:
             print("Unit: (not set)")
 
-        weight_val = get_metadata_case_insensitive(image, "weight", image_path)
+        weight_val = get_metadata_case_insensitive(None, "weight", image_path)
         if weight_val:
             print(f"Weight: {weight_val} kg")
         else:
             print("Weight: (not set)")
 
-        activity_val = get_metadata_case_insensitive(image, "activity", image_path)
+        activity_val = get_metadata_case_insensitive(None, "activity", image_path)
         if activity_val:
             print(f"Activity: {activity_val} MBq")
         else:
             print("Activity: (not set)")
 
-        inj_val = get_metadata_case_insensitive(image, "injection_date", image_path)
+        inj_val = get_metadata_case_insensitive(None, "injection_date", image_path)
         if inj_val:
             print(f"Injection Date: {inj_val}")
         else:
             print("Injection Date: (not set)")
 
-        acq_val = get_metadata_case_insensitive(image, "acquisition_date", image_path)
+        acq_val = get_metadata_case_insensitive(None, "acquisition_date", image_path)
         if acq_val:
             print(f"Acquisition Date: {acq_val}")
         else:
