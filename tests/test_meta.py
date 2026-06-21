@@ -144,3 +144,25 @@ def test_metadata_ct_default_unit(tmp_path):
     img = sitk.ReadImage(str(image_path))
     assert get_metadata_case_insensitive(img, "modality", image_path) == "ct"
     assert get_metadata_case_insensitive(img, "unit", image_path) == "hu"
+
+
+def test_info_alias(tmp_path):
+    from click.testing import CliRunner
+    from radot.cli import main
+
+    image_path = tmp_path / "test_info.nii"
+    image = sitk.Image([5, 5, 5], sitk.sitkFloat32)
+    sitk.WriteImage(image, str(image_path))
+
+    runner = CliRunner()
+    # Call with 'info' command (writing unit)
+    result_write = runner.invoke(main, ["info", str(image_path), "--unit", "bq"])
+    assert result_write.exit_code == 0
+    assert "Metadata saved successfully." in result_write.output
+
+    # Call with 'info' command (reading details)
+    result_read = runner.invoke(main, ["info", str(image_path)])
+    assert result_read.exit_code == 0
+    assert "Image Size: (5, 5, 5)" in result_read.output
+    assert "Unit: bq" in result_read.output
+

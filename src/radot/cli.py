@@ -263,43 +263,49 @@ def convert_units(image_path, from_unit, to_unit, output_path, weight, activity)
 
 
 #### IMAGE METADATA ####
-@main.command()
-@click.argument("image_path", type=click.Path(exists=True, path_type=Path))
-@click.option(
-    "--modality",
-    type=click.Choice(["ct", "pet", "spect"], case_sensitive=False),
-    help="Modality type to store (ct, pet, spect).",
-)
-@click.option(
-    "--unit",
-    type=click.Choice(["hu", "suv", "bqml", "bq"], case_sensitive=False),
-    help="Physical unit of voxel values (hu, suv, bqml, bq).",
-)
-@click.option(
-    "--weight",
-    type=float,
-    help="Patient weight in kg.",
-)
-@click.option(
-    "--activity",
-    type=float,
-    help="Injected activity in MBq.",
-)
-@click.option(
-    "--injection-date",
-    "injection_date",
-    help="Injection date and time (YYYY-MM-DD HH:MM:SS).",
-)
-@click.option(
-    "--acquisition-date",
-    "acquisition_date",
-    help="Acquisition date and time (YYYY-MM-DD HH:MM:SS).",
-)
-@click.option(
-    "--time-from-injection",
-    "time_from_injection",
-    help="Time elapsed from injection to acquisition (day:hours:min).",
-)
+def common_meta_options(f):
+    import click
+    f = click.argument("image_path", type=click.Path(exists=True, path_type=Path))(f)
+    f = click.option(
+        "--modality",
+        type=click.Choice(["ct", "pet", "spect"], case_sensitive=False),
+        help="Modality type to store (ct, pet, spect).",
+    )(f)
+    f = click.option(
+        "--unit",
+        type=click.Choice(["hu", "suv", "bqml", "bq"], case_sensitive=False),
+        help="Physical unit of voxel values (hu, suv, bqml, bq).",
+    )(f)
+    f = click.option(
+        "--weight",
+        type=float,
+        help="Patient weight in kg.",
+    )(f)
+    f = click.option(
+        "--activity",
+        type=float,
+        help="Injected activity in MBq.",
+    )(f)
+    f = click.option(
+        "--injection-date",
+        "injection_date",
+        help="Injection date and time (YYYY-MM-DD HH:MM:SS).",
+    )(f)
+    f = click.option(
+        "--acquisition-date",
+        "acquisition_date",
+        help="Acquisition date and time (YYYY-MM-DD HH:MM:SS).",
+    )(f)
+    f = click.option(
+        "--time-from-injection",
+        "time_from_injection",
+        help="Time elapsed from injection to acquisition (day:hours:min).",
+    )(f)
+    return f
+
+
+@main.command(name="meta")
+@common_meta_options
 def meta(
     image_path,
     modality,
@@ -311,6 +317,53 @@ def meta(
     time_from_injection,
 ):
     """Read or write image metadata fields."""
+    _run_meta_command(
+        image_path,
+        modality,
+        unit,
+        weight,
+        activity,
+        injection_date,
+        acquisition_date,
+        time_from_injection,
+    )
+
+
+@main.command(name="info")
+@common_meta_options
+def info(
+    image_path,
+    modality,
+    unit,
+    weight,
+    activity,
+    injection_date,
+    acquisition_date,
+    time_from_injection,
+):
+    """Alias for 'meta' command to read or write image metadata fields."""
+    _run_meta_command(
+        image_path,
+        modality,
+        unit,
+        weight,
+        activity,
+        injection_date,
+        acquisition_date,
+        time_from_injection,
+    )
+
+
+def _run_meta_command(
+    image_path,
+    modality,
+    unit,
+    weight,
+    activity,
+    injection_date,
+    acquisition_date,
+    time_from_injection,
+):
     from radot.meta import manage_metadata
 
     try:
