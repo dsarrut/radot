@@ -46,3 +46,20 @@ radot convert-units image.nii.gz -f bqml -t suv --weight 75 --activity 250
 * **`--weight`**: Patient weight in kg (required for SUV conversions).
 * **`--activity`**: Injected activity in MBq (required for SUV conversions).
 
+## Image Metadata
+
+To read or write custom dosimetry metadata (modality, unit, patient weight, injected activity) inside NIfTI, MHD, or NRRD image headers:
+
+```bash
+# Write metadata to an image
+radot meta image.mhd --modality PET --unit bq --weight 70 --activity 180
+
+# Read/print stored metadata of an image
+radot meta image.nii.gz
+```
+
+* **`--modality`**: Modality type (`ct`, `pet`, `spect`).
+* **`--unit`**: Voxel values unit (`hu`, `suv`, `bqml`, `bq`).
+* **`--weight`**: Patient weight in kg.
+* **`--activity`**: Injected activity in MBq.
+

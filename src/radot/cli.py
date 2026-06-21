@@ -291,5 +291,44 @@ def convert_units(image_path, from_unit, to_unit, output_path, weight, activity)
         raise click.ClickException(str(e))
 
 
+#### IMAGE METADATA ####
+@main.command()
+@click.argument("image_path", type=click.Path(exists=True, path_type=Path))
+@click.option(
+    "--modality",
+    type=click.Choice(["ct", "pet", "spect"], case_sensitive=False),
+    help="Modality type to store (ct, pet, spect).",
+)
+@click.option(
+    "--unit",
+    type=click.Choice(["hu", "suv", "bqml", "bq"], case_sensitive=False),
+    help="Physical unit of voxel values (hu, suv, bqml, bq).",
+)
+@click.option(
+    "--weight",
+    type=float,
+    help="Patient weight in kg.",
+)
+@click.option(
+    "--activity",
+    type=float,
+    help="Injected activity in MBq.",
+)
+def meta(image_path, modality, unit, weight, activity):
+    """Read or write image metadata fields."""
+    from radot.meta import manage_metadata
+
+    try:
+        manage_metadata(
+            image_path=image_path,
+            modality=modality,
+            unit=unit,
+            weight=weight,
+            activity=activity,
+        )
+    except Exception as e:
+        raise click.ClickException(str(e))
+
+
 if __name__ == "__main__":
     main()
