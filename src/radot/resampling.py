@@ -7,32 +7,50 @@ import math
 
 def resample_image(
     image: sitk.Image,
-    spacing: Tuple[float, float, float],
+    spacing: Optional[Tuple[float, float, float]] = None,
     image_type: str = "ct",
     preserve_total: bool = False,
     gaussian: bool = True,
+    reference_image: Optional[sitk.Image] = None,
 ) -> sitk.Image:
     """
-    Resample a SimpleITK image to a target spacing.
-
+    Resample a SimpleITK image to a target spacing or to match a reference image grid.
+    
     Parameters:
     - image: sitk.Image, input image.
-    - spacing: target spacing (spacing_x, spacing_y, spacing_z).
+    - spacing: target spacing (spacing_x, spacing_y, spacing_z). Optional if reference_image is provided.
     - image_type: "ct", "labels", "pet", or "spect".
     - preserve_total: if True, scales intensities by (new_voxel_volume / old_voxel_volume) to preserve the sum of voxel values.
     - gaussian: if True, applies a Gaussian anti-aliasing filter along the downsampled axes.
+    - reference_image: sitk.Image, optional reference image to align size, spacing, origin, and direction.
     """
     original_spacing = image.GetSpacing()
     original_size = image.GetSize()
-
+    
+    if reference_image is not None:
+        target_spacing = reference_image.GetSpacing()
+        new_size = reference_image.GetSize()
+        target_origin = reference_image.GetOrigin()
+        target_direction = reference_image.GetDirection()
+    else:
+        if spacing is None:
+            raise ValueError("Either spacing or reference_image must be specified.")
+        target_spacing = spacing
+        new_size = [
+            max(1, int(round(original_size[i] * original_spacing[i] / target_spacing[i])))
+            for i in range(3)
+        ]
+        target_origin = image.GetOrigin()
+        target_direction = image.GetDirection()
+    
     # If gaussian smoothing is requested and this is not a label image, apply it before resampling
     if gaussian and image_type != "labels":
         smoothed_image = sitk.Cast(image, sitk.sitkFloat32)
         smoothing_needed = False
         for i in range(3):
-            if spacing[i] > original_spacing[i]:
+            if target_spacing[i] > original_spacing[i]:
                 # Calculate sigma in physical units (FWHM mapped to spacing change)
-                sigma = math.sqrt(spacing[i] ** 2 - original_spacing[i] ** 2) / 2.355
+                sigma = math.sqrt(target_spacing[i] ** 2 - original_spacing[i] ** 2) / 2.355
                 if sigma > 0.0:
                     gaussian_filter = sitk.RecursiveGaussianImageFilter()
                     gaussian_filter.SetDirection(i)
@@ -42,23 +60,18 @@ def resample_image(
         if smoothing_needed:
             image = smoothed_image
 
-    # Calculate new size based on physical dimensions and target spacing
-    new_size = [
-        max(1, int(round(original_size[i] * original_spacing[i] / spacing[i])))
-        for i in range(3)
-    ]
-
     resampler = sitk.ResampleImageFilter()
     resampler.SetSize(new_size)
-    resampler.SetOutputSpacing(spacing)
-    resampler.SetOutputOrigin(image.GetOrigin())
-    resampler.SetOutputDirection(image.GetDirection())
-
+    resampler.SetOutputSpacing(target_spacing)
+    resampler.SetOutputOrigin(target_origin)
+    resampler.SetOutputDirection(target_direction)
+    
     # Choose interpolator
     if image_type == "labels":
         resampler.SetInterpolator(sitk.sitkNearestNeighbor)
     else:
         resampler.SetInterpolator(sitk.sitkLinear)
+
 
     # Set default pixel value (background value)
     if image_type == "ct":

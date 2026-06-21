@@ -6,3 +6,4 @@ venv_*
 activate_*
 data/
 .DS_Store
+.vscode
