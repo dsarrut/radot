@@ -28,6 +28,6 @@ vvv ct.nii.gz + labels_total.nii.gz
 ## Stats
 
 ```bash
-radot stats -i ct.nii.gz -t ct labels_all.nii.gz
+radot stats labels_all.nii.gz -i ct.nii.gz -t ct 
 ```
 

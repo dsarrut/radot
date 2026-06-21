@@ -18,29 +18,19 @@ def has_same_grid(img1: sitk.Image, img2: sitk.Image) -> bool:
     return True
 
 def compute_stats(
-    labels_path: Path,
-    image_path: Path,
+    labels_image: sitk.Image,
+    image: sitk.Image,
     image_type: str,
-    output_path: Optional[Path] = None,
     labels: Optional[List[int]] = None,
     rois: Optional[List[str]] = None,
-    resample_to: str = "labels"
-) -> None:
+    resample_to: str = "labels",
+    labels_map: Optional[dict] = None
+) -> dict:
     """
     Compute volume and intensity statistics for each ROI/label from the input image.
     If the image does not share the same grid as the labels, it is resampled based on `resample_to`.
+    Returns a dictionary of statistics per label.
     """
-    if not labels_path.exists():
-        raise FileNotFoundError(f"Labels file not found: {labels_path}")
-    if not image_path.exists():
-        raise FileNotFoundError(f"Image file not found: {image_path}")
-
-    print(f"Reading labels from: {labels_path}")
-    labels_image = sitk.ReadImage(str(labels_path))
-    
-    print(f"Reading image from: {image_path}")
-    image = sitk.ReadImage(str(image_path))
-
     # Check grid alignment and resample if necessary
     if not has_same_grid(labels_image, image):
         if resample_to == "labels":
@@ -64,17 +54,8 @@ def compute_stats(
         else:
             raise ValueError(f"Unknown resample_to target: {resample_to}")
 
-    # Load mapping JSON if it exists in the same folder
-    json_path = labels_path.with_suffix("").with_suffix(".json")
-    labels_map = {}
-    if json_path.exists():
-        try:
-            with open(json_path, "r") as f:
-                raw_map = json.load(f)
-                labels_map = {int(k): v for k, v in raw_map.items()}
-            print(f"Loaded label name mappings from: {json_path}")
-        except Exception as e:
-            print(f"Warning: Could not read mapping JSON {json_path}: {e}")
+    if labels_map is None:
+        labels_map = {}
 
     # Compute intensity statistics per label
     stat_filter = sitk.LabelIntensityStatisticsImageFilter()
@@ -120,6 +101,53 @@ def compute_stats(
             
         stats_dict[str(label_id)] = label_stats
 
+    return stats_dict
+
+
+def compute_stats_file(
+    labels_path: Path,
+    image_path: Path,
+    image_type: str,
+    output_path: Optional[Path] = None,
+    labels: Optional[List[int]] = None,
+    rois: Optional[List[str]] = None,
+    resample_to: str = "labels"
+) -> None:
+    """
+    Load images from paths, compute statistics, and save/print the output.
+    """
+    if not labels_path.exists():
+        raise FileNotFoundError(f"Labels file not found: {labels_path}")
+    if not image_path.exists():
+        raise FileNotFoundError(f"Image file not found: {image_path}")
+
+    print(f"Reading labels from: {labels_path}")
+    labels_image = sitk.ReadImage(str(labels_path))
+    
+    print(f"Reading image from: {image_path}")
+    image = sitk.ReadImage(str(image_path))
+
+    # Load mapping JSON if it exists in the same folder
+    json_path = labels_path.with_suffix("").with_suffix(".json")
+    labels_map = {}
+    if json_path.exists():
+        try:
+            with open(json_path, "r") as f:
+                raw_map = json.load(f)
+                labels_map = {int(k): v for k, v in raw_map.items()}
+            print(f"Loaded label name mappings from: {json_path}")
+        except Exception as e:
+            print(f"Warning: Could not read mapping JSON {json_path}: {e}")
+
+    stats_dict = compute_stats(
+        labels_image=labels_image,
+        image=image,
+        image_type=image_type,
+        labels=labels,
+        rois=rois,
+        resample_to=resample_to,
+        labels_map=labels_map
+    )
 
     # Output results
     if output_path:

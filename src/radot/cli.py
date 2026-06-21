@@ -47,7 +47,7 @@ def segment(ct_path, output_path, mode, fast):
 @click.option("--resample-to", default="labels", type=click.Choice(["labels", "image"], case_sensitive=False), help="Grid alignment target (labels or image).")
 def stats(labels_path, image_path, image_type, output_path, labels, rois, resample_to):
     """Compute volume and intensity statistics for labels."""
-    from radot.stats import compute_stats
+    from radot.stats import compute_stats_file
     
     # Parse labels list
     labels_list = None
@@ -63,7 +63,7 @@ def stats(labels_path, image_path, image_type, output_path, labels, rois, resamp
         rois_list = [x.strip() for x in rois.split(",") if x.strip()]
 
     try:
-        compute_stats(
+        compute_stats_file(
             labels_path=labels_path,
             image_path=image_path,
             image_type=image_type.lower(),

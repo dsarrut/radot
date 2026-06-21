@@ -3,7 +3,7 @@ import pytest
 from pathlib import Path
 import SimpleITK as sitk
 import numpy as np
-from radot.stats import compute_stats
+from radot.stats import compute_stats, compute_stats_file
 
 def test_compute_stats_matching_grid(tmp_path):
     # Create matching labels and CT image (10x10x10, 1mm spacing)
@@ -31,8 +31,8 @@ def test_compute_stats_matching_grid(tmp_path):
         
     output_path = tmp_path / "stats.json"
     
-    # Run compute_stats
-    compute_stats(
+    # Run compute_stats_file
+    compute_stats_file(
         labels_path=labels_path,
         image_path=image_path,
         image_type="ct",
@@ -70,8 +70,8 @@ def test_compute_stats_mismatch_grid(tmp_path):
     
     output_path = tmp_path / "stats.json"
     
-    # Run compute_stats (should trigger resampling PET image to labels grid)
-    compute_stats(
+    # Run compute_stats_file (should trigger resampling PET image to labels grid)
+    compute_stats_file(
         labels_path=labels_path,
         image_path=image_path,
         image_type="pet",
@@ -111,7 +111,7 @@ def test_compute_stats_filtering(tmp_path):
         
     # Test filtering by labels (only label 5)
     output_path_labels = tmp_path / "stats_labels.json"
-    compute_stats(
+    compute_stats_file(
         labels_path=labels_path,
         image_path=image_path,
         image_type="ct",
@@ -125,7 +125,7 @@ def test_compute_stats_filtering(tmp_path):
     
     # Test filtering by rois (only Spleen)
     output_path_rois = tmp_path / "stats_rois.json"
-    compute_stats(
+    compute_stats_file(
         labels_path=labels_path,
         image_path=image_path,
         image_type="ct",
@@ -157,8 +157,8 @@ def test_compute_stats_mismatch_grid_resample_to_image(tmp_path):
     
     output_path = tmp_path / "stats_resample_to_image.json"
     
-    # Run compute_stats (should trigger resampling labels to image grid)
-    compute_stats(
+    # Run compute_stats_file (should trigger resampling labels to image grid)
+    compute_stats_file(
         labels_path=labels_path,
         image_path=image_path,
         image_type="pet",
@@ -172,3 +172,29 @@ def test_compute_stats_mismatch_grid_resample_to_image(tmp_path):
         
     assert "12" in stats
     assert stats["12"]["volume_ml"] > 0.0
+
+def test_compute_stats_image_direct():
+    # Test image-based compute_stats directly
+    spacing = (1.0, 1.0, 1.0)
+    
+    labels_arr = np.zeros((10, 10, 10), dtype=np.uint16)
+    labels_arr[3:7, 3:7, 3:7] = 5
+    labels_image = sitk.GetImageFromArray(labels_arr)
+    labels_image.SetSpacing(spacing)
+    
+    ct_arr = np.zeros((10, 10, 10), dtype=np.int16)
+    ct_arr[3:7, 3:7, 3:7] = 200
+    ct_image = sitk.GetImageFromArray(ct_arr)
+    ct_image.SetSpacing(spacing)
+    
+    stats = compute_stats(
+        labels_image=labels_image,
+        image=ct_image,
+        image_type="ct",
+        labels_map={5: "Liver"}
+    )
+    
+    assert "5" in stats
+    assert stats["5"]["roi"] == "Liver"
+    assert stats["5"]["mean"] == pytest.approx(200.0)
+    assert "mass_g" in stats["5"]
