@@ -421,3 +421,33 @@ def test_stats_onthefly_unit_conversion_and_units_table(tmp_path):
     # The output should show the converted mean value ~0.006
     assert "0.006" in result.output
 
+
+def test_stats_full_image(tmp_path):
+    from click.testing import CliRunner
+    from radot.cli import main
+
+    labels_arr = np.zeros((10, 10, 10), dtype=np.uint16)
+    labels_arr[3:7, 3:7, 3:7] = 5
+    labels_image = sitk.GetImageFromArray(labels_arr)
+    labels_image.SetSpacing((1.0, 1.0, 1.0))
+
+    image_arr = np.zeros((10, 10, 10), dtype=np.float32)
+    # Fill full image with 20.0
+    image_arr[:] = 20.0
+    image = sitk.GetImageFromArray(image_arr)
+    image.SetSpacing((1.0, 1.0, 1.0))
+
+    labels_path = tmp_path / "labels.nii.gz"
+    image_path = tmp_path / "pet_full.nii.gz"
+    sitk.WriteImage(labels_image, str(labels_path))
+    sitk.WriteImage(image, str(image_path))
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["stats", str(labels_path), "-i", str(image_path), "-t", "pet", "--unit", "suv"])
+    assert result.exit_code == 0
+    assert "all" in result.output
+    assert "Full Image" in result.output
+    # Mean of full image should be 20.0
+    assert "20.000" in result.output
+
+

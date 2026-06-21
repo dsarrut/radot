@@ -151,6 +151,49 @@ def compute_stats(
             
         stats_dict[str(label_id)] = label_stats
 
+    # Compute full image stats if applicable
+    include_full = True
+    if labels is not None or rois is not None:
+        include_full = False
+        if rois is not None and any(r in rois for r in ("Full Image", "all", "full")):
+            include_full = True
+
+    if include_full:
+        full_voxels = 1
+        for s in image.GetSize():
+            full_voxels *= s
+        spacing = image.GetSpacing()
+        full_volume_ml = (spacing[0] * spacing[1] * spacing[2] * full_voxels) / 1000.0
+
+        stat_filter_full = sitk.StatisticsImageFilter()
+        stat_filter_full.Execute(image)
+        full_mean = stat_filter_full.GetMean()
+        full_std = stat_filter_full.GetSigma()
+        full_min = stat_filter_full.GetMinimum()
+        full_max = stat_filter_full.GetMaximum()
+        full_sum = stat_filter_full.GetSum()
+
+        stat_filter_full_peak = sitk.StatisticsImageFilter()
+        stat_filter_full_peak.Execute(smoothed_image)
+        full_peak = stat_filter_full_peak.GetMaximum()
+
+        full_stats = {
+            "roi": "Full Image",
+            "volume_ml": float(full_volume_ml),
+            "mean": float(full_mean),
+            "std": float(full_std),
+            "min": float(full_min),
+            "max": float(full_max),
+            "sum": float(full_sum),
+            "peak": float(full_peak)
+        }
+        if image_type == "ct":
+            full_density = max(0.0, 1.0 + (full_mean / 1000.0))
+            full_mass_g = full_volume_ml * full_density
+            full_stats["mass_g"] = float(full_mass_g)
+
+        stats_dict["all"] = full_stats
+
     return stats_dict
 
 
