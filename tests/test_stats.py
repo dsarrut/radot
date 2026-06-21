@@ -47,6 +47,8 @@ def test_compute_stats_matching_grid(tmp_path):
     assert stats["5"]["roi"] == "Kidney_L"
     assert stats["5"]["volume_ml"] == pytest.approx(0.064)  # 4 * 4 * 4 = 64 voxels = 0.064 mL
     assert stats["5"]["mean"] == pytest.approx(100.0)
+    assert "mass_g" in stats["5"]
+    assert stats["5"]["mass_g"] == pytest.approx(0.064 * 1.1)
 
 def test_compute_stats_mismatch_grid(tmp_path):
     # Create labels with 1mm spacing

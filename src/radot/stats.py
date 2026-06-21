@@ -88,7 +88,7 @@ def compute_stats(
         max_val = stat_filter.GetMaximum(label_id)
         sum_val = stat_filter.GetSum(label_id)
         
-        stats_dict[str(label_id)] = {
+        label_stats = {
             "roi": roi_name,
             "volume_ml": float(volume_ml),
             "mean": float(mean_val),
@@ -97,6 +97,16 @@ def compute_stats(
             "max": float(max_val),
             "sum": float(sum_val)
         }
+        
+        if image_type == "ct":
+            # Estimate density: density_g_cm3 = 1.0 + (mean_hu / 1000.0)
+            # Ensure density is non-negative
+            density = max(0.0, 1.0 + (mean_val / 1000.0))
+            mass_g = volume_ml * density
+            label_stats["mass_g"] = float(mass_g)
+            
+        stats_dict[str(label_id)] = label_stats
+
 
     # Output results
     if output_path:
