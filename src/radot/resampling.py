@@ -84,7 +84,7 @@ def resample_image(
     # Scale intensities if preserve_total is True (for absolute activity Bq)
     if preserve_total:
         old_volume = original_spacing[0] * original_spacing[1] * original_spacing[2]
-        new_volume = spacing[0] * spacing[1] * spacing[2]
+        new_volume = target_spacing[0] * target_spacing[1] * target_spacing[2]
         volume_ratio = new_volume / old_volume
 
         # Cast to float to preserve decimals

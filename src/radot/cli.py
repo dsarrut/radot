@@ -98,9 +98,20 @@ def segment(ct_path, output_path, mode, fast):
     type=float,
     help="Optional standard deviation (in mm) of the Gaussian smoothing kernel used for peak computation.",
 )
-def stats(labels_path, image_path, image_type, output_path, labels, rois, resample_to, sigma):
+@click.option(
+    "--unit",
+    type=click.Choice(["hu", "suv", "bqml", "bq"], case_sensitive=False),
+    help="Current unit of the image. Required to determine if activity should be preserved (e.g. bq) during resampling.",
+)
+def stats(labels_path, image_path, image_type, output_path, labels, rois, resample_to, sigma, unit):
     """Compute volume and intensity statistics for labels."""
     from radot.stats import compute_stats_file
+
+    image_type_lower = image_type.lower()
+    if image_type_lower in ["pet", "spect"] and unit is None:
+        raise click.UsageError(
+            "The --unit option is required for PET and SPECT modalities to determine correct resampling scaling."
+        )
 
     # Parse labels list
     labels_list = None
@@ -127,6 +138,7 @@ def stats(labels_path, image_path, image_type, output_path, labels, rois, resamp
             rois=rois_list,
             resample_to=resample_to.lower(),
             sigma=sigma,
+            unit=unit,
         )
     except Exception as e:
         raise click.ClickException(str(e))

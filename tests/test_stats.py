@@ -254,3 +254,72 @@ def test_pretty_print_stats(capsys):
     assert "Mass (g)" not in captured.out
     assert "Liver" in captured.out
     assert "175.200" in captured.out
+
+def test_compute_stats_mismatch_grid_preserve_total(tmp_path):
+    # Create labels with 1mm spacing (1x1x1)
+    labels_arr = np.zeros((10, 10, 10), dtype=np.uint16)
+    labels_arr[4:6, 4:6, 4:6] = 12
+    labels_image = sitk.GetImageFromArray(labels_arr)
+    labels_image.SetSpacing((1.0, 1.0, 1.0))
+    
+    # Create image with 2mm spacing (2x2x2)
+    image_arr = np.zeros((5, 5, 5), dtype=np.float32)
+    image_arr[2, 2, 2] = 100.0
+    image_image = sitk.GetImageFromArray(image_arr)
+    image_image.SetSpacing((2.0, 2.0, 2.0))
+    
+    labels_path = tmp_path / "labels.nii.gz"
+    image_path = tmp_path / "pet.nii.gz"
+    sitk.WriteImage(labels_image, str(labels_path))
+    sitk.WriteImage(image_image, str(image_path))
+    
+    # Run with unit="bqml" (should preserve concentration, so sum will not be scaled by voxel volume ratio)
+    output_bqml = tmp_path / "stats_bqml.json"
+    compute_stats_file(
+        labels_path=labels_path,
+        image_path=image_path,
+        image_type="pet",
+        output_path=output_bqml,
+        unit="bqml"
+    )
+    
+    # Run with unit="bq" (should preserve total activity, scaling by 1/8)
+    output_bq = tmp_path / "stats_bq.json"
+    compute_stats_file(
+        labels_path=labels_path,
+        image_path=image_path,
+        image_type="pet",
+        output_path=output_bq,
+        unit="bq"
+    )
+    
+    with open(output_bqml, "r") as f:
+        stats_bqml = json.load(f)
+    with open(output_bq, "r") as f:
+        stats_bq = json.load(f)
+        
+    # Sum in bq should be 1/8 of the sum in bqml due to preserve_total scaling
+    # Voxel volume ratio is 1.0 / 8.0 = 0.125
+    assert stats_bq["12"]["sum"] == pytest.approx(stats_bqml["12"]["sum"] * 0.125, rel=1e-3)
+
+def test_stats_cli_unit_requirement(tmp_path):
+    from click.testing import CliRunner
+    from radot.cli import main
+    
+    labels_image = sitk.Image([10, 10, 10], sitk.sitkUInt16)
+    image = sitk.Image([10, 10, 10], sitk.sitkFloat32)
+    
+    labels_path = tmp_path / "labels.nii.gz"
+    image_path = tmp_path / "pet.nii.gz"
+    sitk.WriteImage(labels_image, str(labels_path))
+    sitk.WriteImage(image, str(image_path))
+    
+    runner = CliRunner()
+    # If PET and no unit is provided:
+    result = runner.invoke(main, ["stats", str(labels_path), "-i", str(image_path), "-t", "pet"])
+    assert result.exit_code != 0
+    assert "The --unit option is required" in result.output
+    
+    # If CT and no unit is provided, it should not raise UsageError about unit option
+    result_ct = runner.invoke(main, ["stats", str(labels_path), "-i", str(image_path), "-t", "ct"])
+    assert "The --unit option is required" not in result_ct.output

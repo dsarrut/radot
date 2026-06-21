@@ -25,7 +25,8 @@ def compute_stats(
     rois: Optional[List[str]] = None,
     resample_to: str = "labels",
     labels_map: Optional[dict] = None,
-    sigma: Optional[float] = None
+    sigma: Optional[float] = None,
+    unit: Optional[str] = None
 ) -> dict:
     """
     Compute volume and intensity statistics for each ROI/label from the input image.
@@ -36,10 +37,11 @@ def compute_stats(
     if not has_same_grid(labels_image, image):
         if resample_to == "labels":
             print("Image grid does not match labels grid. Resampling image to labels grid...")
+            preserve_total = (unit is not None and unit.lower() == "bq")
             image = resample_image(
                 image=image,
                 image_type=image_type,
-                preserve_total=False,
+                preserve_total=preserve_total,
                 gaussian=True,
                 reference_image=labels_image
             )
@@ -127,7 +129,8 @@ def compute_stats_file(
     labels: Optional[List[int]] = None,
     rois: Optional[List[str]] = None,
     resample_to: str = "labels",
-    sigma: Optional[float] = None
+    sigma: Optional[float] = None,
+    unit: Optional[str] = None
 ) -> None:
     """
     Load images from paths, compute statistics, and save/print the output.
@@ -163,7 +166,8 @@ def compute_stats_file(
         rois=rois,
         resample_to=resample_to,
         labels_map=labels_map,
-        sigma=sigma
+        sigma=sigma,
+        unit=unit
     )
 
     # Output results
