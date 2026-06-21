@@ -44,8 +44,21 @@ def compute_stats(
     image_type = image_type.lower()
 
     # 2. Resolve unit
-    if unit is None:
-        unit = get_metadata_case_insensitive(image, "unit", image_path)
+    stored_unit = get_metadata_case_insensitive(image, "unit", image_path)
+    if unit is not None:
+        unit = unit.lower()
+        if stored_unit is not None and stored_unit.lower() != unit:
+            if image_type in ("pet", "spect"):
+                from radot.convert import convert_image_units
+                print(f"Converting image units on-the-fly from {stored_unit} to {unit} for stats computation...")
+                image = convert_image_units(
+                    image=image,
+                    to_unit=unit,
+                    from_unit=stored_unit,
+                    image_path=image_path
+                )
+    else:
+        unit = stored_unit
         if unit is not None:
             unit = unit.lower()
         elif image_type in ("pet", "spect"):
@@ -197,13 +210,28 @@ def compute_stats_file(
             json.dump(stats_dict, f, indent=4)
     else:
         # Print to console pretty printed
-        pretty_print_stats(stats_dict, image_type)
+        resolved_unit = unit
+        if resolved_unit is None:
+            from radot.meta import get_metadata_case_insensitive
+            resolved_unit = get_metadata_case_insensitive(image, "unit", image_path)
+        pretty_print_stats(stats_dict, image_type, resolved_unit)
 
 
-def pretty_print_stats(stats_dict: dict, image_type: str) -> None:
+def pretty_print_stats(stats_dict: dict, image_type: str, unit: Optional[str] = None) -> None:
     """Pretty print stats_dict as a table on the screen."""
     has_mass = (image_type == "ct")
-    headers = ["Label", "ROI", "Volume (mL)", "Mean", "StdDev", "Min", "Max", "Peak"]
+    
+    unit_suffix = f" ({unit.lower()})" if unit else ""
+    headers = [
+        "Label",
+        "ROI",
+        "Volume (mL)",
+        f"Mean{unit_suffix}",
+        f"StdDev{unit_suffix}",
+        f"Min{unit_suffix}",
+        f"Max{unit_suffix}",
+        f"Peak{unit_suffix}"
+    ]
     if has_mass:
         headers.append("Mass (g)")
         

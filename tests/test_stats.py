@@ -374,3 +374,50 @@ def test_stats_missing_metadata_errors(tmp_path):
     result = runner.invoke(main, ["stats", str(labels_path), "-i", str(image_path)])
     assert result.exit_code != 0
     assert "modality type is not specified" in result.output
+
+
+def test_stats_onthefly_unit_conversion_and_units_table(tmp_path):
+    from click.testing import CliRunner
+    from radot.cli import main
+    from radot.meta import manage_metadata
+
+    # Create dummy images with labels
+    labels_arr = np.zeros((10, 10, 10), dtype=np.uint16)
+    labels_arr[3:7, 3:7, 3:7] = 5
+    labels_image = sitk.GetImageFromArray(labels_arr)
+    labels_image.SetSpacing((1.0, 1.0, 1.0))
+
+    # A PET image with 10.0 Bq/mL voxel value
+    # With a volume of 64 voxels (0.064 mL), total activity is 0.064 mL * 10 Bq/mL = 0.64 Bq
+    image_arr = np.zeros((10, 10, 10), dtype=np.float32)
+    image_arr[3:7, 3:7, 3:7] = 10.0
+    image = sitk.GetImageFromArray(image_arr)
+    image.SetSpacing((1.0, 1.0, 1.0))
+
+    labels_path = tmp_path / "labels.nii.gz"
+    image_path = tmp_path / "pet_conv.nii.gz"
+    sitk.WriteImage(labels_image, str(labels_path))
+    sitk.WriteImage(image, str(image_path))
+
+    # Set metadata with 60 kg weight and 100 MBq activity
+    manage_metadata(
+        image_path,
+        modality="pet",
+        unit="bqml",
+        weight=60.0,
+        activity=100.0,
+    )
+
+    runner = CliRunner()
+    # Convert on the fly to SUV (should print unit suv in header)
+    # SUV = activity_concentration (Bq/mL) / (injected_activity (Bq) / weight (g))
+    # injected_activity = 100 MBq = 100 * 10^6 Bq
+    # weight = 60 kg = 60 * 10^3 g
+    # Factor = 60000 / 100000000 = 0.0006
+    # Mean value 10 Bq/mL * 0.0006 = 0.006 SUV
+    result = runner.invoke(main, ["stats", str(labels_path), "-i", str(image_path), "--unit", "suv"])
+    assert result.exit_code == 0
+    assert "Mean (suv)" in result.output
+    # The output should show the converted mean value ~0.006
+    assert "0.006" in result.output
+
