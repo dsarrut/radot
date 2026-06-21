@@ -126,3 +126,14 @@ def test_metadata_time_from_injection_errors(tmp_path):
             acquisition_date="2026-06-22 12:45:00", 
             time_from_injection="1:2:30"
         )
+
+def test_metadata_ct_default_unit(tmp_path):
+    image_path = tmp_path / "test_ct_unit.nii"
+    image = sitk.Image([5, 5, 5], sitk.sitkFloat32)
+    sitk.WriteImage(image, str(image_path))
+
+    # Write metadata with modality CT and no unit specified
+    manage_metadata(image_path, modality="ct")
+    img = sitk.ReadImage(str(image_path))
+    assert get_metadata_case_insensitive(img, "modality", image_path) == "ct"
+    assert get_metadata_case_insensitive(img, "unit", image_path) == "hu"

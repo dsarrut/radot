@@ -149,6 +149,8 @@ def manage_metadata(
         # Merge with new values
         final_modality = modality.lower() if modality is not None else existing_modality
         final_unit = unit.lower() if unit is not None else existing_unit
+        if final_modality == "ct" and final_unit is None:
+            final_unit = "hu"
         final_weight = (
             weight
             if weight is not None
