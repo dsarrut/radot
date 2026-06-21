@@ -61,6 +61,8 @@ def compute_stats(
         unit = stored_unit
         if unit is not None:
             unit = unit.lower()
+        elif image_type == "ct":
+            unit = "hu"
         elif image_type in ("pet", "spect"):
             raise ValueError("The unit option is required for PET and SPECT modalities (not found in image metadata).")
 
@@ -214,6 +216,8 @@ def compute_stats_file(
         if resolved_unit is None:
             from radot.meta import get_metadata_case_insensitive
             resolved_unit = get_metadata_case_insensitive(image, "unit", image_path)
+        if resolved_unit is None and image_type.lower() == "ct":
+            resolved_unit = "hu"
         pretty_print_stats(stats_dict, image_type, resolved_unit)
 
 
