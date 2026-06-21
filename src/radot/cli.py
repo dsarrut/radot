@@ -70,7 +70,8 @@ def stats(labels_path, image_path, image_type, output_path, labels, rois):
 @click.option("-o", "--output", "output_path", type=click.Path(path_type=Path), help="Optional path to output the resampled image. Defaults to <name>_<spacing>mm.<ext>.")
 @click.option("--unit", type=click.Choice(["hu", "suv", "bqml", "bq"], case_sensitive=False), help="Units for images. Defaults to HU for CT, and SUV for PET/SPECT.")
 @click.option("--preserve-total", is_flag=True, help="Preserve total activity/value instead of concentration (scales by voxel volume ratio).")
-def resample(image_path, spacing, image_type, output_path, unit, preserve_total):
+@click.option("--gaussian/--no-gaussian", default=True, help="Apply a Gaussian anti-aliasing filter when downsampling (continuous images only). Enabled by default.")
+def resample(image_path, spacing, image_type, output_path, unit, preserve_total, gaussian):
     """Resample an image to a target spacing."""
     
     # Validation and dynamic defaulting checks
@@ -113,7 +114,8 @@ def resample(image_path, spacing, image_type, output_path, unit, preserve_total)
             image_type=image_type_lower,
             output_path=output_path,
             unit=unit,
-            preserve_total=preserve_total
+            preserve_total=preserve_total,
+            gaussian=gaussian
         )
     except Exception as e:
         raise click.ClickException(str(e))
@@ -121,5 +123,3 @@ def resample(image_path, spacing, image_type, output_path, unit, preserve_total)
 
 if __name__ == "__main__":
     main()
-
-
