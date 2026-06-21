@@ -156,5 +156,59 @@ def compute_stats_file(
         with open(output_path, "w") as f:
             json.dump(stats_dict, f, indent=4)
     else:
-        # Print to console
-        print(json.dumps(stats_dict, indent=4))
+        # Print to console pretty printed
+        pretty_print_stats(stats_dict, image_type)
+
+
+def pretty_print_stats(stats_dict: dict, image_type: str) -> None:
+    """Pretty print stats_dict as a table on the screen."""
+    has_mass = (image_type == "ct")
+    headers = ["Label", "ROI", "Volume (mL)", "Mean", "StdDev", "Min", "Max"]
+    if has_mass:
+        headers.append("Mass (g)")
+        
+    rows = []
+    for label_id, data in stats_dict.items():
+        row = [
+            str(label_id),
+            data["roi"],
+            f"{data['volume_ml']:.3f}",
+            f"{data['mean']:.3f}",
+            f"{data['std']:.3f}",
+            f"{data['min']:.3f}",
+            f"{data['max']:.3f}"
+        ]
+        if has_mass:
+            mass_val = data.get("mass_g", 0.0)
+            row.append(f"{mass_val:.3f}")
+        rows.append(row)
+        
+    if not rows:
+        print("No statistics computed.")
+        return
+
+    # Find max width for each column
+    col_widths = [len(h) for h in headers]
+    for row in rows:
+        for i, val in enumerate(row):
+            col_widths[i] = max(col_widths[i], len(val))
+            
+    # Format line template
+    def format_row(row_data):
+        parts = []
+        for i, val in enumerate(row_data):
+            width = col_widths[i]
+            if i == 1:  # ROI name is left-aligned
+                parts.append(val.ljust(width))
+            else:  # Everything else is right-aligned
+                parts.append(val.rjust(width))
+        return " | ".join(parts)
+
+    header_line = format_row(headers)
+    separator = "-+-".join("-" * w for w in col_widths)
+    
+    print("\n" + header_line)
+    print(separator)
+    for row in rows:
+        print(format_row(row))
+    print()

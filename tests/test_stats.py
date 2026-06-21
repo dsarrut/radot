@@ -198,3 +198,32 @@ def test_compute_stats_image_direct():
     assert stats["5"]["roi"] == "Liver"
     assert stats["5"]["mean"] == pytest.approx(200.0)
     assert "mass_g" in stats["5"]
+
+def test_pretty_print_stats(capsys):
+    from radot.stats import pretty_print_stats
+    
+    stats_data = {
+        "5": {
+            "roi": "Liver",
+            "volume_ml": 12.3456,
+            "mean": 150.123,
+            "std": 12.3,
+            "min": 100.0,
+            "max": 200.0,
+            "sum": 1846.51,
+            "mass_g": 14.197
+        }
+    }
+    
+    # Test CT pretty print
+    pretty_print_stats(stats_data, "ct")
+    captured = capsys.readouterr()
+    assert "Mass (g)" in captured.out
+    assert "Liver" in captured.out
+    assert "14.197" in captured.out
+
+    # Test PET pretty print
+    pretty_print_stats(stats_data, "pet")
+    captured = capsys.readouterr()
+    assert "Mass (g)" not in captured.out
+    assert "Liver" in captured.out
