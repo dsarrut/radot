@@ -53,32 +53,6 @@ def get_sidecar_path(image_path: Path) -> Path:
     return image_path.with_suffix(".json")
 
 
-def parse_description_metadata(desc: str) -> dict:
-    """Parse key=value pairs from radot: description metadata string."""
-    metadata = {}
-
-    key_mapping = {
-        "m": "modality",
-        "u": "unit",
-        "w": "weight",
-        "a": "activity",
-        "i": "injection_date",
-        "d": "acquisition_date",
-    }
-
-    if desc.startswith("radot:"):
-        parts = desc[len("radot:") :].split(";")
-        for part in parts:
-            if "=" in part:
-                k, v = part.split("=", 1)
-                k = k.strip().lower()
-                v = v.strip()
-                if v:
-                    resolved_key = key_mapping.get(k, k)
-                    metadata[resolved_key] = v
-    return metadata
-
-
 def get_metadata_case_insensitive(
     image: Optional[sitk.Image], key: str, image_path: Optional[Path] = None
 ) -> Optional[str]:
@@ -116,17 +90,6 @@ def get_metadata_case_insensitive(
         for k in keys:
             if k.lower() == lower_key:
                 return image.GetMetaData(k)
-
-        # Try description field fallback
-        desc_val = None
-        for k in keys:
-            if k.lower() in ("descrip", "itk_filenotes"):
-                desc_val = image.GetMetaData(k)
-                break
-
-        if desc_val:
-            parsed = parse_description_metadata(desc_val)
-            return parsed.get(lower_key)
 
     return None
 
