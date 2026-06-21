@@ -94,6 +94,34 @@ def get_metadata_case_insensitive(
     return None
 
 
+def get_pixel_size_bytes(pixel_id: int) -> int:
+    """Return the byte size of a single component of the given pixel ID."""
+    # Mapping of common SimpleITK pixel types to byte sizes
+    mapping = {
+        sitk.sitkInt8: 1,
+        sitk.sitkUInt8: 1,
+        sitk.sitkInt16: 2,
+        sitk.sitkUInt16: 2,
+        sitk.sitkInt32: 4,
+        sitk.sitkUInt32: 4,
+        sitk.sitkInt64: 8,
+        sitk.sitkUInt64: 8,
+        sitk.sitkFloat32: 4,
+        sitk.sitkFloat64: 8,
+    }
+    return mapping.get(pixel_id, 1)
+
+
+def format_memory_size(size_in_bytes: int) -> str:
+    """Format memory size in a human-readable string."""
+    val = float(size_in_bytes)
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if val < 1024.0:
+            return f"{val:.2f} {unit}"
+        val /= 1024.0
+    return f"{val:.2f} PB"
+
+
 def manage_metadata(
     image_path: Path,
     modality: Optional[str] = None,
@@ -215,6 +243,39 @@ def manage_metadata(
             image = sitk.ReadImage(str(image_path))
         except Exception:
             image = None
+
+        if image is not None:
+            size = image.GetSize()
+            spacing = image.GetSpacing()
+            origin = image.GetOrigin()
+            dir_matrix = image.GetDirection()
+            if len(dir_matrix) == 9:
+                matrix_str = (
+                    f"[{dir_matrix[0]:.4f}, {dir_matrix[1]:.4f}, {dir_matrix[2]:.4f}]\n"
+                    f"                    [{dir_matrix[3]:.4f}, {dir_matrix[4]:.4f}, {dir_matrix[5]:.4f}]\n"
+                    f"                    [{dir_matrix[6]:.4f}, {dir_matrix[7]:.4f}, {dir_matrix[8]:.4f}]"
+                )
+            else:
+                matrix_str = str(dir_matrix)
+
+            pixel_type = image.GetPixelIDTypeAsString()
+            
+            # Number of voxels
+            num_voxels = 1
+            for s in size:
+                num_voxels *= s
+
+            pixel_size = get_pixel_size_bytes(image.GetPixelID()) * image.GetNumberOfComponentsPerPixel()
+            mem_size = num_voxels * pixel_size
+            mem_size_str = format_memory_size(mem_size)
+
+            print(f"Image Size: {size}")
+            print(f"Spacing: {spacing}")
+            print(f"Origin: {origin}")
+            print(f"Orientation Matrix: {matrix_str}")
+            print(f"Pixel Type: {pixel_type}")
+            print(f"Number of Voxels: {num_voxels}")
+            print(f"Memory Size: {mem_size_str}")
 
         mod_val = get_metadata_case_insensitive(image, "modality", image_path)
         if mod_val:

@@ -61,6 +61,13 @@ def test_metadata_print(tmp_path, capsys):
     manage_metadata(image_path=image_path)
     
     captured = capsys.readouterr()
+    assert "Image Size: (5, 5, 5)" in captured.out
+    assert "Spacing: (1.0, 1.0, 1.0)" in captured.out
+    assert "Origin: (0.0, 0.0, 0.0)" in captured.out
+    assert "Orientation Matrix:" in captured.out
+    assert "Pixel Type: 32-bit float" in captured.out
+    assert "Number of Voxels: 125" in captured.out
+    assert "Memory Size: 500.00 B" in captured.out
     assert "Modality: SPECT" in captured.out
     assert "Unit: bqml" in captured.out
     assert "Weight: 65.0 kg" in captured.out
