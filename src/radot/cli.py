@@ -228,5 +228,56 @@ def resample(
         raise click.ClickException(str(e))
 
 
+#### CONVERT UNITS ####
+@main.command(name="convert-units")
+@click.argument("image_path", type=click.Path(exists=True, path_type=Path))
+@click.option(
+    "-f",
+    "--from-unit",
+    required=True,
+    type=click.Choice(["bq", "bqml", "suv"], case_sensitive=False),
+    help="Current unit of the image.",
+)
+@click.option(
+    "-t",
+    "--to-unit",
+    required=True,
+    type=click.Choice(["bq", "bqml", "suv"], case_sensitive=False),
+    help="Target unit of the image.",
+)
+@click.option(
+    "-o",
+    "--output",
+    "output_path",
+    type=click.Path(path_type=Path),
+    help="Output path. Defaults to a modified filename like <base>_<to-unit>.<ext>.",
+)
+@click.option(
+    "--weight",
+    type=float,
+    help="Patient weight in kg (required for SUV conversions).",
+)
+@click.option(
+    "--activity",
+    type=float,
+    help="Injected activity in MBq (required for SUV conversions).",
+)
+def convert_units(image_path, from_unit, to_unit, output_path, weight, activity):
+    """Convert units of a radioactive image (PET/SPECT)."""
+    from radot.convert import convert_image_units_file
+
+    try:
+        convert_image_units_file(
+            image_path=image_path,
+            from_unit=from_unit,
+            to_unit=to_unit,
+            output_path=output_path,
+            weight=weight,
+            activity=activity,
+        )
+    except Exception as e:
+        raise click.ClickException(str(e))
+
+
 if __name__ == "__main__":
     main()

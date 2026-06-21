@@ -31,3 +31,18 @@ vvv ct.nii.gz + labels_total.nii.gz
 radot stats labels_all.nii.gz -i ct.nii.gz -t ct 
 ```
 
+## Convert Units
+
+To convert voxel units between absolute activity (Bq), concentration (Bq/mL), and standardized uptake value (SUV):
+
+```bash
+# Convert activity concentration (bqml) to SUV
+radot convert-units image.nii.gz -f bqml -t suv --weight 75 --activity 250
+```
+
+* **`-f` / `--from-unit`**: Source unit (`bq`, `bqml`, `suv`).
+* **`-t` / `--to-unit`**: Target unit (`bq`, `bqml`, `suv`).
+* **`-o` / `--output`**: Optional output path. Defaults to `<basename>_<to-unit>.<ext>` (e.g. `image_suv.nii.gz`).
+* **`--weight`**: Patient weight in kg (required for SUV conversions).
+* **`--activity`**: Injected activity in MBq (required for SUV conversions).
+
