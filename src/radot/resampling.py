@@ -136,7 +136,7 @@ def resample_image_file(
             if image_type == "ct":
                 unit = "hu"
             elif image_type in ("pet", "spect"):
-                unit = "suv"
+                raise ValueError("The unit option is required for PET and SPECT modalities (not found in image metadata).")
             else:
                 unit = "none"
     else:

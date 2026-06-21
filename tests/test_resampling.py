@@ -137,3 +137,14 @@ def test_resample_missing_metadata_errors(tmp_path):
     result = runner.invoke(main, ["resample", str(image_path), "-s", "2", "2", "2", "-o", str(output_path)])
     assert result.exit_code != 0
     assert "Image modality type is not specified" in result.output
+
+    # Fails because modality is PET but no unit is provided / in metadata
+    from radot.meta import manage_metadata
+    pet_image_path = tmp_path / "pet_no_unit.nii.gz"
+    sitk.WriteImage(image, str(pet_image_path))
+    manage_metadata(pet_image_path, modality="pet")
+    
+    result2 = runner.invoke(main, ["resample", str(pet_image_path), "-s", "2", "2", "2", "-o", str(output_path)])
+    assert result2.exit_code != 0
+    assert "unit option is required" in result2.output
+
