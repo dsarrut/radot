@@ -63,5 +63,63 @@ def stats(labels_path, image_path, image_type, output_path, labels, rois):
     except Exception as e:
         raise click.ClickException(str(e))
 
+@main.command()
+@click.argument("image_path", type=click.Path(exists=True, path_type=Path))
+@click.option("-s", "--spacing", required=True, type=float, nargs=3, help="Target spacing in mm (e.g. -s 4 4 4).")
+@click.option("-t", "--type", "image_type", default="ct", type=click.Choice(["ct", "labels", "pet", "spect"], case_sensitive=False), help="Image modality type.")
+@click.option("-o", "--output", "output_path", type=click.Path(path_type=Path), help="Optional path to output the resampled image. Defaults to <name>_<spacing>mm.<ext>.")
+@click.option("--unit", type=click.Choice(["hu", "suv", "bqml", "bq"], case_sensitive=False), help="Units for images. Defaults to HU for CT, and SUV for PET/SPECT.")
+@click.option("--preserve-total", is_flag=True, help="Preserve total activity/value instead of concentration (scales by voxel volume ratio).")
+def resample(image_path, spacing, image_type, output_path, unit, preserve_total):
+    """Resample an image to a target spacing."""
+    
+    # Validation and dynamic defaulting checks
+
+    image_type_lower = image_type.lower()
+    
+    if unit is None:
+        if image_type_lower == "ct":
+            unit = "hu"
+        elif image_type_lower in ["pet", "spect"]:
+            unit = "suv"
+        else:
+            unit = "none"
+    else:
+        unit = unit.lower()
+        if unit == "hu" and image_type_lower != "ct":
+            raise click.BadParameter("HU units can only be used with --type ct.")
+        if unit in ["suv", "bqml", "bq"] and image_type_lower not in ["pet", "spect"]:
+            raise click.BadParameter("SUV/Bqml/Bq units can only be used with --type pet or spect.")
+        if unit != "none" and image_type_lower == "labels":
+            raise click.BadParameter("Labels cannot have a unit option.")
+
+    if output_path is None:
+        suffix = "".join(image_path.suffixes)
+        base = image_path.name[:-len(suffix)] if suffix else image_path.name
+        
+        # Format spacing to remove trailing decimals if integers (e.g. 4.0 -> 4)
+        if len(set(spacing)) == 1:
+            sp_str = f"{spacing[0]:g}"
+        else:
+            sp_str = "x".join(f"{s:g}" for s in spacing)
+        
+        output_path = Path(f"{base}_{sp_str}mm{suffix}")
+
+    try:
+        from radot.resampling import resample_image_file
+        resample_image_file(
+            image_path=image_path,
+            spacing=spacing,
+            image_type=image_type_lower,
+            output_path=output_path,
+            unit=unit,
+            preserve_total=preserve_total
+        )
+    except Exception as e:
+        raise click.ClickException(str(e))
+
+
 if __name__ == "__main__":
     main()
+
+
