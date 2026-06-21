@@ -23,11 +23,12 @@ def compute_stats(
     image_type: str,
     output_path: Optional[Path] = None,
     labels: Optional[List[int]] = None,
-    rois: Optional[List[str]] = None
+    rois: Optional[List[str]] = None,
+    resample_to: str = "labels"
 ) -> None:
     """
     Compute volume and intensity statistics for each ROI/label from the input image.
-    If the image does not share the same grid as the labels, it is resampled to the labels grid.
+    If the image does not share the same grid as the labels, it is resampled based on `resample_to`.
     """
     if not labels_path.exists():
         raise FileNotFoundError(f"Labels file not found: {labels_path}")
@@ -42,14 +43,26 @@ def compute_stats(
 
     # Check grid alignment and resample if necessary
     if not has_same_grid(labels_image, image):
-        print("Image grid does not match labels grid. Resampling image to labels grid...")
-        image = resample_image(
-            image=image,
-            image_type=image_type,
-            preserve_total=False,
-            gaussian=True,
-            reference_image=labels_image
-        )
+        if resample_to == "labels":
+            print("Image grid does not match labels grid. Resampling image to labels grid...")
+            image = resample_image(
+                image=image,
+                image_type=image_type,
+                preserve_total=False,
+                gaussian=True,
+                reference_image=labels_image
+            )
+        elif resample_to == "image":
+            print("Labels grid does not match image grid. Resampling labels to image grid...")
+            labels_image = resample_image(
+                image=labels_image,
+                image_type="labels",
+                preserve_total=False,
+                gaussian=False,
+                reference_image=image
+            )
+        else:
+            raise ValueError(f"Unknown resample_to target: {resample_to}")
 
     # Load mapping JSON if it exists in the same folder
     json_path = labels_path.with_suffix("").with_suffix(".json")

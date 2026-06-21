@@ -44,7 +44,8 @@ def segment(ct_path, output_path, mode, fast):
 @click.option("-o", "--output", "output_path", type=click.Path(path_type=Path), help="Optional path to output stats as JSON. Defaults to printing to console.")
 @click.option("--labels", help="Comma-separated list of label IDs to filter (e.g. 5,12).")
 @click.option("--rois", help="Comma-separated list of ROI names to filter (e.g. Kidney_L,Spleen).")
-def stats(labels_path, image_path, image_type, output_path, labels, rois):
+@click.option("--resample-to", default="labels", type=click.Choice(["labels", "image"], case_sensitive=False), help="Grid alignment target (labels or image).")
+def stats(labels_path, image_path, image_type, output_path, labels, rois, resample_to):
     """Compute volume and intensity statistics for labels."""
     from radot.stats import compute_stats
     
@@ -62,7 +63,15 @@ def stats(labels_path, image_path, image_type, output_path, labels, rois):
         rois_list = [x.strip() for x in rois.split(",") if x.strip()]
 
     try:
-        compute_stats(labels_path, image_path, image_type.lower(), output_path, labels_list, rois_list)
+        compute_stats(
+            labels_path=labels_path,
+            image_path=image_path,
+            image_type=image_type.lower(),
+            output_path=output_path,
+            labels=labels_list,
+            rois=rois_list,
+            resample_to=resample_to.lower()
+        )
     except Exception as e:
         raise click.ClickException(str(e))
 

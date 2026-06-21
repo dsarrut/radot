@@ -136,3 +136,39 @@ def test_compute_stats_filtering(tmp_path):
         stats_rois = json.load(f)
     assert "12" in stats_rois
     assert "5" not in stats_rois
+
+def test_compute_stats_mismatch_grid_resample_to_image(tmp_path):
+    # Create labels with 1mm spacing
+    labels_arr = np.zeros((10, 10, 10), dtype=np.uint16)
+    labels_arr[4:6, 4:6, 4:6] = 12
+    labels_image = sitk.GetImageFromArray(labels_arr)
+    labels_image.SetSpacing((1.0, 1.0, 1.0))
+    
+    # Create image with 2mm spacing (size 5x5x5)
+    image_arr = np.zeros((5, 5, 5), dtype=np.float32)
+    image_arr[2, 2, 2] = 50.0
+    image_image = sitk.GetImageFromArray(image_arr)
+    image_image.SetSpacing((2.0, 2.0, 2.0))
+    
+    labels_path = tmp_path / "labels.nii.gz"
+    image_path = tmp_path / "pet.nii.gz"
+    sitk.WriteImage(labels_image, str(labels_path))
+    sitk.WriteImage(image_image, str(image_path))
+    
+    output_path = tmp_path / "stats_resample_to_image.json"
+    
+    # Run compute_stats (should trigger resampling labels to image grid)
+    compute_stats(
+        labels_path=labels_path,
+        image_path=image_path,
+        image_type="pet",
+        output_path=output_path,
+        resample_to="image"
+    )
+    
+    assert output_path.exists()
+    with open(output_path, "r") as f:
+        stats = json.load(f)
+        
+    assert "12" in stats
+    assert stats["12"]["volume_ml"] > 0.0
