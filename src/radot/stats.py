@@ -24,7 +24,8 @@ def compute_stats(
     labels: Optional[List[int]] = None,
     rois: Optional[List[str]] = None,
     resample_to: str = "labels",
-    labels_map: Optional[dict] = None
+    labels_map: Optional[dict] = None,
+    sigma: Optional[float] = None
 ) -> dict:
     """
     Compute volume and intensity statistics for each ROI/label from the input image.
@@ -57,9 +58,21 @@ def compute_stats(
     if labels_map is None:
         labels_map = {}
 
+    # For peak value estimation: apply Gaussian smoothing with a physical sigma.
+    # PET/CT: sigma = 3.0 mm (FWHM ~7mm)
+    # SPECT: sigma = 5.0 mm (FWHM ~12mm)
+    if sigma is None:
+        sigma = 5.0 if image_type == "spect" else 3.0
+    float_image = sitk.Cast(image, sitk.sitkFloat32)
+    smoothed_image = sitk.SmoothingRecursiveGaussian(float_image, sigma)
+
     # Compute intensity statistics per label
     stat_filter = sitk.LabelIntensityStatisticsImageFilter()
     stat_filter.Execute(labels_image, image)
+    
+    # Compute statistics on smoothed image for peak value calculation
+    stat_filter_peak = sitk.LabelIntensityStatisticsImageFilter()
+    stat_filter_peak.Execute(labels_image, smoothed_image)
     
     stats_dict = {}
     
@@ -81,6 +94,7 @@ def compute_stats(
         min_val = stat_filter.GetMinimum(label_id)
         max_val = stat_filter.GetMaximum(label_id)
         sum_val = stat_filter.GetSum(label_id)
+        peak_val = stat_filter_peak.GetMaximum(label_id)
         
         label_stats = {
             "roi": roi_name,
@@ -89,7 +103,8 @@ def compute_stats(
             "std": float(std_val),
             "min": float(min_val),
             "max": float(max_val),
-            "sum": float(sum_val)
+            "sum": float(sum_val),
+            "peak": float(peak_val)
         }
         
         if image_type == "ct":
@@ -111,7 +126,8 @@ def compute_stats_file(
     output_path: Optional[Path] = None,
     labels: Optional[List[int]] = None,
     rois: Optional[List[str]] = None,
-    resample_to: str = "labels"
+    resample_to: str = "labels",
+    sigma: Optional[float] = None
 ) -> None:
     """
     Load images from paths, compute statistics, and save/print the output.
@@ -146,7 +162,8 @@ def compute_stats_file(
         labels=labels,
         rois=rois,
         resample_to=resample_to,
-        labels_map=labels_map
+        labels_map=labels_map,
+        sigma=sigma
     )
 
     # Output results
@@ -163,7 +180,7 @@ def compute_stats_file(
 def pretty_print_stats(stats_dict: dict, image_type: str) -> None:
     """Pretty print stats_dict as a table on the screen."""
     has_mass = (image_type == "ct")
-    headers = ["Label", "ROI", "Volume (mL)", "Mean", "StdDev", "Min", "Max"]
+    headers = ["Label", "ROI", "Volume (mL)", "Mean", "StdDev", "Min", "Max", "Peak"]
     if has_mass:
         headers.append("Mass (g)")
         
@@ -176,7 +193,8 @@ def pretty_print_stats(stats_dict: dict, image_type: str) -> None:
             f"{data['mean']:.3f}",
             f"{data['std']:.3f}",
             f"{data['min']:.3f}",
-            f"{data['max']:.3f}"
+            f"{data['max']:.3f}",
+            f"{data['peak']:.3f}"
         ]
         if has_mass:
             mass_val = data.get("mass_g", 0.0)

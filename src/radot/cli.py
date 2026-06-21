@@ -93,7 +93,12 @@ def segment(ct_path, output_path, mode, fast):
     type=click.Choice(["labels", "image"], case_sensitive=False),
     help="Grid alignment target (labels or image).",
 )
-def stats(labels_path, image_path, image_type, output_path, labels, rois, resample_to):
+@click.option(
+    "--sigma",
+    type=float,
+    help="Optional standard deviation (in mm) of the Gaussian smoothing kernel used for peak computation.",
+)
+def stats(labels_path, image_path, image_type, output_path, labels, rois, resample_to, sigma):
     """Compute volume and intensity statistics for labels."""
     from radot.stats import compute_stats_file
 
@@ -121,6 +126,7 @@ def stats(labels_path, image_path, image_type, output_path, labels, rois, resamp
             labels=labels_list,
             rois=rois_list,
             resample_to=resample_to.lower(),
+            sigma=sigma,
         )
     except Exception as e:
         raise click.ClickException(str(e))

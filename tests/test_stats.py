@@ -187,17 +187,41 @@ def test_compute_stats_image_direct():
     ct_image = sitk.GetImageFromArray(ct_arr)
     ct_image.SetSpacing(spacing)
     
-    stats = compute_stats(
+    stats_ct = compute_stats(
         labels_image=labels_image,
         image=ct_image,
         image_type="ct",
         labels_map={5: "Liver"}
     )
     
-    assert "5" in stats
-    assert stats["5"]["roi"] == "Liver"
-    assert stats["5"]["mean"] == pytest.approx(200.0)
-    assert "mass_g" in stats["5"]
+    stats_spect = compute_stats(
+        labels_image=labels_image,
+        image=ct_image,
+        image_type="spect",
+        labels_map={5: "Liver"}
+    )
+
+    stats_custom = compute_stats(
+        labels_image=labels_image,
+        image=ct_image,
+        image_type="ct",
+        labels_map={5: "Liver"},
+        sigma=1.0
+    )
+    
+    assert "5" in stats_ct
+    assert stats_ct["5"]["roi"] == "Liver"
+    assert stats_ct["5"]["mean"] == pytest.approx(200.0)
+    assert "mass_g" in stats_ct["5"]
+    assert "peak" in stats_ct["5"]
+    
+    assert "5" in stats_spect
+    assert "peak" in stats_spect["5"]
+    assert stats_spect["5"]["peak"] < stats_ct["5"]["peak"]
+
+    assert "5" in stats_custom
+    assert "peak" in stats_custom["5"]
+    assert stats_custom["5"]["peak"] > stats_ct["5"]["peak"]
 
 def test_pretty_print_stats(capsys):
     from radot.stats import pretty_print_stats
@@ -211,7 +235,8 @@ def test_pretty_print_stats(capsys):
             "min": 100.0,
             "max": 200.0,
             "sum": 1846.51,
-            "mass_g": 14.197
+            "mass_g": 14.197,
+            "peak": 175.2
         }
     }
     
@@ -221,9 +246,11 @@ def test_pretty_print_stats(capsys):
     assert "Mass (g)" in captured.out
     assert "Liver" in captured.out
     assert "14.197" in captured.out
+    assert "175.200" in captured.out
 
     # Test PET pretty print
     pretty_print_stats(stats_data, "pet")
     captured = capsys.readouterr()
     assert "Mass (g)" not in captured.out
     assert "Liver" in captured.out
+    assert "175.200" in captured.out
