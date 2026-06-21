@@ -171,4 +171,13 @@ def resample_image_file(
     print(f"Saving resampled image to: {output_path}")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     sitk.WriteImage(resampled, str(output_path))
+
+    # Copy sidecar JSON if it exists
+    from radot.meta import get_sidecar_path
+    import shutil
+    in_sidecar = get_sidecar_path(image_path)
+    if in_sidecar.exists():
+        out_sidecar = get_sidecar_path(output_path)
+        shutil.copy2(in_sidecar, out_sidecar)
+
     print("Resampling completed successfully.")

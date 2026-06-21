@@ -4,8 +4,8 @@ import SimpleITK as sitk
 
 def convert_image_units(
     image: sitk.Image,
-    from_unit: Optional[str] = None,
     to_unit: str,
+    from_unit: Optional[str] = None,
     weight: Optional[float] = None,
     activity: Optional[float] = None,
     image_path: Optional[Path] = None,
@@ -15,8 +15,8 @@ def convert_image_units(
     
     Parameters:
     - image: sitk.Image, input image.
-    - from_unit: Optional[str], source unit ("bq", "bqml", "suv"). If None, read from metadata.
     - to_unit: str, target unit ("bq", "bqml", "suv").
+    - from_unit: Optional[str], source unit ("bq", "bqml", "suv"). If None, read from metadata.
     - weight: Optional[float], patient weight in kg (required for SUV conversions). If None, read from metadata.
     - activity: Optional[float], injected activity in MBq (required for SUV conversions). If None, read from metadata.
     - image_path: Optional[Path], optional file path of the image for sidecar resolution.
@@ -97,13 +97,13 @@ def convert_image_units(
     elif to_unit != "bqml":
         raise ValueError(f"Unsupported target unit: {to_unit}")
 
-    return converted
+    return sitk.Cast(converted, sitk.sitkFloat32)
 
 
 def convert_image_units_file(
     image_path: Path,
-    from_unit: Optional[str] = None,
     to_unit: str,
+    from_unit: Optional[str] = None,
     output_path: Optional[Path] = None,
     weight: Optional[float] = None,
     activity: Optional[float] = None,
@@ -145,4 +145,32 @@ def convert_image_units_file(
     print(f"Saving converted image to: {output_path}")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     sitk.WriteImage(converted_image, str(output_path))
+
+    # Write updated metadata to output sidecar JSON
+    from radot.meta import get_sidecar_path, get_metadata_case_insensitive
+    import json
+    
+    modality = get_metadata_case_insensitive(image, "modality", image_path)
+    weight_val = get_metadata_case_insensitive(image, "weight", image_path)
+    activity_val = get_metadata_case_insensitive(image, "activity", image_path)
+    injection_date = get_metadata_case_insensitive(image, "injection_date", image_path)
+    acquisition_date = get_metadata_case_insensitive(image, "acquisition_date", image_path)
+
+    new_meta = {}
+    if modality:
+        new_meta["modality"] = modality
+    new_meta["unit"] = to_unit
+    if weight_val:
+        new_meta["weight"] = float(weight_val)
+    if activity_val:
+        new_meta["activity"] = float(activity_val)
+    if injection_date:
+        new_meta["injection_date"] = injection_date
+    if acquisition_date:
+        new_meta["acquisition_date"] = acquisition_date
+
+    out_sidecar = get_sidecar_path(output_path)
+    with open(out_sidecar, "w") as f:
+        json.dump(new_meta, f, indent=4)
+
     print("Unit conversion completed successfully.")

@@ -75,7 +75,8 @@ def test_compute_stats_mismatch_grid(tmp_path):
         labels_path=labels_path,
         image_path=image_path,
         image_type="pet",
-        output_path=output_path
+        output_path=output_path,
+        unit="suv"
     )
     
     assert output_path.exists()
@@ -163,7 +164,8 @@ def test_compute_stats_mismatch_grid_resample_to_image(tmp_path):
         image_path=image_path,
         image_type="pet",
         output_path=output_path,
-        resample_to="image"
+        resample_to="image",
+        unit="suv"
     )
     
     assert output_path.exists()
@@ -198,7 +200,8 @@ def test_compute_stats_image_direct():
         labels_image=labels_image,
         image=ct_image,
         image_type="spect",
-        labels_map={5: "Liver"}
+        labels_map={5: "Liver"},
+        unit="suv"
     )
 
     stats_custom = compute_stats(
@@ -329,9 +332,16 @@ def test_stats_metadata_fallback(tmp_path):
     from radot.cli import main
     from radot.meta import manage_metadata
 
-    # Create dummy images
-    labels_image = sitk.Image([10, 10, 10], sitk.sitkUInt16)
-    image = sitk.Image([10, 10, 10], sitk.sitkFloat32)
+    # Create dummy images with labels
+    labels_arr = np.zeros((10, 10, 10), dtype=np.uint16)
+    labels_arr[3:7, 3:7, 3:7] = 5
+    labels_image = sitk.GetImageFromArray(labels_arr)
+    labels_image.SetSpacing((1.0, 1.0, 1.0))
+
+    image_arr = np.zeros((10, 10, 10), dtype=np.float32)
+    image_arr[3:7, 3:7, 3:7] = 10.0
+    image = sitk.GetImageFromArray(image_arr)
+    image.SetSpacing((1.0, 1.0, 1.0))
 
     labels_path = tmp_path / "labels.nii.gz"
     image_path = tmp_path / "pet_meta.nii.gz"

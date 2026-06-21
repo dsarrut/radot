@@ -10,6 +10,7 @@ When implementing new tools, commands, or functions in `radot`, please adhere to
   - Do not mark CLI options like `--type`, `--unit`, `--weight`, or `--activity` as `required=True`.
   - Avoid hardcoding static defaults (like `default="ct"`) for parameters that could otherwise be resolved from metadata, as this prevents metadata resolution.
   - Let options default to `None` and resolve them dynamically from the image metadata inside the code.
+- [ ] **Sidecar Metadata Inheritance**: If a tool or function creates a new image file or modifies an existing one (e.g. resample, convert-units), ensure that its accompanying metadata sidecar JSON is copied, updated, or generated to follow the new image accordingly.
 - [ ] **Unit Tests**: Always include tests that verify:
   - Successful execution when the parameters are omitted on the command line but present in the image metadata.
   - Correct failure and explicit error messages when parameters are omitted and no metadata is present in the image.
