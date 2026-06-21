@@ -3,12 +3,24 @@ from pathlib import Path
 from typing import Optional
 import SimpleITK as sitk
 
+from datetime import datetime
+
 METADATA_KEYS = {
     "modality": "modality",
     "unit": "unit",
     "weight": "weight",
-    "activity": "activity"
+    "activity": "activity",
+    "injection_date": "injection_date",
+    "acquisition_date": "acquisition_date"
 }
+
+def validate_date(date_str: str) -> bool:
+    """Validate that date_str is in 'YYYY-MM-DD HH:MM:SS' format."""
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+        return True
+    except ValueError:
+        return False
 
 def parse_description_metadata(desc: str) -> dict:
     """Parse key=value pairs from radot: description metadata string."""
@@ -53,6 +65,8 @@ def manage_metadata(
     unit: Optional[str] = None,
     weight: Optional[float] = None,
     activity: Optional[float] = None,
+    injection_date: Optional[str] = None,
+    acquisition_date: Optional[str] = None,
 ) -> None:
     """
     Read or write metadata fields in the given image.
@@ -65,8 +79,14 @@ def manage_metadata(
     print(f"Reading image: {image_path}")
     image = sitk.ReadImage(str(image_path))
 
+    # Validate dates if provided
+    if injection_date is not None and not validate_date(injection_date):
+        raise ValueError(f"Invalid injection_date format: {injection_date}. Expected 'YYYY-MM-DD HH:MM:SS'")
+    if acquisition_date is not None and not validate_date(acquisition_date):
+        raise ValueError(f"Invalid acquisition_date format: {acquisition_date}. Expected 'YYYY-MM-DD HH:MM:SS'")
+
     # Check if we are writing metadata
-    is_writing = any(v is not None for v in (modality, unit, weight, activity))
+    is_writing = any(v is not None for v in (modality, unit, weight, activity, injection_date, acquisition_date))
 
     if is_writing:
         print("Writing metadata...")
@@ -75,12 +95,16 @@ def manage_metadata(
         existing_unit = get_metadata_case_insensitive(image, "unit")
         existing_weight = get_metadata_case_insensitive(image, "weight")
         existing_activity = get_metadata_case_insensitive(image, "activity")
+        existing_injection_date = get_metadata_case_insensitive(image, "injection_date")
+        existing_acquisition_date = get_metadata_case_insensitive(image, "acquisition_date")
         
         # Merge with new values
         final_modality = modality.lower() if modality is not None else existing_modality
         final_unit = unit.lower() if unit is not None else existing_unit
         final_weight = str(weight) if weight is not None else existing_weight
         final_activity = str(activity) if activity is not None else existing_activity
+        final_injection_date = injection_date if injection_date is not None else existing_injection_date
+        final_acquisition_date = acquisition_date if acquisition_date is not None else existing_acquisition_date
         
         # Write individual keys (for NRRD / MHD)
         if final_modality is not None:
@@ -91,6 +115,10 @@ def manage_metadata(
             image.SetMetaData("weight", final_weight)
         if final_activity is not None:
             image.SetMetaData("activity", final_activity)
+        if final_injection_date is not None:
+            image.SetMetaData("injection_date", final_injection_date)
+        if final_acquisition_date is not None:
+            image.SetMetaData("acquisition_date", final_acquisition_date)
             
         # Write to both descrip and ITK_FileNotes (for NIfTI)
         desc_parts = []
@@ -102,6 +130,10 @@ def manage_metadata(
             desc_parts.append(f"weight={final_weight}")
         if final_activity is not None:
             desc_parts.append(f"activity={final_activity}")
+        if final_injection_date is not None:
+            desc_parts.append(f"injection_date={final_injection_date}")
+        if final_acquisition_date is not None:
+            desc_parts.append(f"acquisition_date={final_acquisition_date}")
             
         desc_str = "radot:" + ";".join(desc_parts)
         if len(desc_str) > 80:
@@ -150,5 +182,21 @@ def manage_metadata(
             found_any = True
         else:
             print("Activity: (not set)")
+
+        # Injection Date
+        inj_val = get_metadata_case_insensitive(image, "injection_date")
+        if inj_val:
+            print(f"Injection Date: {inj_val}")
+            found_any = True
+        else:
+            print("Injection Date: (not set)")
+
+        # Acquisition Date
+        acq_val = get_metadata_case_insensitive(image, "acquisition_date")
+        if acq_val:
+            print(f"Acquisition Date: {acq_val}")
+            found_any = True
+        else:
+            print("Acquisition Date: (not set)")
             
         print("----------------------\n")
