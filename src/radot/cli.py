@@ -34,6 +34,34 @@ def segment(ct_path, output_path, mode, fast):
     except Exception as e:
         raise click.ClickException(str(e))
 
+@main.command()
+@click.argument("labels_path", type=click.Path(exists=True, path_type=Path))
+@click.option("-i", "--image", "image_path", required=True, type=click.Path(exists=True, path_type=Path), help="Input image (CT/PET/SPECT) to compute stats on.")
+@click.option("-t", "--type", "image_type", required=True, type=click.Choice(["ct", "pet", "spect"], case_sensitive=False), help="Image modality type.")
+@click.option("-o", "--output", "output_path", type=click.Path(path_type=Path), help="Optional path to output stats as JSON. Defaults to printing to console.")
+@click.option("--labels", help="Comma-separated list of label IDs to filter (e.g. 5,12).")
+@click.option("--rois", help="Comma-separated list of ROI names to filter (e.g. Kidney_L,Spleen).")
+def stats(labels_path, image_path, image_type, output_path, labels, rois):
+    """Compute volume and intensity statistics for labels."""
+    from radot.stats import compute_stats
+    
+    # Parse labels list
+    labels_list = None
+    if labels:
+        try:
+            labels_list = [int(x.strip()) for x in labels.split(",") if x.strip()]
+        except ValueError:
+            raise click.BadParameter("Labels must be a comma-separated list of integers.")
+
+    # Parse rois list
+    rois_list = None
+    if rois:
+        rois_list = [x.strip() for x in rois.split(",") if x.strip()]
+
+    try:
+        compute_stats(labels_path, image_path, image_type.lower(), output_path, labels_list, rois_list)
+    except Exception as e:
+        raise click.ClickException(str(e))
 
 if __name__ == "__main__":
     main()

@@ -15,7 +15,6 @@ radot segment ct.nii.gz --mode head_glands_cavities
 radot segment ct.nii.gz -o my_labels.nii.gz
 ```
 
-### Outputs
 For each run, two output files are created:
 1. A multi-label `.nii.gz` image containing the segmentation labels remapped to official TG-263 IDs.
 2. A matching `.json` file outlining the index-to-name mapping of the generated labels.
@@ -24,4 +23,11 @@ Can be visualized with vvv :
 
 ```bash
 vvv ct.nii.gz + labels_total.nii.gz 
+
+
+## Stats
+
+```bash
+radot stats -i ct.nii.gz -t ct labels_all.nii.gz
+```
 
