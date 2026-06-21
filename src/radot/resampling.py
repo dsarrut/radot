@@ -24,6 +24,9 @@ def resample_image(
     - gaussian: if True, applies a Gaussian anti-aliasing filter along the downsampled axes.
     - reference_image: sitk.Image, optional reference image to align size, spacing, origin, and direction.
     """
+    if image_type != "labels":
+        image = sitk.Cast(image, sitk.sitkFloat32)
+
     original_spacing = image.GetSpacing()
     original_size = image.GetSize()
     
