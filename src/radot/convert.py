@@ -8,6 +8,7 @@ def convert_image_units(
     to_unit: str,
     weight: Optional[float] = None,
     activity: Optional[float] = None,
+    image_path: Optional[Path] = None,
 ) -> sitk.Image:
     """
     Convert image voxel values between units (bq, bqml, suv).
@@ -18,6 +19,7 @@ def convert_image_units(
     - to_unit: str, target unit ("bq", "bqml", "suv").
     - weight: Optional[float], patient weight in kg (required for SUV conversions). If None, read from metadata.
     - activity: Optional[float], injected activity in MBq (required for SUV conversions). If None, read from metadata.
+    - image_path: Optional[Path], optional file path of the image for sidecar resolution.
     """
     from radot.meta import get_metadata_case_insensitive
 
@@ -25,7 +27,7 @@ def convert_image_units(
 
     # 1. Resolve from_unit
     if from_unit is None:
-        from_unit = get_metadata_case_insensitive(image, "unit")
+        from_unit = get_metadata_case_insensitive(image, "unit", image_path)
         if from_unit is None:
             raise ValueError("Source unit is not specified and was not found in the image metadata.")
     else:
@@ -37,7 +39,7 @@ def convert_image_units(
     # 2. Resolve weight and activity if SUV is involved
     if "suv" in (from_unit, to_unit):
         if weight is None:
-            w_str = get_metadata_case_insensitive(image, "weight")
+            w_str = get_metadata_case_insensitive(image, "weight", image_path)
             if w_str is not None:
                 try:
                     weight = float(w_str)
@@ -49,7 +51,7 @@ def convert_image_units(
             raise ValueError("Weight must be positive.")
 
         if activity is None:
-            act_str = get_metadata_case_insensitive(image, "activity")
+            act_str = get_metadata_case_insensitive(image, "activity", image_path)
             if act_str is not None:
                 try:
                     activity = float(act_str)
@@ -126,7 +128,7 @@ def convert_image_units_file(
     resolved_from_unit = from_unit
     if resolved_from_unit is None:
         from radot.meta import get_metadata_case_insensitive
-        resolved_from_unit = get_metadata_case_insensitive(image, "unit")
+        resolved_from_unit = get_metadata_case_insensitive(image, "unit", image_path)
         if resolved_from_unit is None:
             raise ValueError("Source unit is not specified and was not found in the image metadata.")
     
@@ -137,6 +139,7 @@ def convert_image_units_file(
         to_unit=to_unit,
         weight=weight,
         activity=activity,
+        image_path=image_path
     )
 
     print(f"Saving converted image to: {output_path}")

@@ -26,7 +26,8 @@ def compute_stats(
     resample_to: str = "labels",
     labels_map: Optional[dict] = None,
     sigma: Optional[float] = None,
-    unit: Optional[str] = None
+    unit: Optional[str] = None,
+    image_path: Optional[Path] = None
 ) -> dict:
     """
     Compute volume and intensity statistics for each ROI/label from the input image.
@@ -37,14 +38,14 @@ def compute_stats(
 
     # 1. Resolve image_type (modality)
     if image_type is None:
-        image_type = get_metadata_case_insensitive(image, "modality")
+        image_type = get_metadata_case_insensitive(image, "modality", image_path)
         if image_type is None:
             raise ValueError("Image modality type is not specified and was not found in the image metadata.")
     image_type = image_type.lower()
 
     # 2. Resolve unit
     if unit is None:
-        unit = get_metadata_case_insensitive(image, "unit")
+        unit = get_metadata_case_insensitive(image, "unit", image_path)
         if unit is not None:
             unit = unit.lower()
         elif image_type in ("pet", "spect"):
@@ -184,7 +185,8 @@ def compute_stats_file(
         resample_to=resample_to,
         labels_map=labels_map,
         sigma=sigma,
-        unit=unit
+        unit=unit,
+        image_path=image_path
     )
 
     # Output results

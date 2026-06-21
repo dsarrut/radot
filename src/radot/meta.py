@@ -1,8 +1,8 @@
 import sys
+import json
 from pathlib import Path
 from typing import Optional
 import SimpleITK as sitk
-
 from datetime import datetime
 
 METADATA_KEYS = {
@@ -14,7 +14,6 @@ METADATA_KEYS = {
     "acquisition_date": "acquisition_date",
 }
 
-
 def validate_date(date_str: str) -> bool:
     """Validate that date_str is in 'YYYY-MM-DD HH:MM:SS' format."""
     try:
@@ -23,6 +22,15 @@ def validate_date(date_str: str) -> bool:
     except ValueError:
         return False
 
+def get_sidecar_path(image_path: Path) -> Path:
+    """Get the path to the JSON sidecar file matching the image file."""
+    name_str = image_path.name
+    # Strip common medical image extensions
+    for ext in ('.nii.gz', '.nii', '.nrrd', '.mhd', '.mha'):
+        if name_str.lower().endswith(ext):
+            base_name = name_str[:-len(ext)]
+            return image_path.parent / f"{base_name}.json"
+    return image_path.with_suffix(".json")
 
 def parse_description_metadata(desc: str) -> dict:
     """Parse key=value pairs from radot: description metadata string."""
@@ -49,30 +57,56 @@ def parse_description_metadata(desc: str) -> dict:
                     metadata[resolved_key] = v
     return metadata
 
-
-def get_metadata_case_insensitive(image: sitk.Image, key: str) -> Optional[str]:
-    """Retrieve metadata value case-insensitively, falling back to NIfTI description field."""
-    keys = image.GetMetaDataKeys()
+def get_metadata_case_insensitive(
+    image: Optional[sitk.Image],
+    key: str,
+    image_path: Optional[Path] = None
+) -> Optional[str]:
+    """Retrieve metadata value case-insensitively, preferring JSON sidecar and falling back to image headers."""
     lower_key = key.lower()
 
-    # 1. Try case-insensitive lookup of individual keys
-    for k in keys:
-        if k.lower() == lower_key:
-            return image.GetMetaData(k)
+    # 1. Try sidecar JSON first
+    if image_path is not None:
+        sidecar_path = get_sidecar_path(image_path)
+        if sidecar_path.exists():
+            try:
+                with open(sidecar_path, "r") as f:
+                    data = json.load(f)
+                # Case-insensitive lookup in JSON dict
+                for k, v in data.items():
+                    if k.lower() == lower_key:
+                        return str(v) if v is not None else None
+            except Exception as e:
+                print(f"Warning: Failed to read metadata from sidecar {sidecar_path}: {e}")
 
-    # 2. Fallback: Parse from NIfTI description fields (keys 'descrip' or 'itk_filenotes')
-    desc_val = None
-    for k in keys:
-        if k.lower() in ("descrip", "itk_filenotes"):
-            desc_val = image.GetMetaData(k)
-            break
+    # 2. Try loading image if not provided but image_path is
+    if image is None and image_path is not None and image_path.exists():
+        try:
+            image = sitk.ReadImage(str(image_path))
+        except Exception:
+            pass
 
-    if desc_val:
-        parsed = parse_description_metadata(desc_val)
-        return parsed.get(lower_key)
+    # 3. Fallback: Parse from loaded image object headers
+    if image is not None:
+        keys = image.GetMetaDataKeys()
+        
+        # Try case-insensitive lookup of individual keys
+        for k in keys:
+            if k.lower() == lower_key:
+                return image.GetMetaData(k)
+                
+        # Try description field fallback
+        desc_val = None
+        for k in keys:
+            if k.lower() in ("descrip", "itk_filenotes"):
+                desc_val = image.GetMetaData(k)
+                break
+                
+        if desc_val:
+            parsed = parse_description_metadata(desc_val)
+            return parsed.get(lower_key)
 
     return None
-
 
 def manage_metadata(
     image_path: Path,
@@ -84,15 +118,11 @@ def manage_metadata(
     acquisition_date: Optional[str] = None,
 ) -> None:
     """
-    Read or write metadata fields in the given image.
+    Read or write metadata fields in the JSON sidecar file.
     If no new metadata is specified, prints existing metadata to console.
     """
     if not image_path.exists():
         raise FileNotFoundError(f"Image file not found: {image_path}")
-
-    # Read image
-    print(f"Reading image: {image_path}")
-    image = sitk.ReadImage(str(image_path))
 
     # Validate dates if provided
     if injection_date is not None and not validate_date(injection_date):
@@ -112,123 +142,88 @@ def manage_metadata(
 
     if is_writing:
         print("Writing metadata...")
-        # Read existing metadata to merge
-        existing_modality = get_metadata_case_insensitive(image, "modality")
-        existing_unit = get_metadata_case_insensitive(image, "unit")
-        existing_weight = get_metadata_case_insensitive(image, "weight")
-        existing_activity = get_metadata_case_insensitive(image, "activity")
-        existing_injection_date = get_metadata_case_insensitive(image, "injection_date")
-        existing_acquisition_date = get_metadata_case_insensitive(
-            image, "acquisition_date"
-        )
+        # Read existing metadata to merge (using our helper that checks sidecars and falls back to headers)
+        try:
+            image = sitk.ReadImage(str(image_path))
+        except Exception:
+            image = None
+
+        existing_modality = get_metadata_case_insensitive(image, "modality", image_path)
+        existing_unit = get_metadata_case_insensitive(image, "unit", image_path)
+        existing_weight = get_metadata_case_insensitive(image, "weight", image_path)
+        existing_activity = get_metadata_case_insensitive(image, "activity", image_path)
+        existing_injection_date = get_metadata_case_insensitive(image, "injection_date", image_path)
+        existing_acquisition_date = get_metadata_case_insensitive(image, "acquisition_date", image_path)
 
         # Merge with new values
         final_modality = modality.lower() if modality is not None else existing_modality
         final_unit = unit.lower() if unit is not None else existing_unit
-        final_weight = str(weight) if weight is not None else existing_weight
-        final_activity = str(activity) if activity is not None else existing_activity
-        final_injection_date = (
-            injection_date if injection_date is not None else existing_injection_date
-        )
-        final_acquisition_date = (
-            acquisition_date
-            if acquisition_date is not None
-            else existing_acquisition_date
-        )
+        final_weight = weight if weight is not None else (float(existing_weight) if existing_weight else None)
+        final_activity = activity if activity is not None else (float(existing_activity) if existing_activity else None)
+        final_injection_date = injection_date if injection_date is not None else existing_injection_date
+        final_acquisition_date = acquisition_date if acquisition_date is not None else existing_acquisition_date
 
-        # Write individual keys (for NRRD / MHD)
+        # Write to JSON sidecar
+        meta_dict = {}
         if final_modality is not None:
-            image.SetMetaData("modality", final_modality)
+            meta_dict["modality"] = final_modality
         if final_unit is not None:
-            image.SetMetaData("unit", final_unit)
+            meta_dict["unit"] = final_unit
         if final_weight is not None:
-            image.SetMetaData("weight", final_weight)
+            meta_dict["weight"] = final_weight
         if final_activity is not None:
-            image.SetMetaData("activity", final_activity)
+            meta_dict["activity"] = final_activity
         if final_injection_date is not None:
-            image.SetMetaData("injection_date", final_injection_date)
+            meta_dict["injection_date"] = final_injection_date
         if final_acquisition_date is not None:
-            image.SetMetaData("acquisition_date", final_acquisition_date)
+            meta_dict["acquisition_date"] = final_acquisition_date
 
-        # Write to both descrip and ITK_FileNotes (for NIfTI)
-        desc_parts = []
-        if final_modality is not None:
-            desc_parts.append(f"m={final_modality}")
-        if final_unit is not None:
-            desc_parts.append(f"u={final_unit}")
-        if final_weight is not None:
-            desc_parts.append(f"w={final_weight}")
-        if final_activity is not None:
-            desc_parts.append(f"a={final_activity}")
-        if final_injection_date is not None:
-            desc_parts.append(f"i={final_injection_date}")
-        if final_acquisition_date is not None:
-            desc_parts.append(f"d={final_acquisition_date}")
-
-        is_nifti = image_path.name.lower().endswith((".nii", ".nii.gz"))
-        desc_str = "radot:" + ";".join(desc_parts)
-        if is_nifti:
-            if len(desc_str) > 79:
-                print(
-                    f"Warning: Metadata string length ({len(desc_str)}) exceeds 79 characters. It will be truncated in NIfTI headers to prevent writer errors."
-                )
-                desc_str = desc_str[:79]
-        image.SetMetaData("descrip", desc_str)
-        image.SetMetaData("ITK_FileNotes", desc_str)
-
-        # Save back to same file
-        sitk.WriteImage(image, str(image_path))
+        sidecar_path = get_sidecar_path(image_path)
+        print(f"Saving metadata to sidecar: {sidecar_path}")
+        with open(sidecar_path, "w") as f:
+            json.dump(meta_dict, f, indent=4)
         print("Metadata saved successfully.")
     else:
         # Just reading metadata
         print("\n--- Image Metadata ---")
-        found_any = False
+        try:
+            image = sitk.ReadImage(str(image_path))
+        except Exception:
+            image = None
 
-        # Modality
-        mod_val = get_metadata_case_insensitive(image, "modality")
+        mod_val = get_metadata_case_insensitive(image, "modality", image_path)
         if mod_val:
             print(f"Modality: {mod_val.upper()}")
-            found_any = True
         else:
             print("Modality: (not set)")
 
-        # Unit
-        unit_val = get_metadata_case_insensitive(image, "unit")
+        unit_val = get_metadata_case_insensitive(image, "unit", image_path)
         if unit_val:
             print(f"Unit: {unit_val.lower()}")
-            found_any = True
         else:
             print("Unit: (not set)")
 
-        # Weight
-        weight_val = get_metadata_case_insensitive(image, "weight")
+        weight_val = get_metadata_case_insensitive(image, "weight", image_path)
         if weight_val:
             print(f"Weight: {weight_val} kg")
-            found_any = True
         else:
             print("Weight: (not set)")
 
-        # Activity
-        activity_val = get_metadata_case_insensitive(image, "activity")
+        activity_val = get_metadata_case_insensitive(image, "activity", image_path)
         if activity_val:
             print(f"Activity: {activity_val} MBq")
-            found_any = True
         else:
             print("Activity: (not set)")
 
-        # Injection Date
-        inj_val = get_metadata_case_insensitive(image, "injection_date")
+        inj_val = get_metadata_case_insensitive(image, "injection_date", image_path)
         if inj_val:
             print(f"Injection Date: {inj_val}")
-            found_any = True
         else:
             print("Injection Date: (not set)")
 
-        # Acquisition Date
-        acq_val = get_metadata_case_insensitive(image, "acquisition_date")
+        acq_val = get_metadata_case_insensitive(image, "acquisition_date", image_path)
         if acq_val:
             print(f"Acquisition Date: {acq_val}")
-            found_any = True
         else:
             print("Acquisition Date: (not set)")
 

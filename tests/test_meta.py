@@ -24,12 +24,17 @@ def test_metadata_write_and_read(tmp_path, filename):
     
     # Read back image
     img = sitk.ReadImage(str(image_path))
-    assert get_metadata_case_insensitive(img, "modality") == "pet"
-    assert get_metadata_case_insensitive(img, "unit") == "bq"
-    assert get_metadata_case_insensitive(img, "weight") == "70.5"
-    assert get_metadata_case_insensitive(img, "activity") == "180.2"
-    assert get_metadata_case_insensitive(img, "injection_date") == "2026-06-21 10:15:00"
-    assert get_metadata_case_insensitive(img, "acquisition_date") == "2026-06-21 12:30:00"
+    assert get_metadata_case_insensitive(img, "modality", image_path) == "pet"
+    assert get_metadata_case_insensitive(img, "unit", image_path) == "bq"
+    assert get_metadata_case_insensitive(img, "weight", image_path) == "70.5"
+    assert get_metadata_case_insensitive(img, "activity", image_path) == "180.2"
+    assert get_metadata_case_insensitive(img, "injection_date", image_path) == "2026-06-21 10:15:00"
+    assert get_metadata_case_insensitive(img, "acquisition_date", image_path) == "2026-06-21 12:30:00"
+    
+    # Assert JSON sidecar exists
+    from radot.meta import get_sidecar_path
+    sidecar_path = get_sidecar_path(image_path)
+    assert sidecar_path.exists()
 
 def test_metadata_print(tmp_path, capsys):
     image_path = tmp_path / "test_image_print.nii"
@@ -62,6 +67,7 @@ def test_metadata_print(tmp_path, capsys):
     assert "Activity: 120.0 MBq" in captured.out
     assert "Injection Date: 2026-06-21 10:15:00" in captured.out
     assert "Acquisition Date: 2026-06-21 12:30:00" in captured.out
+    assert "Time from injection: 2:15:00" in captured.out
 
 def test_metadata_descrip_fallback():
     # Test descrip key fallback
@@ -83,6 +89,17 @@ def test_metadata_descrip_fallback():
     assert get_metadata_case_insensitive(image2, "weight") == "65.5"
     assert get_metadata_case_insensitive(image2, "activity") == "90.0"
     assert get_metadata_case_insensitive(image2, "acquisition_date") == "2026-06-21 12:30:00"
+
+    # Test short keys fallback
+    image3 = sitk.Image([5, 5, 5], sitk.sitkFloat32)
+    image3.SetMetaData("descrip", "radot:m=pet;u=bqml;w=72.0;a=150.5;i=2026-06-21 10:15:00;d=2026-02-03 11:49:32")
+    
+    assert get_metadata_case_insensitive(image3, "modality") == "pet"
+    assert get_metadata_case_insensitive(image3, "unit") == "bqml"
+    assert get_metadata_case_insensitive(image3, "weight") == "72.0"
+    assert get_metadata_case_insensitive(image3, "activity") == "150.5"
+    assert get_metadata_case_insensitive(image3, "injection_date") == "2026-06-21 10:15:00"
+    assert get_metadata_case_insensitive(image3, "acquisition_date") == "2026-02-03 11:49:32"
 
 def test_metadata_date_validation(tmp_path):
     image_path = tmp_path / "date_val.nii"

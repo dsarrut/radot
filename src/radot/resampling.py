@@ -123,14 +123,14 @@ def resample_image_file(
 
     # 1. Resolve image_type (modality) from metadata
     if image_type is None:
-        image_type = get_metadata_case_insensitive(image, "modality")
+        image_type = get_metadata_case_insensitive(image, "modality", image_path)
         if image_type is None:
             raise ValueError("Image modality type is not specified and was not found in the image metadata.")
     image_type = image_type.lower()
 
     # 2. Resolve unit from metadata
     if unit is None:
-        unit = get_metadata_case_insensitive(image, "unit")
+        unit = get_metadata_case_insensitive(image, "unit", image_path)
         if unit is None:
             # Default fallbacks
             if image_type == "ct":
