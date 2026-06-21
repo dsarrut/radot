@@ -70,7 +70,6 @@ def segment(ct_path, output_path, mode, fast):
     "-t",
     "--type",
     "image_type",
-    required=True,
     type=click.Choice(["ct", "pet", "spect"], case_sensitive=False),
     help="Image modality type.",
 )
@@ -107,12 +106,6 @@ def stats(labels_path, image_path, image_type, output_path, labels, rois, resamp
     """Compute volume and intensity statistics for labels."""
     from radot.stats import compute_stats_file
 
-    image_type_lower = image_type.lower()
-    if image_type_lower in ["pet", "spect"] and unit is None:
-        raise click.UsageError(
-            "The --unit option is required for PET and SPECT modalities to determine correct resampling scaling."
-        )
-
     # Parse labels list
     labels_list = None
     if labels:
@@ -132,7 +125,7 @@ def stats(labels_path, image_path, image_type, output_path, labels, rois, resamp
         compute_stats_file(
             labels_path=labels_path,
             image_path=image_path,
-            image_type=image_type.lower(),
+            image_type=image_type.lower() if image_type else None,
             output_path=output_path,
             labels=labels_list,
             rois=rois_list,
@@ -159,7 +152,6 @@ def stats(labels_path, image_path, image_type, output_path, labels, rois, resamp
     "-t",
     "--type",
     "image_type",
-    default="ct",
     type=click.Choice(["ct", "labels", "pet", "spect"], case_sensitive=False),
     help="Image modality type.",
 )
@@ -190,27 +182,7 @@ def resample(
 ):
     """Resample an image to a target spacing."""
 
-    # Validation and dynamic defaulting checks
-
-    image_type_lower = image_type.lower()
-
-    if unit is None:
-        if image_type_lower == "ct":
-            unit = "hu"
-        elif image_type_lower in ["pet", "spect"]:
-            unit = "suv"
-        else:
-            unit = "none"
-    else:
-        unit = unit.lower()
-        if unit == "hu" and image_type_lower != "ct":
-            raise click.BadParameter("HU units can only be used with --type ct.")
-        if unit in ["suv", "bqml", "bq"] and image_type_lower not in ["pet", "spect"]:
-            raise click.BadParameter(
-                "SUV/Bqml/Bq units can only be used with --type pet or spect."
-            )
-        if unit != "none" and image_type_lower == "labels":
-            raise click.BadParameter("Labels cannot have a unit option.")
+    image_type_lower = image_type.lower() if image_type else None
 
     if output_path is None:
         suffix = "".join(image_path.suffixes)
@@ -246,7 +218,6 @@ def resample(
 @click.option(
     "-f",
     "--from-unit",
-    required=True,
     type=click.Choice(["bq", "bqml", "suv"], case_sensitive=False),
     help="Current unit of the image.",
 )

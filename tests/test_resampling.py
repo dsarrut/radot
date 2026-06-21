@@ -93,3 +93,47 @@ def test_resample_image_file(tmp_path):
     out_img = sitk.ReadImage(str(output_path))
     assert out_img.GetSpacing() == (3.0, 3.0, 3.0)
     assert out_img.GetSize() == (2, 2, 2)
+
+
+def test_resample_metadata_fallback(tmp_path):
+    from click.testing import CliRunner
+    from radot.cli import main
+    from radot.meta import manage_metadata
+
+    image_path = tmp_path / "pet_resample.nii.gz"
+    image = sitk.Image([6, 6, 6], sitk.sitkFloat32)
+    image.SetSpacing((1.0, 1.0, 1.0))
+    sitk.WriteImage(image, str(image_path))
+
+    # Set metadata: modality=pet, unit=bq
+    manage_metadata(image_path, modality="pet", unit="bq")
+
+    output_path = tmp_path / "output_resample.nii.gz"
+
+    runner = CliRunner()
+    # Run resample CLI without --type or --unit (should resolve modality and unit from metadata)
+    # Since unit is 'bq', it should preserve total activity
+    result = runner.invoke(main, ["resample", str(image_path), "-s", "2", "2", "2", "-o", str(output_path)])
+    assert result.exit_code == 0
+    assert output_path.exists()
+
+    res_img = sitk.ReadImage(str(output_path))
+    assert res_img.GetSpacing() == (2.0, 2.0, 2.0)
+
+
+def test_resample_missing_metadata_errors(tmp_path):
+    from click.testing import CliRunner
+    from radot.cli import main
+
+    image_path = tmp_path / "no_meta_resample.nii.gz"
+    image = sitk.Image([6, 6, 6], sitk.sitkFloat32)
+    image.SetSpacing((1.0, 1.0, 1.0))
+    sitk.WriteImage(image, str(image_path))
+
+    output_path = tmp_path / "output_resample_fail.nii.gz"
+
+    runner = CliRunner()
+    # Fails because type/modality is not specified and not in metadata
+    result = runner.invoke(main, ["resample", str(image_path), "-s", "2", "2", "2", "-o", str(output_path)])
+    assert result.exit_code != 0
+    assert "Image modality type is not specified" in result.output

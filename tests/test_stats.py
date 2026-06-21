@@ -315,11 +315,52 @@ def test_stats_cli_unit_requirement(tmp_path):
     sitk.WriteImage(image, str(image_path))
     
     runner = CliRunner()
-    # If PET and no unit is provided:
+    # If PET and no unit is provided (and no metadata exists):
     result = runner.invoke(main, ["stats", str(labels_path), "-i", str(image_path), "-t", "pet"])
     assert result.exit_code != 0
-    assert "The --unit option is required" in result.output
+    assert "unit option is required" in result.output
     
-    # If CT and no unit is provided, it should not raise UsageError about unit option
+    # If CT and no unit is provided, it should not raise error about unit option
     result_ct = runner.invoke(main, ["stats", str(labels_path), "-i", str(image_path), "-t", "ct"])
-    assert "The --unit option is required" not in result_ct.output
+    assert "unit option is required" not in result_ct.output
+
+def test_stats_metadata_fallback(tmp_path):
+    from click.testing import CliRunner
+    from radot.cli import main
+    from radot.meta import manage_metadata
+
+    # Create dummy images
+    labels_image = sitk.Image([10, 10, 10], sitk.sitkUInt16)
+    image = sitk.Image([10, 10, 10], sitk.sitkFloat32)
+
+    labels_path = tmp_path / "labels.nii.gz"
+    image_path = tmp_path / "pet_meta.nii.gz"
+    sitk.WriteImage(labels_image, str(labels_path))
+    sitk.WriteImage(image, str(image_path))
+
+    # Set metadata
+    manage_metadata(image_path, modality="pet", unit="suv")
+
+    # Run stats CLI without specifying type or unit (should resolve from metadata)
+    runner = CliRunner()
+    result = runner.invoke(main, ["stats", str(labels_path), "-i", str(image_path)])
+    assert result.exit_code == 0
+    assert "Mean" in result.output
+
+def test_stats_missing_metadata_errors(tmp_path):
+    from click.testing import CliRunner
+    from radot.cli import main
+
+    labels_image = sitk.Image([10, 10, 10], sitk.sitkUInt16)
+    image = sitk.Image([10, 10, 10], sitk.sitkFloat32)
+
+    labels_path = tmp_path / "labels.nii.gz"
+    image_path = tmp_path / "no_meta.nii.gz"
+    sitk.WriteImage(labels_image, str(labels_path))
+    sitk.WriteImage(image, str(image_path))
+
+    runner = CliRunner()
+    # Missing type/modality completely
+    result = runner.invoke(main, ["stats", str(labels_path), "-i", str(image_path)])
+    assert result.exit_code != 0
+    assert "modality type is not specified" in result.output

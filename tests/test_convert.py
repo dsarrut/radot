@@ -84,3 +84,47 @@ def test_convert_integer_input():
     res_arr = sitk.GetArrayFromImage(converted)
     # 10 Bq / 0.008 mL = 1250.0 Bq/mL
     assert res_arr[0, 0, 0] == pytest.approx(1250.0)
+
+
+def test_convert_metadata_fallback(tmp_path):
+    from click.testing import CliRunner
+    from radot.cli import main
+    from radot.meta import manage_metadata
+
+    image_path = tmp_path / "pet_convert.nii.gz"
+    image = sitk.Image([5, 5, 5], sitk.sitkFloat32)
+    # Fill with 1000.0 Bq/mL
+    arr = np.full((5, 5, 5), 1000.0, dtype=np.float32)
+    image = sitk.GetImageFromArray(arr)
+    image.SetSpacing((1.0, 1.0, 1.0))
+    sitk.WriteImage(image, str(image_path))
+
+    # Set metadata: unit=bqml, modality=pet, weight=75.0, activity=250.0
+    manage_metadata(image_path, modality="pet", unit="bqml", weight=75.0, activity=250.0)
+
+    runner = CliRunner()
+    # Run conversion without specifying --from-unit, --weight, or --activity (should read from metadata)
+    output_path = tmp_path / "out_suv.nii.gz"
+    result = runner.invoke(main, ["convert-units", str(image_path), "-t", "suv", "-o", str(output_path)])
+    assert result.exit_code == 0
+    assert output_path.exists()
+
+    res_img = sitk.ReadImage(str(output_path))
+    res_arr = sitk.GetArrayFromImage(res_img)
+    # Expected SUV = 1000 / (250,000,000 / 75,000) = 0.3
+    assert res_arr[0, 0, 0] == pytest.approx(0.3)
+
+
+def test_convert_missing_metadata_errors(tmp_path):
+    from click.testing import CliRunner
+    from radot.cli import main
+
+    image_path = tmp_path / "pet_no_meta.nii.gz"
+    image = sitk.Image([5, 5, 5], sitk.sitkFloat32)
+    sitk.WriteImage(image, str(image_path))
+
+    runner = CliRunner()
+    # Fails because source unit is not specified and not in metadata
+    result = runner.invoke(main, ["convert-units", str(image_path), "-t", "suv"])
+    assert result.exit_code != 0
+    assert "Source unit is not specified" in result.output

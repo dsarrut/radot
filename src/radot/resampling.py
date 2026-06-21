@@ -101,7 +101,7 @@ def resample_image(
 def resample_image_file(
     image_path: Path,
     spacing: Tuple[float, float, float],
-    image_type: str = "ct",
+    image_type: Optional[str] = None,
     output_path: Optional[Path] = None,
     unit: Optional[str] = None,
     preserve_total: bool = False,
@@ -118,6 +118,37 @@ def resample_image_file(
 
     print(f"Reading image from: {image_path}")
     image = sitk.ReadImage(str(image_path))
+
+    from radot.meta import get_metadata_case_insensitive
+
+    # 1. Resolve image_type (modality) from metadata
+    if image_type is None:
+        image_type = get_metadata_case_insensitive(image, "modality")
+        if image_type is None:
+            raise ValueError("Image modality type is not specified and was not found in the image metadata.")
+    image_type = image_type.lower()
+
+    # 2. Resolve unit from metadata
+    if unit is None:
+        unit = get_metadata_case_insensitive(image, "unit")
+        if unit is None:
+            # Default fallbacks
+            if image_type == "ct":
+                unit = "hu"
+            elif image_type in ("pet", "spect"):
+                unit = "suv"
+            else:
+                unit = "none"
+    else:
+        unit = unit.lower()
+
+    # Validate unit vs image_type
+    if unit == "hu" and image_type != "ct":
+        raise ValueError("HU units can only be used with CT images.")
+    if unit in ["suv", "bqml", "bq"] and image_type not in ["pet", "spect"]:
+        raise ValueError("SUV/Bqml/Bq units can only be used with PET or SPECT images.")
+    if unit != "none" and image_type == "labels":
+        raise ValueError("Labels cannot have a unit option.")
 
     # Force preserve_total if unit is absolute activity (bq)
     if unit == "bq":

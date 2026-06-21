@@ -20,7 +20,7 @@ def has_same_grid(img1: sitk.Image, img2: sitk.Image) -> bool:
 def compute_stats(
     labels_image: sitk.Image,
     image: sitk.Image,
-    image_type: str,
+    image_type: Optional[str] = None,
     labels: Optional[List[int]] = None,
     rois: Optional[List[str]] = None,
     resample_to: str = "labels",
@@ -33,6 +33,23 @@ def compute_stats(
     If the image does not share the same grid as the labels, it is resampled based on `resample_to`.
     Returns a dictionary of statistics per label.
     """
+    from radot.meta import get_metadata_case_insensitive
+
+    # 1. Resolve image_type (modality)
+    if image_type is None:
+        image_type = get_metadata_case_insensitive(image, "modality")
+        if image_type is None:
+            raise ValueError("Image modality type is not specified and was not found in the image metadata.")
+    image_type = image_type.lower()
+
+    # 2. Resolve unit
+    if unit is None:
+        unit = get_metadata_case_insensitive(image, "unit")
+        if unit is not None:
+            unit = unit.lower()
+        elif image_type in ("pet", "spect"):
+            raise ValueError("The unit option is required for PET and SPECT modalities (not found in image metadata).")
+
     # Check grid alignment and resample if necessary
     if not has_same_grid(labels_image, image):
         if resample_to == "labels":
@@ -124,7 +141,7 @@ def compute_stats(
 def compute_stats_file(
     labels_path: Path,
     image_path: Path,
-    image_type: str,
+    image_type: Optional[str] = None,
     output_path: Optional[Path] = None,
     labels: Optional[List[int]] = None,
     rois: Optional[List[str]] = None,
