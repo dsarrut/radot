@@ -46,7 +46,11 @@ def combine_date_time(date_str: Optional[str], time_str: Optional[str]) -> Optio
         t = "00:00:00"
     return f"{d} {t}"
 
-def convert_dicom(dicom_path: Path, output_path: Optional[Path] = None) -> None:
+def convert_dicom(
+    dicom_path: Path,
+    output_path: Optional[Path] = None,
+    all_tags: bool = False
+) -> None:
     """
     Convert a DICOM directory (series) or single DICOM file into another format (e.g. NIfTI).
     Extracts DICOM metadata and writes it to a matching JSON sidecar file.
@@ -171,6 +175,14 @@ def convert_dicom(dicom_path: Path, output_path: Optional[Path] = None) -> None:
                     break
 
     if output_path is None:
+        if all_tags:
+            keys = sorted(header_reader.GetMetaDataKeys())
+            for key in keys:
+                val = clean_tag(header_reader.GetMetaData(key))
+                tag_display = f"({key.replace('|', ',')})"
+                print(f"{tag_display}: {val if val is not None else '(not set)'}")
+            return
+
         tags_to_print = [
             ("0010|0010", "Patient's Name"),
             ("0010|0020", "Patient ID"),

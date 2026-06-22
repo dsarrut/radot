@@ -117,3 +117,25 @@ def test_convert_dicom_no_output(tmp_path):
     assert "(0018,1078) Radiopharmaceutical Start DateTime: 20260622191000" in result.output
     assert "(0008,002a) Acquisition DateTime: 20260622194529" in result.output
 
+
+def test_convert_dicom_all_tags(tmp_path):
+    dcm_file = tmp_path / "pet_all.dcm"
+    
+    image = sitk.Image([5, 5], sitk.sitkInt16)
+    image.SetMetaData("0008|0060", "PT")
+    image.SetMetaData("0010|1030", "75.0")
+    
+    writer = sitk.ImageFileWriter()
+    writer.KeepOriginalImageUIDOn()
+    writer.SetFileName(str(dcm_file))
+    writer.Execute(image)
+    
+    runner = CliRunner()
+    result = runner.invoke(main, ["dicom", str(dcm_file), "--all-tags"])
+    
+    assert result.exit_code == 0
+    # Modality and Weight should be output in (GGGG,EEEE) format
+    assert "(0008,0060): PT" in result.output
+    assert "(0010,1030): 75.0" in result.output
+
+

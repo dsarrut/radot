@@ -393,12 +393,18 @@ def _run_meta_command(
     type=click.Path(path_type=Path),
     help="Output image path (e.g. ct.nii.gz).",
 )
-def dicom(dicom_path, output_path):
+@click.option(
+    "--all-tags",
+    "all_tags",
+    is_flag=True,
+    help="Print all DICOM tags present in the image header.",
+)
+def dicom(dicom_path, output_path, all_tags):
     """Convert DICOM directory or single file to another format (NIfTI, NRRD)."""
     from radot.dicom import convert_dicom
 
     try:
-        convert_dicom(dicom_path, output_path)
+        convert_dicom(dicom_path, output_path, all_tags)
     except Exception as e:
         raise click.ClickException(str(e))
 
