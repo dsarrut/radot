@@ -409,5 +409,17 @@ def dicom(dicom_path, output_path, all_tags):
         raise click.ClickException(str(e))
 
 
+@main.command(name="dicom-list")
+@click.argument("folder_path", type=click.Path(exists=True, path_type=Path))
+def dicom_list(folder_path):
+    """List all DICOM series in a folder and subfolders recursively, sorted by date."""
+    from radot.dicom import list_dicom_series
+
+    try:
+        list_dicom_series(folder_path)
+    except Exception as e:
+        raise click.ClickException(str(e))
+
+
 if __name__ == "__main__":
     main()

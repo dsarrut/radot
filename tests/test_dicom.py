@@ -154,4 +154,79 @@ def test_convert_dicom_unsupported_output_format(tmp_path):
     assert "Writing back to DICOM format is not supported" in result.output
 
 
+def test_dicom_list(tmp_path):
+    # Create two subfolders with different series
+    folder_a = tmp_path / "series_a"
+    folder_b = tmp_path / "subdir" / "series_b"
+    folder_a.mkdir(parents=True)
+    folder_b.mkdir(parents=True)
+
+    # Series A: Date 2026-06-22
+    slice_a = sitk.Image([5, 5], sitk.sitkInt16)
+    slice_a.SetMetaData("0008|0060", "CT")
+    slice_a.SetMetaData("0020|000d", "1.2.3.4.5.1")
+    slice_a.SetMetaData("0020|000e", "1.2.3.4.5.1.2")
+    slice_a.SetMetaData("0020|0013", "1")
+    slice_a.SetMetaData("0020|0032", "0\\0\\0")
+    slice_a.SetMetaData("0008|0021", "20260622")
+    slice_a.SetMetaData("0008|0031", "120000.000000")
+    
+    writer_a = sitk.ImageFileWriter()
+    writer_a.KeepOriginalImageUIDOn()
+    writer_a.SetFileName(str(folder_a / "slice_1.dcm"))
+    writer_a.Execute(slice_a)
+
+    # Series B: Date 2026-06-20 (older date, should appear first)
+    # We make this a 3D image (e.g. size 5x5x3) in a single file to test multi-frame slice count
+    slice_b = sitk.Image([5, 5, 3], sitk.sitkInt16)
+    slice_b.SetMetaData("0008|0060", "PT")
+    slice_b.SetMetaData("0020|000d", "1.2.3.4.5.2")
+    slice_b.SetMetaData("0020|000e", "1.2.3.4.5.2.2")
+    slice_b.SetMetaData("0020|0013", "1")
+    slice_b.SetMetaData("0008|0021", "20260620")
+    slice_b.SetMetaData("0008|0031", "093000.000000")
+    # Mark as TOMO (sinogram)
+    slice_b.SetMetaData("0008|0008", "ORIGINAL\\PRIMARY\\TOMO\\EMISSION")
+    
+    writer_b = sitk.ImageFileWriter()
+    writer_b.KeepOriginalImageUIDOn()
+    writer_b.SetFileName(str(folder_b / "slice_1.dcm"))
+    writer_b.Execute(slice_b)
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["dicom-list", str(tmp_path)])
+    assert result.exit_code == 0
+    
+    # Assert sorted order: Series B (2026-06-20) should appear before Series A (2026-06-22)
+    output = result.output
+    assert "Date/Time" in output
+    assert "Modality" in output
+    assert "2026-06-20 09:30:00" in output
+    assert "2026-06-22 12:00:00" in output
+    
+    # Check order in output string
+    idx_b = output.index("2026-06-20 09:30:00")
+    idx_a = output.index("2026-06-22 12:00:00")
+    assert idx_b < idx_a
+
+    # Verify slices count for 3D multi-frame:
+    # Series B is 3D with 3 slices in 1 file -> slices count should display 3
+    # Series A is 2D with 1 slice in 1 file -> slices count should display 1
+    # Check the lines of output (split by newline and find corresponding rows)
+    lines = [l.strip() for l in output.split("\n") if l.strip()]
+    row_b = [l for l in lines if "2026-06-20 09:30:00" in l][0]
+    row_a = [l for l in lines if "2026-06-22 12:00:00" in l][0]
+    
+    # Extract slices column (4th column)
+    assert "3" in row_b
+    assert "1" in row_a
+
+    # Verify sinogram detection:
+    assert "PET (Sino)" in row_b
+    assert "CT" in row_a
+
+
+
+
+
 

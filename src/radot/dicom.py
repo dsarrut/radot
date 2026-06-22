@@ -102,6 +102,16 @@ def convert_dicom(
         else:
             modality = m_lower
 
+    # Parse image type for sinogram detection
+    image_type_raw = get_tag("0008|0008")
+    is_sinogram = False
+    if image_type_raw:
+        parts = [p.strip().upper() for p in image_type_raw.replace("\\", "/").replace(",", "/").split("/")]
+        if "TOMO" in parts and not any("RECON" in p for p in parts):
+            is_sinogram = True
+        elif "PROJECTION" in parts or "SINOGRAM" in parts:
+            is_sinogram = True
+
     # Parse weight
     weight_raw = get_tag("0010|1030")
     weight = None
@@ -214,6 +224,7 @@ def convert_dicom(
             val = get_tag(key)
             tag_display = f"({key.replace('|', ',')})"
             print(f"{tag_display} {name}: {val if val is not None else '(not set)'}")
+        print(f"Is Sinogram: {'yes' if is_sinogram else 'no'}")
         return
 
     # Load full image only if saving to path
@@ -239,6 +250,8 @@ def convert_dicom(
         meta_dict["injection_date"] = injection_date
     if acquisition_date:
         meta_dict["acquisition_date"] = acquisition_date
+    if is_sinogram:
+        meta_dict["sinogram"] = True
 
     # Write output image
     print(f"Saving converted image to: {output_path}")
@@ -253,3 +266,155 @@ def convert_dicom(
         json.dump(meta_dict, f, indent=4)
 
     print("DICOM conversion completed successfully.")
+
+
+def list_dicom_series(folder_path: Path) -> None:
+    if not folder_path.exists():
+        raise FileNotFoundError(f"Folder not found: {folder_path}")
+    if not folder_path.is_dir():
+        raise ValueError(f"Path is not a directory: {folder_path}")
+
+    print(f"Scanning folder recursively for DICOM series: {folder_path}\n")
+    series_list = []
+
+    # Walk recursively
+    for path in sorted(folder_path.rglob("*")):
+        if path.is_dir():
+            try:
+                series_ids = sitk.ImageSeriesReader.GetGDCMSeriesIDs(str(path))
+            except Exception:
+                continue
+            if not series_ids:
+                continue
+            for sid in series_ids:
+                file_names = sitk.ImageSeriesReader.GetGDCMSeriesFileNames(str(path), sid)
+                if file_names:
+                    first_file = file_names[0]
+                    try:
+                        reader = sitk.ImageFileReader()
+                        reader.SetFileName(first_file)
+                        reader.ReadImageInformation()
+                        
+                        def get_tag(tag_str: str) -> Optional[str]:
+                            if reader.HasMetaDataKey(tag_str):
+                                return clean_tag(reader.GetMetaData(tag_str))
+                            return None
+
+                        modality = get_tag("0008|0060") or "Unknown"
+                        patient_id = get_tag("0010|0020") or "Unknown"
+                        series_desc = get_tag("0008|103e") or get_tag("0008|1030") or ""
+                        
+                        study_date = get_tag("0008|0020")
+                        study_time = get_tag("0008|0030")
+                        series_date = get_tag("0008|0021")
+                        series_time = get_tag("0008|0031")
+                        acq_date = get_tag("0008|0022")
+                        acq_time = get_tag("0008|0032")
+                        acq_datetime = get_tag("0008|002a")
+
+                        best_dt = None
+                        if acq_datetime:
+                            best_dt = parse_datetime(acq_datetime)
+                        if not best_dt:
+                            best_dt = combine_date_time(acq_date, acq_time)
+                        if not best_dt:
+                            best_dt = combine_date_time(series_date, series_time)
+                        if not best_dt:
+                            best_dt = combine_date_time(study_date, study_time)
+                        
+                        if not best_dt:
+                            best_dt = "(no date)"
+
+                        dim = reader.GetDimension()
+                        size = reader.GetSize()
+                        if dim >= 3 and len(file_names) == 1:
+                            slices = size[2]
+                        else:
+                            slices = len(file_names)
+
+                        # Clean/standardize modality name
+                        m_lower = modality.lower()
+                        if m_lower == "pt":
+                            modality_str = "PET"
+                        elif m_lower == "nm":
+                            modality_str = "SPECT"
+                        else:
+                            modality_str = modality.upper()
+
+                        # Check if it's a sinogram
+                        is_sinogram = False
+                        image_type_raw = get_tag("0008|0008")
+                        if image_type_raw:
+                            parts = [p.strip().upper() for p in image_type_raw.replace("\\", "/").replace(",", "/").split("/")]
+                            if "TOMO" in parts and not any("RECON" in p for p in parts):
+                                is_sinogram = True
+                            elif "PROJECTION" in parts or "SINOGRAM" in parts:
+                                is_sinogram = True
+                        
+                        if is_sinogram:
+                            modality_str += " (Sino)"
+
+                        try:
+                            rel_folder = path.relative_to(folder_path)
+                            if str(rel_folder) == ".":
+                                folder_str = "./"
+                            else:
+                                folder_str = f"./{rel_folder}"
+                        except ValueError:
+                            folder_str = str(path)
+
+                        series_list.append({
+                            "datetime": best_dt,
+                            "modality": modality_str,
+                            "patient_id": patient_id,
+                            "slices": slices,
+                            "description": series_desc,
+                            "folder": folder_str,
+                            "uid": sid
+                        })
+                    except Exception:
+                        continue
+
+    # Sort by date (ascending)
+    series_list.sort(key=lambda x: x["datetime"])
+
+    if not series_list:
+        print("No DICOM series found.")
+        return
+
+    headers = ["Date/Time", "Modality", "Patient ID", "Slices", "Description", "Folder"]
+    rows = []
+    for s in series_list:
+        rows.append([
+            s["datetime"],
+            s["modality"],
+            s["patient_id"],
+            str(s["slices"]),
+            s["description"],
+            s["folder"]
+        ])
+
+    # Compute column widths
+    col_widths = [len(h) for h in headers]
+    for row in rows:
+        for i, val in enumerate(row):
+            col_widths[i] = max(col_widths[i], len(val))
+
+    def format_row(row_data):
+        parts = []
+        for i, val in enumerate(row_data):
+            width = col_widths[i]
+            if i in (0, 1, 2, 4, 5):  # left aligned
+                parts.append(val.ljust(width))
+            else:  # right aligned (Slices)
+                parts.append(val.rjust(width))
+        return " | ".join(parts)
+
+    header_line = format_row(headers)
+    separator = "-+-".join("-" * w for w in col_widths)
+
+    print(header_line)
+    print(separator)
+    for row in rows:
+        print(format_row(row))
+    print()
