@@ -11,9 +11,9 @@ radot dicom spect.dcm -o spect.nii.gz
 ## Step 2 : add/check metadata
 
 ```bash
-radot meta ct.nii.gz --modality ct
+radot meta ct.nii.gz
 
-radot meta spect.nii.gz --modality spect --weight 80 --activity 120 --injection-time "2026-05-22 10:30:00" --acquisition-time "2026-05-22 10:45:00"
+radot meta spect.nii.gz --modality spect --weight 98 --activity 7400 --injection-time "2021-10-20 09:00:00" --acquisition-time "2021-10-21 12:10:09"
 ```
 
 ## Step 3 : segment (and stats)

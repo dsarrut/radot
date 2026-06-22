@@ -59,6 +59,10 @@ def convert_dicom(
     if not dicom_path.exists():
         raise FileNotFoundError(f"DICOM path not found: {dicom_path}")
 
+    if output_path is not None:
+        if output_path.suffix.lower() in (".dcm", ".dicom"):
+            raise ValueError("Writing back to DICOM format is not supported. Please use NIfTI (.nii.gz), NRRD (.nrrd), or MetaImage (.mhd) for the output file.")
+
     # Determine if directory (series) or single file
     is_dir = dicom_path.is_dir()
 

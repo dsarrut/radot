@@ -139,3 +139,19 @@ def test_convert_dicom_all_tags(tmp_path):
     assert "(0010,1030): 75.0" in result.output
 
 
+def test_convert_dicom_unsupported_output_format(tmp_path):
+    dcm_file = tmp_path / "pet_fail.dcm"
+    
+    image = sitk.Image([5, 5], sitk.sitkInt16)
+    writer = sitk.ImageFileWriter()
+    writer.KeepOriginalImageUIDOn()
+    writer.SetFileName(str(dcm_file))
+    writer.Execute(image)
+    
+    runner = CliRunner()
+    result = runner.invoke(main, ["dicom", str(dcm_file), "-o", str(tmp_path / "fail.dcm")])
+    assert result.exit_code != 0
+    assert "Writing back to DICOM format is not supported" in result.output
+
+
+
