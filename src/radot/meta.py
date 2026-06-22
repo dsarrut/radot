@@ -330,6 +330,7 @@ def manage_metadata(
                 inj_dt = datetime.strptime(inj_val, "%Y-%m-%d %H:%M:%S")
                 acq_dt = datetime.strptime(acq_val, "%Y-%m-%d %H:%M:%S")
                 time_diff = acq_dt - inj_dt
-                print(f"Time from injection: {time_diff}")
+                hours = time_diff.total_seconds() / 3600.0
+                print(f"Time from injection: {hours:.2f} hours")
             except Exception:
                 pass

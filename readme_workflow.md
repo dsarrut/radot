@@ -14,6 +14,7 @@ radot dicom spect.dcm -o spect.nii.gz
 radot meta ct.nii.gz
 
 radot meta spect.nii.gz --modality spect --weight 98 --activity 7400 --injection-time "2021-10-20 09:00:00" --acquisition-time "2021-10-21 12:10:09"
+
 ```
 
 ## Step 3 : segment (and stats)

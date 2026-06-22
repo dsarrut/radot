@@ -74,7 +74,7 @@ def test_metadata_print(tmp_path, capsys):
     assert "Activity: 120.0 MBq" in captured.out
     assert "Injection Date: 2026-06-21 10:15:00" in captured.out
     assert "Acquisition Date: 2026-06-21 12:30:00" in captured.out
-    assert "Time from injection: 2:15:00" in captured.out
+    assert "Time from injection: 2.25 hours" in captured.out
 
 def test_metadata_date_validation(tmp_path):
     image_path = tmp_path / "date_val.nii"
