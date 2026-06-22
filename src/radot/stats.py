@@ -18,7 +18,7 @@ def has_same_grid(img1: sitk.Image, img2: sitk.Image) -> bool:
     return True
 
 def compute_stats(
-    labels_image: sitk.Image,
+    labels_image: Optional[sitk.Image],
     image: sitk.Image,
     image_type: Optional[str] = None,
     labels: Optional[List[int]] = None,
@@ -67,7 +67,7 @@ def compute_stats(
             raise ValueError("The unit option is required for PET and SPECT modalities (not found in image metadata).")
 
     # Check grid alignment and resample if necessary
-    if not has_same_grid(labels_image, image):
+    if labels_image is not None and not has_same_grid(labels_image, image):
         if resample_to == "labels":
             print("Image grid does not match labels grid. Resampling image to labels grid...")
             preserve_total = (unit is not None and unit.lower() == "bq")
@@ -101,55 +101,65 @@ def compute_stats(
     float_image = sitk.Cast(image, sitk.sitkFloat32)
     smoothed_image = sitk.SmoothingRecursiveGaussian(float_image, sigma)
 
-    # Compute intensity statistics per label
-    stat_filter = sitk.LabelIntensityStatisticsImageFilter()
-    stat_filter.Execute(labels_image, image)
-    
-    # Compute statistics on smoothed image for peak value calculation
-    stat_filter_peak = sitk.LabelIntensityStatisticsImageFilter()
-    stat_filter_peak.Execute(labels_image, smoothed_image)
-    
     stats_dict = {}
-    
-    # Sort label IDs for ordered console/JSON printing
-    sorted_labels = sorted(stat_filter.GetLabels())
-    
-    for label_id in sorted_labels:
-        roi_name = labels_map.get(label_id, f"unknown_{label_id}")
+
+    if labels_image is not None:
+        # Compute intensity statistics per label
+        stat_filter = sitk.LabelIntensityStatisticsImageFilter()
+        stat_filter.Execute(labels_image, image)
         
-        # Apply filters if specified
-        if labels is not None and label_id not in labels:
-            continue
-        if rois is not None and roi_name not in rois:
-            continue
+        # Compute statistics on smoothed image for peak value calculation
+        stat_filter_peak = sitk.LabelIntensityStatisticsImageFilter()
+        stat_filter_peak.Execute(labels_image, smoothed_image)
+        
+        # Sort label IDs for ordered console/JSON printing
+        sorted_labels = sorted(stat_filter.GetLabels())
+        
+        for label_id in sorted_labels:
+            roi_name = labels_map.get(label_id, f"unknown_{label_id}")
             
-        volume_ml = stat_filter.GetPhysicalSize(label_id) / 1000.0  # mm^3 to mL
-        mean_val = stat_filter.GetMean(label_id)
-        std_val = stat_filter.GetStandardDeviation(label_id)
-        min_val = stat_filter.GetMinimum(label_id)
-        max_val = stat_filter.GetMaximum(label_id)
-        sum_val = stat_filter.GetSum(label_id)
-        peak_val = stat_filter_peak.GetMaximum(label_id)
-        
-        label_stats = {
-            "roi": roi_name,
-            "volume_ml": float(volume_ml),
-            "mean": float(mean_val),
-            "std": float(std_val),
-            "min": float(min_val),
-            "max": float(max_val),
-            "sum": float(sum_val),
-            "peak": float(peak_val)
-        }
-        
-        if image_type == "ct":
-            # Estimate density: density_g_cm3 = 1.0 + (mean_hu / 1000.0)
-            # Ensure density is non-negative
-            density = max(0.0, 1.0 + (mean_val / 1000.0))
-            mass_g = volume_ml * density
-            label_stats["mass_g"] = float(mass_g)
+            # Apply filters if specified
+            if labels is not None and label_id not in labels:
+                continue
+            if rois is not None and roi_name not in rois:
+                continue
+                
+            volume_ml = stat_filter.GetPhysicalSize(label_id) / 1000.0  # mm^3 to mL
+            mean_val = stat_filter.GetMean(label_id)
+            std_val = stat_filter.GetStandardDeviation(label_id)
+            min_val = stat_filter.GetMinimum(label_id)
+            max_val = stat_filter.GetMaximum(label_id)
+            sum_val = stat_filter.GetSum(label_id)
+            peak_val = stat_filter_peak.GetMaximum(label_id)
             
-        stats_dict[str(label_id)] = label_stats
+            label_stats = {
+                "roi": roi_name,
+                "volume_ml": float(volume_ml),
+                "mean": float(mean_val),
+                "std": float(std_val),
+                "min": float(min_val),
+                "max": float(max_val),
+                "sum": float(sum_val),
+                "peak": float(peak_val)
+            }
+            
+            if image_type == "ct":
+                # Estimate density: density_g_cm3 = 1.0 + (mean_hu / 1000.0)
+                # Ensure density is non-negative
+                density = max(0.0, 1.0 + (mean_val / 1000.0))
+                mass_g = volume_ml * density
+                label_stats["mass_g"] = float(mass_g)
+                
+            if image_type in ("pet", "spect") and unit in ("bq", "bqml"):
+                if unit == "bq":
+                    total_bq = sum_val
+                else:  # bqml
+                    spacing = image.GetSpacing()
+                    voxel_volume_ml = (spacing[0] * spacing[1] * spacing[2]) / 1000.0
+                    total_bq = sum_val * voxel_volume_ml
+                label_stats["total_bq"] = float(total_bq)
+                
+            stats_dict[str(label_id)] = label_stats
 
     # Compute full image stats if applicable
     include_full = True
@@ -192,14 +202,23 @@ def compute_stats(
             full_mass_g = full_volume_ml * full_density
             full_stats["mass_g"] = float(full_mass_g)
 
+        if image_type in ("pet", "spect") and unit in ("bq", "bqml"):
+            if unit == "bq":
+                full_total_bq = full_sum
+            else:  # bqml
+                spacing = image.GetSpacing()
+                voxel_volume_ml = (spacing[0] * spacing[1] * spacing[2]) / 1000.0
+                full_total_bq = full_sum * voxel_volume_ml
+            full_stats["total_bq"] = float(full_total_bq)
+
         stats_dict["all"] = full_stats
 
     return stats_dict
 
 
 def compute_stats_file(
-    labels_path: Path,
-    image_path: Path,
+    labels_path: Optional[Path] = None,
+    image_path: Optional[Path] = None,
     image_type: Optional[str] = None,
     output_path: Optional[Path] = None,
     labels: Optional[List[int]] = None,
@@ -211,28 +230,40 @@ def compute_stats_file(
     """
     Load images from paths, compute statistics, and save/print the output.
     """
-    if not labels_path.exists():
-        raise FileNotFoundError(f"Labels file not found: {labels_path}")
+    if image_path is None:
+        raise ValueError("Image path is required.")
     if not image_path.exists():
         raise FileNotFoundError(f"Image file not found: {image_path}")
+    if labels_path is not None and not labels_path.exists():
+        raise FileNotFoundError(f"Labels file not found: {labels_path}")
 
-    print(f"Reading labels from: {labels_path}")
-    labels_image = sitk.ReadImage(str(labels_path))
+    labels_image = None
+    labels_map = {}
+    if labels_path is not None:
+        print(f"Reading labels from: {labels_path}")
+        labels_image = sitk.ReadImage(str(labels_path))
+        
+        # Load mapping JSON if it exists in the same folder
+        json_path = labels_path.with_suffix("").with_suffix(".json")
+        if json_path.exists():
+            try:
+                with open(json_path, "r") as f:
+                    raw_map = json.load(f)
+                    labels_map = {int(k): v for k, v in raw_map.items()}
+                print(f"Loaded label name mappings from: {json_path}")
+            except Exception as e:
+                print(f"Warning: Could not read mapping JSON {json_path}: {e}")
     
     print(f"Reading image from: {image_path}")
     image = sitk.ReadImage(str(image_path))
 
-    # Load mapping JSON if it exists in the same folder
-    json_path = labels_path.with_suffix("").with_suffix(".json")
-    labels_map = {}
-    if json_path.exists():
-        try:
-            with open(json_path, "r") as f:
-                raw_map = json.load(f)
-                labels_map = {int(k): v for k, v in raw_map.items()}
-            print(f"Loaded label name mappings from: {json_path}")
-        except Exception as e:
-            print(f"Warning: Could not read mapping JSON {json_path}: {e}")
+    # Resolve image_type (modality)
+    if image_type is None:
+        from radot.meta import get_metadata_case_insensitive
+        image_type = get_metadata_case_insensitive(image, "modality", image_path)
+        if image_type is None:
+            raise ValueError("Image modality type is not specified and was not found in the image metadata.")
+    image_type = image_type.lower()
 
     stats_dict = compute_stats(
         labels_image=labels_image,
@@ -267,6 +298,7 @@ def compute_stats_file(
 def pretty_print_stats(stats_dict: dict, image_type: str, unit: Optional[str] = None) -> None:
     """Pretty print stats_dict as a table on the screen."""
     has_mass = (image_type == "ct")
+    has_total = (image_type in ("pet", "spect") and unit is not None and unit.lower() in ("bq", "bqml"))
     
     unit_suffix = f" ({unit.lower()})" if unit else ""
     headers = [
@@ -280,7 +312,9 @@ def pretty_print_stats(stats_dict: dict, image_type: str, unit: Optional[str] = 
         f"Peak{unit_suffix}"
     ]
     if has_mass:
-        headers.append("Mass (g)")
+        headers.append("Mass")
+    if has_total:
+        headers.append("Total")
         
     rows = []
     for label_id, data in stats_dict.items():
@@ -296,7 +330,18 @@ def pretty_print_stats(stats_dict: dict, image_type: str, unit: Optional[str] = 
         ]
         if has_mass:
             mass_val = data.get("mass_g", 0.0)
-            row.append(f"{mass_val:.3f}")
+            if mass_val >= 1000.0:
+                row.append(f"{mass_val / 1000.0:.3f} kg")
+            else:
+                row.append(f"{mass_val:.3f} g")
+        if has_total:
+            total_val = data.get("total_bq", 0.0)
+            if total_val >= 1_000_000.0:
+                row.append(f"{total_val / 1_000_000.0:.3f} MBq")
+            elif total_val >= 1_000.0:
+                row.append(f"{total_val / 1_000.0:.3f} kBq")
+            else:
+                row.append(f"{total_val:.3f} Bq")
         rows.append(row)
         
     if not rows:

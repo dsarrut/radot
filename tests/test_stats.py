@@ -243,18 +243,36 @@ def test_pretty_print_stats(capsys):
         }
     }
     
-    # Test CT pretty print
+    # Test CT pretty print (under 1000g, so formatted as g)
     pretty_print_stats(stats_data, "ct")
     captured = capsys.readouterr()
-    assert "Mass (g)" in captured.out
+    assert "Mass" in captured.out
     assert "Liver" in captured.out
-    assert "14.197" in captured.out
+    assert "14.197 g" in captured.out
     assert "175.200" in captured.out
+
+    # Test CT pretty print (over 1000g, so formatted as kg)
+    stats_data_large = {
+        "5": {
+            "roi": "Liver",
+            "volume_ml": 1200.0,
+            "mean": 150.123,
+            "std": 12.3,
+            "min": 100.0,
+            "max": 200.0,
+            "sum": 180000.0,
+            "mass_g": 1380.0,
+            "peak": 175.2
+        }
+    }
+    pretty_print_stats(stats_data_large, "ct")
+    captured = capsys.readouterr()
+    assert "1.380 kg" in captured.out
 
     # Test PET pretty print
     pretty_print_stats(stats_data, "pet")
     captured = capsys.readouterr()
-    assert "Mass (g)" not in captured.out
+    assert "Mass" not in captured.out
     assert "Liver" in captured.out
     assert "175.200" in captured.out
 
@@ -449,5 +467,87 @@ def test_stats_full_image(tmp_path):
     assert "Full Image" in result.output
     # Mean of full image should be 20.0
     assert "20.000" in result.output
+
+
+def test_stats_no_labels_path(tmp_path):
+    from click.testing import CliRunner
+    from radot.cli import main
+
+    image_arr = np.zeros((10, 10, 10), dtype=np.float32)
+    # Fill full image with 25.0
+    image_arr[:] = 25.0
+    image = sitk.GetImageFromArray(image_arr)
+    image.SetSpacing((1.0, 1.0, 1.0))
+
+    image_path = tmp_path / "spect_no_labels.nii.gz"
+    sitk.WriteImage(image, str(image_path))
+
+    runner = CliRunner()
+    # Run stats without labels_path
+    result = runner.invoke(main, ["stats", "-i", str(image_path), "-t", "spect", "--unit", "suv"])
+    assert result.exit_code == 0
+    assert "all" in result.output
+    assert "Full Image" in result.output
+    # Mean of full image should be 25.0
+    assert "25.000" in result.output
+
+
+def test_stats_total_bq(tmp_path):
+    from click.testing import CliRunner
+    from radot.cli import main
+
+    labels_arr = np.zeros((10, 10, 10), dtype=np.uint16)
+    labels_arr[3:7, 3:7, 3:7] = 5
+    labels_image = sitk.GetImageFromArray(labels_arr)
+    labels_image.SetSpacing((2.0, 2.0, 2.0)) # Voxel volume: 8 mm^3 = 0.008 mL
+
+    image_arr = np.zeros((10, 10, 10), dtype=np.float32)
+    # Label region contains 64 voxels. Set each voxel value to 10.0
+    image_arr[3:7, 3:7, 3:7] = 10.0
+    image = sitk.GetImageFromArray(image_arr)
+    image.SetSpacing((2.0, 2.0, 2.0))
+
+    labels_path = tmp_path / "labels.nii.gz"
+    image_path = tmp_path / "spect.nii.gz"
+    sitk.WriteImage(labels_image, str(labels_path))
+    sitk.WriteImage(image, str(image_path))
+
+    runner = CliRunner()
+    # Test for Bq unit (under 1000, so formatted as Bq)
+    result_bq = runner.invoke(main, ["stats", str(labels_path), "-i", str(image_path), "-t", "spect", "--unit", "bq"])
+    assert result_bq.exit_code == 0
+    assert "640.000 Bq" in result_bq.output
+
+    # Test for Bq/mL unit
+    result_bqml = runner.invoke(main, ["stats", str(labels_path), "-i", str(image_path), "-t", "spect", "--unit", "bqml"])
+    assert result_bqml.exit_code == 0
+    assert "5.120 Bq" in result_bqml.output
+
+    # Test for large activity values to trigger kBq and MBq scaling
+    image_arr_large = np.zeros((10, 10, 10), dtype=np.float32)
+    # 64 voxels * 100,000 = 6,400,000 Bq = 6.4 MBq
+    image_arr_large[3:7, 3:7, 3:7] = 100000.0
+    image_large = sitk.GetImageFromArray(image_arr_large)
+    image_large.SetSpacing((2.0, 2.0, 2.0))
+    image_path_large = tmp_path / "spect_large.nii.gz"
+    sitk.WriteImage(image_large, str(image_path_large))
+
+    result_mbq = runner.invoke(main, ["stats", str(labels_path), "-i", str(image_path_large), "-t", "spect", "--unit", "bq"])
+    assert result_mbq.exit_code == 0
+    assert "6.400 MBq" in result_mbq.output
+
+    # 64 voxels * 100 = 6,400 Bq = 6.4 kBq
+    image_arr_kbq = np.zeros((10, 10, 10), dtype=np.float32)
+    image_arr_kbq[3:7, 3:7, 3:7] = 100.0
+    image_kbq = sitk.GetImageFromArray(image_arr_kbq)
+    image_kbq.SetSpacing((2.0, 2.0, 2.0))
+    image_path_kbq = tmp_path / "spect_kbq.nii.gz"
+    sitk.WriteImage(image_kbq, str(image_path_kbq))
+
+    result_kbq = runner.invoke(main, ["stats", str(labels_path), "-i", str(image_path_kbq), "-t", "spect", "--unit", "bq"])
+    assert result_kbq.exit_code == 0
+    assert "6.400 kBq" in result_kbq.output
+
+
 
 

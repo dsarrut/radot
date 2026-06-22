@@ -57,7 +57,7 @@ def segment(ct_path, output_path, mode, fast):
 
 #### ROIS STATISTICS ####
 @main.command()
-@click.argument("labels_path", type=click.Path(exists=True, path_type=Path))
+@click.argument("labels_path", required=False, type=click.Path(exists=True, path_type=Path))
 @click.option(
     "-i",
     "--image",
