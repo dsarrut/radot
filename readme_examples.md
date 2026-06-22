@@ -63,3 +63,12 @@ radot meta image.nii.gz
 * **`--weight`**: Patient weight in kg.
 * **`--activity`**: Injected activity in MBq.
 
+Workflow
+
+(dicom)
+
+1) add meta data
+2) segment + check vvv 
+3) stats CT and suv 
+4) dose spect
+5) dose from pet 

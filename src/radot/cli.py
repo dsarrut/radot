@@ -288,11 +288,13 @@ def common_meta_options(f):
     )(f)
     f = click.option(
         "--injection-date",
+        "--injection-time",
         "injection_date",
         help="Injection date and time (YYYY-MM-DD HH:MM:SS).",
     )(f)
     f = click.option(
         "--acquisition-date",
+        "--acquisition-time",
         "acquisition_date",
         help="Acquisition date and time (YYYY-MM-DD HH:MM:SS).",
     )(f)
@@ -377,6 +379,26 @@ def _run_meta_command(
             acquisition_date=acquisition_date,
             time_from_injection=time_from_injection,
         )
+    except Exception as e:
+        raise click.ClickException(str(e))
+
+
+#### DICOM CONVERSION ####
+@main.command()
+@click.argument("dicom_path", type=click.Path(exists=True, path_type=Path))
+@click.option(
+    "-o",
+    "--output",
+    "output_path",
+    type=click.Path(path_type=Path),
+    help="Output image path (e.g. ct.nii.gz).",
+)
+def dicom(dicom_path, output_path):
+    """Convert DICOM directory or single file to another format (NIfTI, NRRD)."""
+    from radot.dicom import convert_dicom
+
+    try:
+        convert_dicom(dicom_path, output_path)
     except Exception as e:
         raise click.ClickException(str(e))
 
