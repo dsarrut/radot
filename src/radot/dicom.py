@@ -274,12 +274,23 @@ def list_dicom_series(folder_path: Path) -> None:
     if not folder_path.is_dir():
         raise ValueError(f"Path is not a directory: {folder_path}")
 
+    from tqdm import tqdm
+
+    # Collect subdirectories recursively and include the root folder itself
+    subdirs = [p for p in folder_path.rglob("*") if p.is_dir()]
+    subdirs.append(folder_path)
+    subdirs = sorted(list(set(subdirs)))
+
     print(f"Scanning folder recursively for DICOM series: {folder_path}\n")
     series_list = []
 
-    # Walk recursively
-    for path in sorted(folder_path.rglob("*")):
-        if path.is_dir():
+    # Disable SimpleITK global warnings during the scan to avoid "No Series were found" warnings
+    was_warning_on = sitk.ProcessObject.GetGlobalWarningDisplay()
+    sitk.ProcessObject.SetGlobalWarningDisplay(False)
+
+    try:
+        # Walk recursively with tqdm progress bar
+        for path in tqdm(subdirs, desc="Scanning folders", unit="dir"):
             try:
                 series_ids = sitk.ImageSeriesReader.GetGDCMSeriesIDs(str(path))
             except Exception:
@@ -374,6 +385,8 @@ def list_dicom_series(folder_path: Path) -> None:
                         })
                     except Exception:
                         continue
+    finally:
+        sitk.ProcessObject.SetGlobalWarningDisplay(was_warning_on)
 
     # Sort by date (ascending)
     series_list.sort(key=lambda x: x["datetime"])

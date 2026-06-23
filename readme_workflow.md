@@ -2,7 +2,8 @@
 
 ```bash
 
-
+# list dicoms in some folders
+radot dicom-list folder/
 
 # Convert CT DICOM directory
 radot dicom ct_dcm -o ct.nii.gz
