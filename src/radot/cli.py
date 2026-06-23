@@ -425,5 +425,102 @@ def dicom_list(folder_path):
         raise click.ClickException(str(e))
 
 
+@main.command(name="dose")
+@click.argument("image_path", type=click.Path(exists=True, path_type=Path))
+@click.option(
+    "-l",
+    "--labels",
+    "labels_path",
+    required=True,
+    type=click.Path(exists=True, path_type=Path),
+    help="Labels segmentation image path.",
+)
+@click.option(
+    "--ct",
+    "ct_path",
+    type=click.Path(exists=True, path_type=Path),
+    help="Companion CT image path.",
+)
+@click.option(
+    "-m",
+    "--method",
+    required=True,
+    help="Dosimetry model / method (e.g. madsen2018).",
+)
+@click.option(
+    "--isotope",
+    required=True,
+    help="Radionuclide (e.g. Lu177).",
+)
+@click.option(
+    "--total-activity",
+    "total_activity",
+    type=float,
+    help="Global calibration activity override (in MBq).",
+)
+@click.option(
+    "--rois",
+    help="Comma-separated list of target ROI names.",
+)
+@click.option(
+    "--teff",
+    help="Effective half-life params per ROI (e.g. Liver:45.2,Kidney_L:32.1).",
+)
+@click.option(
+    "-o",
+    "--output",
+    "output_path",
+    type=click.Path(path_type=Path),
+    help="Optional path to output dose JSON file.",
+)
+def dose(
+    image_path,
+    labels_path,
+    ct_path,
+    method,
+    isotope,
+    total_activity,
+    rois,
+    teff,
+    output_path,
+):
+    """Compute absorbed doses for specified regions of interest (ROI)."""
+    from radot.dose import compute_roi_dose_file
+
+    rois_list = None
+    if rois:
+        rois_list = [x.strip() for x in rois.split(",") if x.strip()]
+
+    teff_dict = {}
+    if teff:
+        for item in teff.split(","):
+            if ":" in item:
+                parts = item.split(":")
+                if len(parts) == 2:
+                    roi_name = parts[0].strip()
+                    try:
+                        teff_val = float(parts[1].strip())
+                        teff_dict[roi_name] = teff_val
+                    except ValueError:
+                        raise click.BadParameter(
+                            f"Invalid teff value: {parts[1]} for ROI: {roi_name}"
+                        )
+
+    try:
+        compute_roi_dose_file(
+            image_path=image_path,
+            labels_path=labels_path,
+            method=method,
+            isotope=isotope,
+            ct_path=ct_path,
+            total_activity_mbq=total_activity,
+            rois=rois_list,
+            teff_params=teff_dict,
+            output_path=output_path,
+        )
+    except Exception as e:
+        raise click.ClickException(str(e))
+
+
 if __name__ == "__main__":
     main()
