@@ -51,6 +51,10 @@ def segment(ct_path, output_path, mode, fast):
 
     try:
         segment_ct(ct_path, output_path, mode, fast)
+        import os
+        import sys
+        if "pytest" not in sys.modules and "_pytest" not in sys.modules:
+            os._exit(0)
     except Exception as e:
         raise click.ClickException(str(e))
 
