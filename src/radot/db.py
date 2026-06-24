@@ -210,4 +210,18 @@ def get_s_value(phantom: str, isotope: str, source_organ: str, target_organ: str
             
     raise ValueError(f"RADOT Database: Target organ '{target_organ}' (resolved as '{resolved_tgt}') not found in S-value matrix for source '{resolved_src}'.")
 
-
+def download_opendose_data(phantom: str, isotope: Optional[str] = None, group: Optional[str] = None, force: bool = False) -> None:
+    """
+    Placeholder downloader function for OpenDose data.
+    """
+    norm_phantom = normalize_phantom(phantom)
+    
+    isotopes_to_download = []
+    if group == "core":
+        isotopes_to_download = ["lu-177", "y-90", "i-131", "ac-225", "ra-223", "ga-68", "f-18"]
+    elif isotope:
+        isotopes_to_download = [isotope]
+        
+    print(f"[Placeholder] Downloading for phantom: {norm_phantom}")
+    print(f"[Placeholder] Isotopes to download: {isotopes_to_download}")
+    print(f"[Placeholder] Force overwrite: {force}")

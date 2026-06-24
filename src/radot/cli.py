@@ -529,5 +529,47 @@ def dose(
         raise click.ClickException(str(e))
 
 
+#### OPENDOSE DATA MAINTENANCE ####
+@main.command(name="opendose")
+@click.option(
+    "-m",
+    "--model",
+    required=True,
+    help="Phantom model shortcut (AM, AF, male, female, icrp_110_male, icrp_110_female).",
+)
+@click.option(
+    "-r",
+    "--radionuclide",
+    help="Radionuclide name (e.g. Lu177, y-90).",
+)
+@click.option(
+    "--group",
+    type=click.Choice(["core"], case_sensitive=False),
+    help="Download a pre-curated group of clinically common therapeutic/diagnostic isotopes.",
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Force overwrite existing local S-value and mass JSON files.",
+)
+def opendose(model, radionuclide, group, force):
+    """Download and maintain OpenDose reference masses and S-values."""
+    from radot.db import download_opendose_data
+
+    if not radionuclide and not group:
+        raise click.UsageError("Either --radionuclide (-r) or --group <group> is required.")
+
+    try:
+        download_opendose_data(
+            phantom=model,
+            isotope=radionuclide,
+            group=group.lower() if group else None,
+            force=force,
+        )
+    except Exception as e:
+        raise click.ClickException(str(e))
+
+
 if __name__ == "__main__":
     main()
+
