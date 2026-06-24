@@ -1,0 +1,14 @@
+{
+    "Left kidney": {
+        "Left kidney": 5.1234e-6,
+        "Right kidney": 2.1234e-7,
+        "Liver": 1.9876e-7,
+        "Spleen": 1.1122e-6
+    },
+    "Liver": {
+        "Left kidney": 2.1122e-7,
+        "Right kidney": 8.9876e-7,
+        "Liver": 6.1234e-5,
+        "Spleen": 2.1234e-7
+    }
+}

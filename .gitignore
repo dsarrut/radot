@@ -1,10 +1,13 @@
 
-__pycache__
-*egg-info*
+/tmp/
+/tmp_data/
+/venv_osx_3.14/
+*.egg-info/
+__pycache__/
 venv_*
+
 .python-version
 activate_*
-data/
+/data/
 .DS_Store
 .vscode
-tmp/
