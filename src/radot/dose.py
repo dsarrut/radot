@@ -4,12 +4,7 @@ import numpy as np
 import SimpleITK as sitk
 from pathlib import Path
 from datetime import datetime
-
-ISOTOPE_HALF_LIVES_H = {
-    "lu177": 6.647 * 24.0,  # 159.528 hours
-    "y90": 64.08,  # 64.08 hours
-    "i131": 8.02 * 24.0,  # 192.48 hours
-}
+from radot.db import get_physical_half_life_h
 
 
 def get_time_from_injection_h(
@@ -111,10 +106,11 @@ def compute_dose_hanscheid2017(
 
         if teff is None:
             # Fall back to physical half-life
-            teff = ISOTOPE_HALF_LIVES_H.get(isotope.lower())
-            if teff is None:
+            try:
+                teff = get_physical_half_life_h(isotope)
+            except ValueError as e:
                 raise ValueError(
-                    f"No effective half-life (teff) provided for ROI '{roi_name}' and unknown physical half-life for isotope '{isotope}'."
+                    f"No effective half-life (teff) provided for ROI '{roi_name}' and {e}"
                 )
             print(
                 f"No Teff specified for '{roi_name}'. Using physical half-life of {isotope} ({teff:.2f} h) as fallback."

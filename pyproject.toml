@@ -21,7 +21,8 @@ dependencies = [
     "pydicom",
     "click",
     "pytest",
-    "TotalSegmentator"
+    "TotalSegmentator",
+    "icrp107-database"
 ]
 
 [project.scripts]
