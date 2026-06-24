@@ -467,6 +467,11 @@ def dicom_list(folder_path):
     help="Effective half-life params per ROI (e.g. Liver:45.2,Kidney_L:32.1).",
 )
 @click.option(
+    "--resample",
+    type=click.Choice(["like_activity", "like_labels", "like_ct"]),
+    help="Optionally resample mismatched images to a specific target grid layout.",
+)
+@click.option(
     "-o",
     "--output",
     "output_path",
@@ -483,6 +488,7 @@ def dose(
     rois,
     teff,
     output_path,
+    resample,
 ):
     """Compute absorbed doses for specified regions of interest (ROI)."""
     from radot.dose import compute_roi_dose_file
@@ -517,6 +523,7 @@ def dose(
             rois=rois_list,
             teff_params=teff_dict,
             output_path=output_path,
+            resample_target=resample,
         )
     except Exception as e:
         raise click.ClickException(str(e))
