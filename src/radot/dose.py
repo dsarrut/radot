@@ -153,26 +153,16 @@ def compute_dose_hanscheid2017(
 DOSIMETRY_METHODS = {"hanscheid2017": compute_dose_hanscheid2017}
 
 
-def compute_roi_dose(
-    image: sitk.Image,
-    labels: sitk.Image,
+def check_dosimetry_inputs(
     method: str,
     isotope: str,
-    rois: Optional[List[str]] = None,
-    ct_image: Optional[sitk.Image] = None,
-    total_activity_mbq: Optional[float] = None,
-    method_params: Optional[Dict[str, Any]] = None,
-    image_path: Optional[Path] = None,
     labels_path: Optional[Path] = None,
-) -> dict:
+    rois: Optional[List[str]] = None,
+) -> Dict[int, str]:
     """
-    Computes average/voxel absorbed doses for specified regions of interest.
+    Perform fast-fail boundary checks (method, isotope, ROI typos) before loading heavy images.
+    Returns the loaded labels map.
     """
-    from radot.stats import has_same_grid
-    from radot.convert import convert_image_units
-    from radot.meta import get_metadata_case_insensitive
-
-    # 1. Fast-Fail Boundary Checks
     method_key = method.lower()
     if method_key not in DOSIMETRY_METHODS:
         raise ValueError(
@@ -202,6 +192,39 @@ def compute_roi_dose(
                 raise ValueError(
                     f"Requested ROI(s) {invalid_rois} not found in the label mapping sidecar."
                 )
+
+    return labels_map
+
+
+def compute_roi_dose(
+    image: sitk.Image,
+    labels: sitk.Image,
+    method: str,
+    isotope: str,
+    rois: Optional[List[str]] = None,
+    ct_image: Optional[sitk.Image] = None,
+    total_activity_mbq: Optional[float] = None,
+    method_params: Optional[Dict[str, Any]] = None,
+    image_path: Optional[Path] = None,
+    labels_path: Optional[Path] = None,
+    labels_map: Optional[Dict[int, str]] = None,
+) -> dict:
+    """
+    Computes average/voxel absorbed doses for specified regions of interest.
+    """
+    from radot.stats import has_same_grid
+    from radot.convert import convert_image_units
+    from radot.meta import get_metadata_case_insensitive
+
+    # 1. Fast-Fail Boundary Checks
+    method_key = method.lower()
+    if labels_map is None:
+        labels_map = check_dosimetry_inputs(
+            method=method,
+            isotope=isotope,
+            labels_path=labels_path,
+            rois=rois,
+        )
 
     # 2. Strict Grid Validation
     if not has_same_grid(image, labels):
@@ -279,6 +302,17 @@ def compute_roi_dose_file(
     """
     File interface to compute ROI dose and print/save the results.
     """
+    # 1. Fast boundary/input checks before reading heavy images
+    labels_map = check_dosimetry_inputs(
+        method=method,
+        isotope=isotope,
+        labels_path=labels_path,
+        rois=rois,
+    )
+
+    if resample_target == "like_ct" and not ct_path:
+        raise ValueError("Cannot resample like CT image because companion CT path was not provided.")
+
     if not image_path.exists():
         raise FileNotFoundError(f"Activity image not found: {image_path}")
     if not labels_path.exists():
@@ -316,8 +350,6 @@ def compute_roi_dose_file(
             if ct_image is not None:
                 ct_image = resample_image(ct_image, image_type="ct", preserve_total=False, gaussian=True, reference_image=labels)
         elif resample_target == "like_ct":
-            if ct_image is None:
-                raise ValueError("Cannot resample like CT image because companion CT path was not provided.")
             image = resample_image(image, image_type=modality.lower(), preserve_total=preserve_total, gaussian=True, reference_image=ct_image)
             labels = resample_image(labels, image_type="labels", reference_image=ct_image)
         else:
