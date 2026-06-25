@@ -1,5 +1,6 @@
 import json
 import re
+import gzip
 import importlib.resources
 import icrp107_database
 from typing import Dict, Any, Optional
@@ -163,9 +164,14 @@ def _load_s_values(phantom: str, isotope: str) -> Dict[str, Dict[str, float]]:
     if key not in _s_values_cache:
         try:
             p_dir = importlib.resources.files("radot").joinpath("data").joinpath("opendose").joinpath(phantom)
-            s_file = p_dir.joinpath(f"{isotope}.json")
-            with s_file.open("r", encoding="utf-8") as f:
-                _s_values_cache[key] = json.load(f)
+            s_file_gz = p_dir.joinpath(f"{isotope}.json.gz")
+            s_file_json = p_dir.joinpath(f"{isotope}.json")
+            if s_file_gz.exists():
+                with gzip.open(s_file_gz, "rt", encoding="utf-8") as f:
+                    _s_values_cache[key] = json.load(f)
+            else:
+                with s_file_json.open("r", encoding="utf-8") as f:
+                    _s_values_cache[key] = json.load(f)
         except Exception as e:
             raise FileNotFoundError(f"RADOT Database: Failed S-value matrix file for '{isotope}' on '{phantom}': {e}")
     return _s_values_cache[key]
@@ -446,7 +452,7 @@ def download_opendose_data(phantom: str, isotope: Optional[str] = None, group: O
                         "Spleen": 7.0e-8
                     }
                 }
-            with open(dest_dir / f"{norm_iso}.json", "w", encoding="utf-8") as f:
+            with gzip.open(dest_dir / f"{norm_iso}.json.gz", "wt", encoding="utf-8") as f:
                 json.dump(s_matrix, f, indent=4)
         print(f"Created offline mock database under: {dest_dir}")
         return
@@ -461,12 +467,8 @@ def download_opendose_data(phantom: str, isotope: Optional[str] = None, group: O
     
     for iso_name in isotopes_to_download:
         norm_iso = normalize_isotope(iso_name)
-        target_file = dest_dir / f"{norm_iso}.json"
+        target_file = dest_dir / f"{norm_iso}.json.gz"
         
-        if target_file.exists() and not force:
-            print(f"RADOT: S-value file for '{iso_name}' already exists locally. Use --force to overwrite.")
-            continue
-            
         isotope_opt_text = None
         for opt_text in isotopes_map.values():
             if normalize_isotope(opt_text) == norm_iso:
@@ -480,11 +482,36 @@ def download_opendose_data(phantom: str, isotope: Optional[str] = None, group: O
         s_matrix = {}
         masses = {}
         
+        # Load existing data if file exists and we are not forcing a clean overwrite
+        if target_file.exists() and not force:
+            try:
+                with gzip.open(target_file, "rt", encoding="utf-8") as f:
+                    s_matrix = json.load(f)
+            except Exception:
+                pass
+                
+        masses_file = dest_dir / "masses.json"
+        if masses_file.exists() and not force:
+            try:
+                with open(masses_file, "r", encoding="utf-8") as f:
+                    masses = json.load(f)
+            except Exception:
+                pass
+                
+        # If the file is already complete (has all source organs) and not forcing, we can skip
+        if target_file.exists() and not force and len(s_matrix) >= len(source_organs):
+            print(f"RADOT: S-value file for '{iso_name}' is already complete. Use --force to overwrite.")
+            continue
+            
         for src_name in source_organs.values():
+            if not force and src_name in s_matrix and s_matrix[src_name]:
+                # Skip fetching if organ data already exists
+                continue
+                
             print(f"RADOT: Fetching S-values for source organ: {src_name}...")
             
             phantom_part = urllib.parse.quote(phantom_url_name)
-            source_part = urllib.parse.quote(src_name)
+            source_part = urllib.parse.quote(src_name).replace("/", "%252F")
             isotope_part = urllib.parse.quote(isotope_opt_text)
             
             if not base_url.endswith("/"):
@@ -507,7 +534,7 @@ def download_opendose_data(phantom: str, isotope: Optional[str] = None, group: O
             tbl_parser.feed(res_html)
             
             if not tbl_parser.rows:
-                print(f"RADOT Warning: No S-value data parsed for source '{src_name}'.")
+                print(f"RADOT: No S-value data parsed for source '{src_name}' (skipping).")
                 continue
                 
             s_matrix[src_name] = {}
@@ -522,12 +549,13 @@ def download_opendose_data(phantom: str, isotope: Optional[str] = None, group: O
                     except ValueError:
                         continue
                         
-        if masses:
-            with open(dest_dir / "masses.json", "w", encoding="utf-8") as f:
-                json.dump(masses, f, indent=4)
-                
-        if s_matrix:
-            with open(target_file, "w", encoding="utf-8") as f:
-                json.dump(s_matrix, f, indent=4)
-            print(f"RADOT: Successfully saved OpenDose S-values for '{iso_name}' to: {target_file}")
+            # Save incrementally after each organ is fetched to prevent data loss on interruption
+            if masses:
+                with open(masses_file, "w", encoding="utf-8") as f:
+                    json.dump(masses, f, indent=4)
+            if s_matrix:
+                with gzip.open(target_file, "wt", encoding="utf-8") as f:
+                    json.dump(s_matrix, f, indent=4)
+                    
+        print(f"RADOT: Successfully saved OpenDose S-values for '{iso_name}' to: {target_file}")
 

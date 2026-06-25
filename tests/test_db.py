@@ -7,6 +7,91 @@ from radot.db import (
     get_reference_mass,
     get_s_value
 )
+@pytest.fixture(autouse=True)
+def mock_db_data(monkeypatch):
+    def mock_load_masses(phantom):
+        if phantom == "icrp_110_male":
+            return {
+                "Left kidney": 152.983,
+                "Right kidney": 157.011,
+                "Liver": 1799.776,
+                "Spleen": 149.968
+            }
+        else:
+            return {
+                "Left kidney": 149.483,
+                "Right kidney": 125.530,
+                "Liver": 1399.995,
+                "Spleen": 129.996
+            }
+            
+    def mock_load_s_values(phantom, isotope):
+        if isotope == "lu177":
+            if phantom == "icrp_110_male":
+                return {
+                    "Left kidney": {
+                        "Left kidney": 1.3499e-7,
+                        "Right kidney": 9.0850e-8,
+                        "Liver": 8.6622e-8,
+                        "Spleen": 4.2378e-7
+                    },
+                    "Liver": {
+                        "Left kidney": 9.1512e-8,
+                        "Right kidney": 3.3894e-7,
+                        "Liver": 1.7533e-5,
+                        "Spleen": 7.6519e-8
+                    }
+                }
+            else:
+                return {
+                    "Left kidney": {
+                        "Left kidney": 1.6034e-4,
+                        "Right kidney": 9.0396e-8,
+                        "Liver": 8.6437e-8,
+                        "Spleen": 4.2378e-7
+                    },
+                    "Liver": {
+                        "Left kidney": 9.1512e-8,
+                        "Right kidney": 3.0825e-7,
+                        "Liver": 1.7533e-5,
+                        "Spleen": 7.6519e-8
+                    }
+                }
+        elif isotope == "y90":
+            if phantom == "icrp_110_male":
+                return {
+                    "Left kidney": {
+                        "Left kidney": 5.1234e-6,
+                        "Right kidney": 2.1234e-7,
+                        "Liver": 1.9876e-7,
+                        "Spleen": 1.1122e-6
+                    },
+                    "Liver": {
+                        "Left kidney": 2.1122e-7,
+                        "Right kidney": 8.9876e-7,
+                        "Liver": 6.1234e-5,
+                        "Spleen": 2.1234e-7
+                    }
+                }
+            else:
+                return {
+                    "Left kidney": {
+                        "Left kidney": 5.9876e-6,
+                        "Right kidney": 2.9876e-7,
+                        "Liver": 2.1234e-7,
+                        "Spleen": 1.2345e-6
+                    },
+                    "Liver": {
+                        "Left kidney": 2.1234e-7,
+                        "Right kidney": 9.1234e-7,
+                        "Liver": 6.9876e-5,
+                        "Spleen": 2.9876e-7
+                    }
+                }
+        return {}
+        
+    monkeypatch.setattr("radot.db._load_masses", mock_load_masses)
+    monkeypatch.setattr("radot.db._load_s_values", mock_load_s_values)
 
 def test_get_physical_half_life():
     # Test standard known isotopes
