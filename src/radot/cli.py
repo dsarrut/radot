@@ -542,11 +542,6 @@ def dose(
     help="Radionuclide name (e.g. Lu177, y-90).",
 )
 @click.option(
-    "--group",
-    type=click.Choice(["core"], case_sensitive=False),
-    help="Download a pre-curated group of clinically common therapeutic/diagnostic isotopes.",
-)
-@click.option(
     "--force",
     is_flag=True,
     help="Force overwrite existing local S-value and mass JSON files.",
@@ -560,7 +555,7 @@ def dose(
     "--upload-dest",
     help="SCP destination path (e.g. user@server:public_html/radot/opendose).",
 )
-def opendose(model, radionuclide, group, force, upload, upload_dest):
+def opendose(model, radionuclide, force, upload, upload_dest):
     """Download and maintain OpenDose reference masses and S-values."""
     if upload:
         if not upload_dest:
@@ -594,8 +589,8 @@ def opendose(model, radionuclide, group, force, upload, upload_dest):
     # Normal downloading validation
     if not model:
         raise click.UsageError("Missing option '-m' / '--model'.")
-    if not radionuclide and not group:
-        raise click.UsageError("Either --radionuclide (-r) or --group <group> is required.")
+    if not radionuclide:
+        raise click.UsageError("Missing option '-r' / '--radionuclide'.")
 
     from radot.db import download_opendose_data
 
@@ -603,7 +598,6 @@ def opendose(model, radionuclide, group, force, upload, upload_dest):
         download_opendose_data(
             phantom=model,
             isotope=radionuclide,
-            group=group.lower() if group else None,
             force=force,
         )
     except Exception as e:

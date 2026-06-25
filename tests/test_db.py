@@ -174,15 +174,10 @@ def test_cli_opendose(monkeypatch):
     assert result.exit_code == 0
     assert "icrp_110_male" in result.output
     
-    # Test group core download
-    result = runner.invoke(main, ["opendose", "-m", "AF", "--group", "core", "--force"])
-    assert result.exit_code == 0
-    assert "icrp_110_female" in result.output
-    
     # Test error cases
     result = runner.invoke(main, ["opendose", "-m", "AM"])
     assert result.exit_code != 0
-    assert "Either --radionuclide (-r) or --group <group> is required" in result.output
+    assert "Missing option '-r' / '--radionuclide'" in result.output
 
     # Test upload error case (missing destination)
     result = runner.invoke(main, ["opendose", "--upload"])

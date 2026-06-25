@@ -365,7 +365,7 @@ class TableParser(HTMLParser):
         if self.in_cell:
             self.current_cell_data.append(data)
 
-def download_opendose_data(phantom: str, isotope: Optional[str] = None, group: Optional[str] = None, force: bool = False) -> None:
+def download_opendose_data(phantom: str, isotope: Optional[str] = None, force: bool = False) -> None:
     """
     Downloads S-values and target organ reference masses from OpenDose registry.
     Saves S-value matrix as <isotope>.json and masses as masses.json.
@@ -378,9 +378,7 @@ def download_opendose_data(phantom: str, isotope: Optional[str] = None, group: O
         phantom_url_name = "ICRP_110_AF"
         
     isotopes_to_download = []
-    if group == "core":
-        isotopes_to_download = ["lu-177", "y-90", "i-131", "ac-225", "ra-223", "ga-68", "f-18"]
-    elif isotope:
+    if isotope:
         isotopes_to_download = [isotope]
         
     dest_dir = Path(str(importlib.resources.files("radot").joinpath("data").joinpath("opendose").joinpath(norm_phantom)))
