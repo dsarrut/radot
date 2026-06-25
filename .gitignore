@@ -13,3 +13,4 @@ activate_*
 .vscode
 src/radot/data/opendose/**/*.json.gz
 src/radot/data/opendose/**/*.json
+!src/radot/data/opendose/**/masses.json
