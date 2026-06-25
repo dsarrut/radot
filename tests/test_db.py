@@ -244,6 +244,19 @@ def test_cli_opendose_status():
     assert "Local OpenDose Database Inventory:" in result.output
     assert "Total space used:" in result.output
 
+    # Test printing downloaded values for a given model and radionuclide
+    result = runner.invoke(main, ["opendose", "list", "-m", "AM", "-r", "lu177"])
+    assert result.exit_code == 0
+    assert "S-values for Phantom: icrp_110_male, Radionuclide: lu177" in result.output
+    assert "Left kidney" in result.output
+
+    # Test printing reference masses for a model
+    result = runner.invoke(main, ["opendose", "list", "-m", "AM"])
+    assert result.exit_code == 0
+    assert "Reference Masses for Phantom: icrp_110_male" in result.output
+    assert "Left kidney" in result.output
+
+
 
 
 

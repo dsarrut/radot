@@ -609,13 +609,92 @@ def opendose(ctx, model, radionuclide, force, upload, upload_dest):
 
 
 @opendose.command(name="status")
-def opendose_status():
-    """List local OpenDose database inventory."""
+@click.option(
+    "-m",
+    "--model",
+    help="Phantom model shortcut (AM, AF, male, female, icrp_110_male, icrp_110_female).",
+)
+@click.option(
+    "-r",
+    "--radionuclide",
+    help="Radionuclide name (e.g. Lu177, y-90).",
+)
+def opendose_status(model, radionuclide):
+    """List local OpenDose database inventory or print downloaded values."""
     import importlib.resources
     from pathlib import Path
+    import json
+    import gzip
+    from radot.db import normalize_phantom, normalize_isotope
 
     db_dir = importlib.resources.files("radot").joinpath("data").joinpath("opendose")
     db_path = Path(str(db_dir))
+
+    # If model is provided, check if we just want to print details of that model/radionuclide
+    if model:
+        try:
+            norm_phantom = normalize_phantom(model)
+        except ValueError as e:
+            raise click.ClickException(str(e))
+
+        phantom_path = db_path / norm_phantom
+        if not phantom_path.exists():
+            click.echo(f"Phantom '{norm_phantom}' is not downloaded/present locally.")
+            return
+
+        if radionuclide:
+            norm_iso = normalize_isotope(radionuclide)
+            file_gz = phantom_path / f"{norm_iso}.json.gz"
+            file_json = phantom_path / f"{norm_iso}.json"
+            
+            target_file = None
+            if file_gz.exists():
+                target_file = file_gz
+            elif file_json.exists():
+                target_file = file_json
+                
+            if not target_file:
+                click.echo(f"S-value matrix for isotope '{norm_iso}' under phantom '{norm_phantom}' is not downloaded/present locally.")
+                return
+                
+            try:
+                if target_file.suffix == ".gz":
+                    with gzip.open(target_file, "rt", encoding="utf-8") as f:
+                        s_matrix = json.load(f)
+                else:
+                    with open(target_file, "r", encoding="utf-8") as f:
+                        s_matrix = json.load(f)
+            except Exception as e:
+                raise click.ClickException(f"Failed to read S-value matrix: {e}")
+                
+            click.echo(f"S-values for Phantom: {norm_phantom}, Radionuclide: {norm_iso} (Path: {target_file})")
+            click.echo(f"{'Source Organ':<25} {'Target Organ':<25} {'S-value (mGy/MBq.s)':<20}")
+            click.echo("-" * 72)
+            for src, targets in sorted(s_matrix.items()):
+                for tgt, val in sorted(targets.items()):
+                    click.echo(f"{src:<25} {tgt:<25} {val:<20.4e}")
+            return
+        else:
+            masses_file = phantom_path / "masses.json"
+            if not masses_file.exists():
+                click.echo(f"Reference masses for phantom '{norm_phantom}' are not downloaded/present locally.")
+                return
+                
+            try:
+                with open(masses_file, "r", encoding="utf-8") as f:
+                    masses = json.load(f)
+            except Exception as e:
+                raise click.ClickException(f"Failed to read masses: {e}")
+                
+            click.echo(f"Reference Masses for Phantom: {norm_phantom} (Path: {masses_file})")
+            click.echo(f"{'Organ':<30} {'Mass (g)':<15}")
+            click.echo("-" * 45)
+            for organ, mass in sorted(masses.items()):
+                click.echo(f"{organ:<30} {mass:<15.3f}")
+            return
+
+    if radionuclide and not model:
+        raise click.UsageError("Missing option '-m' / '--model' when using '-r' / '--radionuclide'.")
 
     # Print header
     click.echo("Local OpenDose Database Inventory:")
@@ -695,6 +774,23 @@ def opendose_status():
         space_str = f"{total_bytes} B"
 
     click.echo(f"\nTotal space used: {space_str} ({radionuclide_count} Radionuclides, {phantom_count} Phantoms)")
+
+
+@opendose.command(name="list")
+@click.option(
+    "-m",
+    "--model",
+    help="Phantom model shortcut (AM, AF, male, female, icrp_110_male, icrp_110_female).",
+)
+@click.option(
+    "-r",
+    "--radionuclide",
+    help="Radionuclide name (e.g. Lu177, y-90).",
+)
+@click.pass_context
+def opendose_list(ctx, model, radionuclide):
+    """List local OpenDose database inventory or print downloaded values."""
+    ctx.forward(opendose_status)
 
 
 if __name__ == "__main__":
