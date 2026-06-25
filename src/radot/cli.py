@@ -530,7 +530,7 @@ def dose(
 
 
 #### OPENDOSE DATA MAINTENANCE ####
-@main.command(name="opendose")
+@main.group(name="opendose", invoke_without_command=True)
 @click.option(
     "-m",
     "--model",
@@ -555,8 +555,12 @@ def dose(
     "--upload-dest",
     help="SCP destination path (e.g. user@server:public_html/radot/opendose).",
 )
-def opendose(model, radionuclide, force, upload, upload_dest):
+@click.pass_context
+def opendose(ctx, model, radionuclide, force, upload, upload_dest):
     """Download and maintain OpenDose reference masses and S-values."""
+    if ctx.invoked_subcommand is not None:
+        return
+
     if upload:
         if not upload_dest:
             raise click.UsageError("Destination path (--upload-dest) is required when using --upload.")
@@ -602,6 +606,95 @@ def opendose(model, radionuclide, force, upload, upload_dest):
         )
     except Exception as e:
         raise click.ClickException(str(e))
+
+
+@opendose.command(name="status")
+def opendose_status():
+    """List local OpenDose database inventory."""
+    import importlib.resources
+    from pathlib import Path
+
+    db_dir = importlib.resources.files("radot").joinpath("data").joinpath("opendose")
+    db_path = Path(str(db_dir))
+
+    # Print header
+    click.echo("Local OpenDose Database Inventory:")
+    click.echo(f"Path: {db_path}\n")
+
+    if not db_path.exists():
+        click.echo("Total space used: 0 B (0 Radionuclides, 0 Phantoms)")
+        return
+
+    # Find phantoms (subdirectories)
+    phantoms = sorted([p for p in db_path.iterdir() if p.is_dir() and not p.name.startswith(".")])
+
+    total_bytes = 0
+    phantom_count = 0
+    radionuclide_count = 0
+
+    for i, phantom in enumerate(phantoms):
+        is_last_phantom = (i == len(phantoms) - 1)
+        phantom_prefix = "└── " if is_last_phantom else "├── "
+        click.echo(f"{phantom_prefix}{phantom.name}/")
+        
+        # Find files in phantom
+        files = sorted([f for f in phantom.iterdir() if f.is_file() and not f.name.startswith(".")])
+        # Filter to only masses.json and S-value matrices
+        files = [f for f in files if f.name == "masses.json" or f.name.endswith(".json.gz") or f.name.endswith(".json")]
+        
+        file_indent = "    " if is_last_phantom else "│   "
+        
+        phantom_has_files = False
+        for j, file in enumerate(files):
+            is_last_file = (j == len(files) - 1)
+            file_prefix = "└── " if is_last_file else "├── "
+            
+            # Read details of the file
+            details = ""
+            try:
+                if file.name == "masses.json":
+                    import json
+                    with open(file, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    details = f" ({len(data)} organs)"
+                elif file.name.endswith(".json.gz"):
+                    import gzip
+                    import json
+                    with gzip.open(file, "rt", encoding="utf-8") as f:
+                        data = json.load(f)
+                    num_sources = len(data)
+                    num_svalues = sum(len(v) for v in data.values())
+                    details = f" ({num_sources} source organs, {num_svalues} S-values)"
+                elif file.name.endswith(".json"):
+                    import json
+                    with open(file, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    num_sources = len(data)
+                    num_svalues = sum(len(v) for v in data.values())
+                    details = f" ({num_sources} source organs, {num_svalues} S-values)"
+            except Exception as e:
+                details = f" (error: {e})"
+                
+            click.echo(f"{file_indent}{file_prefix}[OK] {file.name}{details}")
+            
+            # Track statistics
+            total_bytes += file.stat().st_size
+            if file.name != "masses.json":
+                radionuclide_count += 1
+            phantom_has_files = True
+            
+        if phantom_has_files:
+            phantom_count += 1
+
+    # Format space used
+    if total_bytes >= 1024 * 1024:
+        space_str = f"{total_bytes / (1024 * 1024):.1f} MB"
+    elif total_bytes >= 1024:
+        space_str = f"{total_bytes / 1024:.1f} KB"
+    else:
+        space_str = f"{total_bytes} B"
+
+    click.echo(f"\nTotal space used: {space_str} ({radionuclide_count} Radionuclides, {phantom_count} Phantoms)")
 
 
 if __name__ == "__main__":

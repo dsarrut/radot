@@ -234,5 +234,16 @@ def test_ondemand_downloader(monkeypatch, tmp_path):
     assert len(requested_urls) == 1
     assert requested_urls[0] == f"{DEFAULT_DATABASE_URL}icrp_110_male/masses.json"
 
+def test_cli_opendose_status():
+    from click.testing import CliRunner
+    from radot.cli import main
+    
+    runner = CliRunner()
+    result = runner.invoke(main, ["opendose", "status"])
+    assert result.exit_code == 0
+    assert "Local OpenDose Database Inventory:" in result.output
+    assert "Total space used:" in result.output
+
+
 
 
