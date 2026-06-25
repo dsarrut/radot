@@ -261,7 +261,7 @@ def test_dicom_list_grouping(tmp_path):
     writer.SetFileName(str(dir_group_ct / "slice_1.dcm"))
     writer.Execute(slice_ct)
 
-    # 3. Grouped PET series 1 (Study = "1.2.3", Frame = "shared_frame_1", date 20260625 080100)
+    # 3. Grouped PET series 1 (Study = "1.2.3", Frame = "shared_frame_1", date 20260625 080100, recon date 20260625 090500)
     slice_pet1 = sitk.Image([5, 5], sitk.sitkInt16)
     slice_pet1.SetMetaData("0008|0060", "PT")
     slice_pet1.SetMetaData("0020|000d", "1.2.3")
@@ -269,11 +269,13 @@ def test_dicom_list_grouping(tmp_path):
     slice_pet1.SetMetaData("0020|0013", "1")
     slice_pet1.SetMetaData("0008|0021", "20260625")
     slice_pet1.SetMetaData("0008|0031", "080100.000000")
+    slice_pet1.SetMetaData("0008|0012", "20260625")
+    slice_pet1.SetMetaData("0008|0013", "090500.000000")
     slice_pet1.SetMetaData("0020|0052", "shared_frame_1")
     writer.SetFileName(str(dir_group_pet1 / "slice_1.dcm"))
     writer.Execute(slice_pet1)
 
-    # 4. Grouped PET series 2 (Study = "1.2.3", Frame = "shared_frame_1", date 20260625 080200)
+    # 4. Grouped PET series 2 (Study = "1.2.3", Frame = "shared_frame_1", date 20260625 080200, recon date 20260625 090100)
     slice_pet2 = sitk.Image([5, 5], sitk.sitkInt16)
     slice_pet2.SetMetaData("0008|0060", "PT")
     slice_pet2.SetMetaData("0020|000d", "1.2.3")
@@ -281,6 +283,8 @@ def test_dicom_list_grouping(tmp_path):
     slice_pet2.SetMetaData("0020|0013", "1")
     slice_pet2.SetMetaData("0008|0021", "20260625")
     slice_pet2.SetMetaData("0008|0031", "080200.000000")
+    slice_pet2.SetMetaData("0008|0012", "20260625")
+    slice_pet2.SetMetaData("0008|0013", "090100.000000")
     slice_pet2.SetMetaData("0020|0052", "shared_frame_1")
     writer.SetFileName(str(dir_group_pet2 / "slice_1.dcm"))
     writer.Execute(slice_pet2)
@@ -313,6 +317,12 @@ def test_dicom_list_grouping(tmp_path):
     # Subsequent series in group (PET 1, PET 2) are indented
     assert line_pet1.startswith("  2026-06-25 08:01:00")
     assert line_pet2.startswith("  2026-06-25 08:02:00")
+
+    # Check that sorting is by reconstruction date (PET 2 before PET 1)
+    idx_ct = output.index("2026-06-25 08:00:00")
+    idx_pet2 = output.index("2026-06-25 08:02:00")
+    idx_pet1 = output.index("2026-06-25 08:01:00")
+    assert idx_ct < idx_pet2 < idx_pet1
 
 
 

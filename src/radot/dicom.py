@@ -326,6 +326,9 @@ def list_dicom_series(folder_path: Path) -> None:
                         study_uid = get_tag("0020|000d") or "UnknownStudy"
                         frame_of_ref = get_tag("0020|0052")
 
+                        inst_creation_date = get_tag("0008|0012")
+                        inst_creation_time = get_tag("0008|0013")
+
                         best_dt = None
                         if acq_datetime:
                             best_dt = parse_datetime(acq_datetime)
@@ -338,6 +341,8 @@ def list_dicom_series(folder_path: Path) -> None:
                         
                         if not best_dt:
                             best_dt = "(no date)"
+
+                        recon_dt = combine_date_time(inst_creation_date, inst_creation_time) or best_dt
 
                         dim = reader.GetDimension()
                         size = reader.GetSize()
@@ -379,6 +384,7 @@ def list_dicom_series(folder_path: Path) -> None:
 
                         series_list.append({
                             "datetime": best_dt,
+                            "recon_datetime": recon_dt,
                             "modality": modality_str,
                             "patient_id": patient_id,
                             "slices": slices,
@@ -397,29 +403,31 @@ def list_dicom_series(folder_path: Path) -> None:
         print("No DICOM series found.")
         return
 
-    # Identify groups by (study_uid, frame_of_ref)
+    # Identify groups by (study_uid, frame_of_ref, date)
     from collections import defaultdict
     group_counts = defaultdict(int)
     for s in series_list:
         study_uid = s["study_uid"]
         ref = s["frame_of_ref"]
+        day = s["datetime"][:10] if len(s["datetime"]) >= 10 else s["datetime"]
         if ref:
-            group_counts[(study_uid, ref)] += 1
+            group_counts[(study_uid, ref, day)] += 1
 
     groups = defaultdict(list)
     single_series = []
     for s in series_list:
         study_uid = s["study_uid"]
         ref = s["frame_of_ref"]
-        if ref and group_counts[(study_uid, ref)] > 1:
-            groups[(study_uid, ref)].append(s)
+        day = s["datetime"][:10] if len(s["datetime"]) >= 10 else s["datetime"]
+        if ref and group_counts[(study_uid, ref, day)] > 1:
+            groups[(study_uid, ref, day)].append(s)
         else:
             single_series.append(s)
 
     blocks = []
     for key, group in groups.items():
-        # Sort internally within the group
-        group.sort(key=lambda x: (x["datetime"], x["description"], x["modality"]))
+        # Sort internally within the group by reconstruction date/time, then description/modality
+        group.sort(key=lambda x: (x["recon_datetime"], x["datetime"], x["description"], x["modality"]))
         # Only indent subsequent series in the group (the first one is the group head and not indented)
         group[0]["indented"] = False
         for s in group[1:]:
