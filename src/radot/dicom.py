@@ -323,6 +323,9 @@ def list_dicom_series(folder_path: Path) -> None:
                         acq_time = get_tag("0008|0032")
                         acq_datetime = get_tag("0008|002a")
 
+                        study_uid = get_tag("0020|000d") or "UnknownStudy"
+                        frame_of_ref = get_tag("0020|0052")
+
                         best_dt = None
                         if acq_datetime:
                             best_dt = parse_datetime(acq_datetime)
@@ -358,7 +361,7 @@ def list_dicom_series(folder_path: Path) -> None:
                         if image_type_raw:
                             parts = [p.strip().upper() for p in image_type_raw.replace("\\", "/").replace(",", "/").split("/")]
                             if "TOMO" in parts and not any("RECON" in p for p in parts):
-                                is_sinogram = True
+                                    is_sinogram = True
                             elif "PROJECTION" in parts or "SINOGRAM" in parts:
                                 is_sinogram = True
                         
@@ -381,25 +384,70 @@ def list_dicom_series(folder_path: Path) -> None:
                             "slices": slices,
                             "description": series_desc,
                             "folder": folder_str,
-                            "uid": sid
+                            "uid": sid,
+                            "study_uid": study_uid,
+                            "frame_of_ref": frame_of_ref
                         })
                     except Exception:
                         continue
     finally:
         sitk.ProcessObject.SetGlobalWarningDisplay(was_warning_on)
 
-    # Sort by date (ascending)
-    series_list.sort(key=lambda x: x["datetime"])
-
     if not series_list:
         print("No DICOM series found.")
         return
 
+    # Identify groups by (study_uid, frame_of_ref)
+    from collections import defaultdict
+    group_counts = defaultdict(int)
+    for s in series_list:
+        study_uid = s["study_uid"]
+        ref = s["frame_of_ref"]
+        if ref:
+            group_counts[(study_uid, ref)] += 1
+
+    groups = defaultdict(list)
+    single_series = []
+    for s in series_list:
+        study_uid = s["study_uid"]
+        ref = s["frame_of_ref"]
+        if ref and group_counts[(study_uid, ref)] > 1:
+            groups[(study_uid, ref)].append(s)
+        else:
+            single_series.append(s)
+
+    blocks = []
+    for key, group in groups.items():
+        # Sort internally within the group
+        group.sort(key=lambda x: (x["datetime"], x["description"], x["modality"]))
+        # Only indent subsequent series in the group (the first one is the group head and not indented)
+        group[0]["indented"] = False
+        for s in group[1:]:
+            s["indented"] = True
+        # Block datetime is the datetime of the first series (group head)
+        block_datetime = group[0]["datetime"]
+        blocks.append((block_datetime, group))
+
+    for s in single_series:
+        s["indented"] = False
+        blocks.append((s["datetime"], [s]))
+
+    # Sort blocks by representative datetime
+    blocks.sort(key=lambda x: x[0])
+
+    # Flatten back to list
+    sorted_series_list = []
+    for _, block in blocks:
+        sorted_series_list.extend(block)
+
     headers = ["Date/Time", "Modality", "Patient ID", "Slices", "Description", "Folder"]
     rows = []
-    for s in series_list:
+    for s in sorted_series_list:
+        dt_str = s["datetime"]
+        if s["indented"]:
+            dt_str = f"  {dt_str}"
         rows.append([
-            s["datetime"],
+            dt_str,
             s["modality"],
             s["patient_id"],
             str(s["slices"]),

@@ -226,6 +226,95 @@ def test_dicom_list(tmp_path):
     assert "CT" in row_a
 
 
+def test_dicom_list_grouping(tmp_path):
+    # Create subdirectories for series
+    dir_ungrouped = tmp_path / "ungrouped"
+    dir_group_ct = tmp_path / "group_ct"
+    dir_group_pet1 = tmp_path / "group_pet1"
+    dir_group_pet2 = tmp_path / "group_pet2"
+    for d in [dir_ungrouped, dir_group_ct, dir_group_pet1, dir_group_pet2]:
+        d.mkdir(parents=True)
+
+    # 1. Ungrouped CT series (different study, different frame of reference, date 20260625 070000)
+    slice_ungrouped = sitk.Image([5, 5], sitk.sitkInt16)
+    slice_ungrouped.SetMetaData("0008|0060", "CT")
+    slice_ungrouped.SetMetaData("0020|000d", "1.1")
+    slice_ungrouped.SetMetaData("0020|000e", "1.1.1")
+    slice_ungrouped.SetMetaData("0020|0013", "1")
+    slice_ungrouped.SetMetaData("0008|0021", "20260625")
+    slice_ungrouped.SetMetaData("0008|0031", "070000.000000")
+    slice_ungrouped.SetMetaData("0020|0052", "unique_frame_ref_1")
+    writer = sitk.ImageFileWriter()
+    writer.KeepOriginalImageUIDOn()
+    writer.SetFileName(str(dir_ungrouped / "slice_1.dcm"))
+    writer.Execute(slice_ungrouped)
+
+    # 2. Grouped CT series (Study = "1.2.3", Frame = "shared_frame_1", date 20260625 080000)
+    slice_ct = sitk.Image([5, 5], sitk.sitkInt16)
+    slice_ct.SetMetaData("0008|0060", "CT")
+    slice_ct.SetMetaData("0020|000d", "1.2.3")
+    slice_ct.SetMetaData("0020|000e", "1.2.3.1")
+    slice_ct.SetMetaData("0020|0013", "1")
+    slice_ct.SetMetaData("0008|0021", "20260625")
+    slice_ct.SetMetaData("0008|0031", "080000.000000")
+    slice_ct.SetMetaData("0020|0052", "shared_frame_1")
+    writer.SetFileName(str(dir_group_ct / "slice_1.dcm"))
+    writer.Execute(slice_ct)
+
+    # 3. Grouped PET series 1 (Study = "1.2.3", Frame = "shared_frame_1", date 20260625 080100)
+    slice_pet1 = sitk.Image([5, 5], sitk.sitkInt16)
+    slice_pet1.SetMetaData("0008|0060", "PT")
+    slice_pet1.SetMetaData("0020|000d", "1.2.3")
+    slice_pet1.SetMetaData("0020|000e", "1.2.3.2")
+    slice_pet1.SetMetaData("0020|0013", "1")
+    slice_pet1.SetMetaData("0008|0021", "20260625")
+    slice_pet1.SetMetaData("0008|0031", "080100.000000")
+    slice_pet1.SetMetaData("0020|0052", "shared_frame_1")
+    writer.SetFileName(str(dir_group_pet1 / "slice_1.dcm"))
+    writer.Execute(slice_pet1)
+
+    # 4. Grouped PET series 2 (Study = "1.2.3", Frame = "shared_frame_1", date 20260625 080200)
+    slice_pet2 = sitk.Image([5, 5], sitk.sitkInt16)
+    slice_pet2.SetMetaData("0008|0060", "PT")
+    slice_pet2.SetMetaData("0020|000d", "1.2.3")
+    slice_pet2.SetMetaData("0020|000e", "1.2.3.3")
+    slice_pet2.SetMetaData("0020|0013", "1")
+    slice_pet2.SetMetaData("0008|0021", "20260625")
+    slice_pet2.SetMetaData("0008|0031", "080200.000000")
+    slice_pet2.SetMetaData("0020|0052", "shared_frame_1")
+    writer.SetFileName(str(dir_group_pet2 / "slice_1.dcm"))
+    writer.Execute(slice_pet2)
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["dicom-list", str(tmp_path)])
+    assert result.exit_code == 0
+
+    output = result.output
+    # Check the lines of output (split by newline and find corresponding rows)
+    lines = [l.strip() for l in output.split("\n") if l.strip()]
+
+    # Find the rows for each series
+    row_ungrouped = [l for l in lines if "2026-06-25 07:00:00" in l][0]
+    row_ct = [l for l in lines if "2026-06-25 08:00:00" in l][0]
+    row_pet1 = [l for l in lines if "2026-06-25 08:01:00" in l][0]
+    row_pet2 = [l for l in lines if "2026-06-25 08:02:00" in l][0]
+
+    # Verify that the ungrouped row has NO indentation (it starts with the date directly, stripped of spaces)
+    raw_lines = [l for l in output.split("\n") if l.strip()]
+    
+    line_ungrouped = [l for l in raw_lines if "2026-06-25 07:00:00" in l][0]
+    line_ct = [l for l in raw_lines if "2026-06-25 08:00:00" in l][0]
+    line_pet1 = [l for l in raw_lines if "2026-06-25 08:01:00" in l][0]
+    line_pet2 = [l for l in raw_lines if "2026-06-25 08:02:00" in l][0]
+
+    # First series in group (CT, earliest datetime) is NOT indented
+    assert line_ungrouped.startswith("2026-06-25 07:00:00")
+    assert line_ct.startswith("2026-06-25 08:00:00")
+    # Subsequent series in group (PET 1, PET 2) are indented
+    assert line_pet1.startswith("  2026-06-25 08:01:00")
+    assert line_pet2.startswith("  2026-06-25 08:02:00")
+
+
 
 
 
