@@ -163,7 +163,7 @@ def test_db_errors():
     with pytest.raises(ValueError, match="not found in S-value matrix"):
         get_s_value("male", "lu177", "left_kidney", "non_existent_organ")
 
-def test_cli_opendose():
+def test_cli_opendose(monkeypatch):
     from click.testing import CliRunner
     from radot.cli import main
     
@@ -183,5 +183,61 @@ def test_cli_opendose():
     result = runner.invoke(main, ["opendose", "-m", "AM"])
     assert result.exit_code != 0
     assert "Either --radionuclide (-r) or --group <group> is required" in result.output
+
+    # Test upload error case (missing destination)
+    result = runner.invoke(main, ["opendose", "--upload"])
+    assert result.exit_code != 0
+    assert "Destination path (--upload-dest) is required" in result.output
+
+    # Test upload success case (mocking subprocess.run)
+    import subprocess
+    def mock_run(cmd, check=True):
+        assert cmd[0] == "scp"
+        assert cmd[1] == "-r"
+        # Since it lists all subfolders of opendose, verify the destination is the last argument
+        assert cmd[-1] == "user@server:path"
+        return
+    monkeypatch.setattr(subprocess, "run", mock_run)
+    result = runner.invoke(main, ["opendose", "--upload", "--upload-dest", "user@server://path"])
+    assert result.exit_code == 0
+    assert "Uploading local database contents using" in result.output
+
+def test_ondemand_downloader(monkeypatch, tmp_path):
+    import urllib.request
+    from radot.db import _ensure_file_downloaded, DEFAULT_DATABASE_URL
+    
+    # Temporarily set packaging resource directories to a temporary test directory
+    import importlib.resources
+    def mock_files(package):
+        class MockTraversable:
+            def joinpath(self, *parts):
+                path = tmp_path
+                for p in parts:
+                    path = path / p
+                return path
+        return MockTraversable()
+    monkeypatch.setattr(importlib.resources, "files", mock_files)
+    
+    requested_urls = []
+    def mock_urlopen(req, timeout=None):
+        requested_urls.append(req.full_url)
+        class MockResponse:
+            def read(self):
+                return b'{"mock_key": 12.3}'
+            def __enter__(self):
+                return self
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                pass
+        return MockResponse()
+    monkeypatch.setattr(urllib.request, "urlopen", mock_urlopen)
+    
+    # Trigger on-demand download of masses.json
+    local_file = _ensure_file_downloaded("icrp_110_male", "masses.json")
+    
+    assert local_file.name == "masses.json"
+    assert local_file.exists()
+    assert len(requested_urls) == 1
+    assert requested_urls[0] == f"{DEFAULT_DATABASE_URL}icrp_110_male/masses.json"
+
 
 

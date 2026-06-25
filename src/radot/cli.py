@@ -534,7 +534,6 @@ def dose(
 @click.option(
     "-m",
     "--model",
-    required=True,
     help="Phantom model shortcut (AM, AF, male, female, icrp_110_male, icrp_110_female).",
 )
 @click.option(
@@ -552,12 +551,53 @@ def dose(
     is_flag=True,
     help="Force overwrite existing local S-value and mass JSON files.",
 )
-def opendose(model, radionuclide, group, force):
+@click.option(
+    "--upload",
+    is_flag=True,
+    help="Upload local database to a remote server using SCP.",
+)
+@click.option(
+    "--upload-dest",
+    help="SCP destination path (e.g. user@server:public_html/radot/opendose).",
+)
+def opendose(model, radionuclide, group, force, upload, upload_dest):
     """Download and maintain OpenDose reference masses and S-values."""
-    from radot.db import download_opendose_data
+    if upload:
+        if not upload_dest:
+            raise click.UsageError("Destination path (--upload-dest) is required when using --upload.")
+        
+        # Normalize protocol separator if user wrote host://path instead of host:path
+        if "://" in upload_dest:
+            upload_dest = upload_dest.replace("://", ":")
+            
+        import subprocess
+        import importlib.resources
+        from pathlib import Path
+        
+        db_dir = importlib.resources.files("radot").joinpath("data").joinpath("opendose")
+        db_path = Path(str(db_dir))
+        
+        # Get all subdirectories and files inside the database folder to upload them directly
+        src_paths = [str(p) for p in db_path.iterdir() if not p.name.startswith(".")]
+        if not src_paths:
+            raise click.ClickException("No database files found to upload.")
+            
+        cmd = ["scp", "-r"] + src_paths + [upload_dest]
+        click.echo(f"RADOT: Uploading local database contents using: {' '.join(cmd)}")
+        try:
+            subprocess.run(cmd, check=True)
+            click.echo("RADOT: Database upload completed successfully!")
+        except Exception as e:
+            raise click.ClickException(f"Failed to upload database via SCP: {e}")
+        return
 
+    # Normal downloading validation
+    if not model:
+        raise click.UsageError("Missing option '-m' / '--model'.")
     if not radionuclide and not group:
         raise click.UsageError("Either --radionuclide (-r) or --group <group> is required.")
+
+    from radot.db import download_opendose_data
 
     try:
         download_opendose_data(

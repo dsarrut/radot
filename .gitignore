@@ -11,3 +11,5 @@ activate_*
 /data/
 .DS_Store
 .vscode
+src/radot/data/opendose/**/*.json.gz
+src/radot/data/opendose/**/*.json
