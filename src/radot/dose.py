@@ -176,6 +176,7 @@ def check_dosimetry_inputs(
     isotope: str,
     labels_path: Optional[Path] = None,
     rois: Optional[List[str]] = None,
+    method_params: Optional[Dict[str, Any]] = None,
 ) -> Dict[int, str]:
     """
     Perform fast-fail boundary checks (method, isotope, ROI typos) before loading heavy images.
@@ -207,14 +208,45 @@ def check_dosimetry_inputs(
             except Exception:
                 pass
 
-    if rois:
-        if labels_map:
-            known_rois = set(labels_map.values())
-            invalid_rois = [r for r in rois if r not in known_rois]
-            if invalid_rois:
-                raise ValueError(
-                    f"Requested ROI(s) {invalid_rois} not found in the label mapping sidecar."
-                )
+    if labels_map:
+        norm_to_std = {v.lower(): v for v in labels_map.values()}
+        known_rois = sorted(list(labels_map.values()))
+
+        # 1. Validate & Normalize rois in-place
+        if rois:
+            normalized_rois = []
+            for r in rois:
+                r_lower = r.lower()
+                if r_lower in norm_to_std:
+                    normalized_rois.append(norm_to_std[r_lower])
+                else:
+                    import difflib
+                    close_matches = difflib.get_close_matches(r, known_rois, n=3, cutoff=0.5)
+                    if close_matches:
+                        suggestions = " or ".join(f"'{m}'" for m in close_matches)
+                        raise ValueError(f"Requested ROI '{r}' not found. Did you mean {suggestions}?")
+                    else:
+                        raise ValueError(f"Requested ROI '{r}' not found. Available ROIs: {known_rois}")
+            rois.clear()
+            rois.extend(normalized_rois)
+
+        # 2. Validate & Normalize method_params in-place
+        if method_params:
+            normalized_params = {}
+            for r, val in method_params.items():
+                r_lower = r.lower()
+                if r_lower in norm_to_std:
+                    normalized_params[norm_to_std[r_lower]] = val
+                else:
+                    import difflib
+                    close_matches = difflib.get_close_matches(r, known_rois, n=3, cutoff=0.5)
+                    if close_matches:
+                        suggestions = " or ".join(f"'{m}'" for m in close_matches)
+                        raise ValueError(f"Teff ROI '{r}' not found. Did you mean {suggestions}?")
+                    else:
+                        raise ValueError(f"Teff ROI '{r}' not found. Available ROIs: {known_rois}")
+            method_params.clear()
+            method_params.update(normalized_params)
 
     return labels_map
 
@@ -248,6 +280,7 @@ def compute_roi_dose(
             isotope=isotope,
             labels_path=labels_path,
             rois=rois,
+            method_params=method_params,
         )
 
     # 2. Strict Grid Validation
@@ -329,12 +362,24 @@ def compute_roi_dose_file(
     File interface to compute ROI dose and print/save the results.
     """
     # 1. Fast boundary/input checks before reading heavy images
+    early_method_params = {}
+    if teff_params:
+        for roi, val in teff_params.items():
+            early_method_params[roi] = {"teff": val}
+
     labels_map = check_dosimetry_inputs(
         method=method,
         isotope=isotope,
         labels_path=labels_path,
         rois=rois,
+        method_params=early_method_params,
     )
+
+    # Sync back normalized teff_params
+    if teff_params:
+        teff_params.clear()
+        for roi, val in early_method_params.items():
+            teff_params[roi] = val["teff"]
 
     if resample_target == "like_ct" and not ct_path:
         raise ValueError("Cannot resample like CT image because companion CT path was not provided.")

@@ -150,7 +150,7 @@ def test_missing_roi_in_sidecar_error(tmp_path):
     image.SetMetaData("unit", "Bq")
     
     # Requesting "Kidney" which is not in sidecar
-    with pytest.raises(ValueError, match="Requested ROI.*Kidney.*not found in the label mapping"):
+    with pytest.raises(ValueError, match="Requested ROI 'Kidney' not found"):
         compute_roi_dose(
             image=image,
             labels=labels,
@@ -244,4 +244,104 @@ def test_dose_cli_verbose(tmp_path):
     assert "Dosimetry calculation log for ROI 'Liver' using Hanscheid 2017:" in result.output
     assert "Effective half-life (Teff): 45.2" in result.output
     assert "Formula: 0.125 * " in result.output
+
+def test_dose_cli_teff_variants(tmp_path):
+    image_path = tmp_path / "spect.nii.gz"
+    labels_path = tmp_path / "labels.nii.gz"
+    
+    img = sitk.Image([5, 5, 5], sitk.sitkFloat32)
+    img.SetMetaData("time_from_injection", "24.0")
+    img.SetMetaData("unit", "Bq")
+    sitk.WriteImage(img, str(image_path))
+    
+    with open(tmp_path / "spect.json", "w") as f:
+        json.dump({"unit": "Bq", "time_from_injection": "24.0"}, f)
+        
+    lbls = sitk.Image([5, 5, 5], sitk.sitkUInt16)
+    lbls[2, 2, 2] = 1
+    sitk.WriteImage(lbls, str(labels_path))
+    
+    with open(tmp_path / "labels.json", "w") as f:
+        json.dump({"1": "Liver"}, f)
+        
+    runner = CliRunner()
+    
+    # 1. Test that global/single numeric value for teff fails (must be ROI:value format)
+    result_global = runner.invoke(main, [
+        "dose",
+        str(image_path),
+        "-l", str(labels_path),
+        "-m", "hanscheid2017",
+        "--isotope", "Lu177",
+        "--teff", "45",
+    ])
+    assert result_global.exit_code != 0
+    assert "must be in ROI:value format" in result_global.output
+
+    # 2. Test invalid teff formatting error
+    result_invalid = runner.invoke(main, [
+        "dose",
+        str(image_path),
+        "-l", str(labels_path),
+        "-m", "hanscheid2017",
+        "--isotope", "Lu177",
+        "--teff", "Liver:abc"
+    ])
+    assert result_invalid.exit_code != 0
+    assert "Invalid teff value" in result_invalid.output
+
+
+def test_dose_cli_multiple_and_case_insensitive(tmp_path):
+    image_path = tmp_path / "spect.nii.gz"
+    labels_path = tmp_path / "labels.nii.gz"
+    
+    img = sitk.Image([5, 5, 5], sitk.sitkFloat32)
+    img.SetMetaData("time_from_injection", "24.0")
+    img.SetMetaData("unit", "Bq")
+    sitk.WriteImage(img, str(image_path))
+    
+    with open(tmp_path / "spect.json", "w") as f:
+        json.dump({"unit": "Bq", "time_from_injection": "24.0"}, f)
+        
+    lbls = sitk.Image([5, 5, 5], sitk.sitkUInt16)
+    lbls[1, 1, 1] = 1
+    lbls[2, 2, 2] = 2
+    sitk.WriteImage(lbls, str(labels_path))
+    
+    with open(tmp_path / "labels.json", "w") as f:
+        json.dump({"1": "Liver", "2": "Kidney_L"}, f)
+        
+    runner = CliRunner()
+    
+    # 1. Success with case-insensitive multiple rois and teffs
+    result = runner.invoke(main, [
+        "dose",
+        str(image_path),
+        "-l", str(labels_path),
+        "-m", "hanscheid2017",
+        "--isotope", "Lu177",
+        "--rois", "liver",
+        "--rois", "kidney_l",
+        "--teff", "LIVER:45",
+        "--teff", "KIDNEY_L:32",
+        "--verbose"
+    ])
+    assert result.exit_code == 0
+    assert "Dosimetry calculation log for ROI 'Liver' using Hanscheid 2017:" in result.output
+    assert "Effective half-life (Teff): 45.000 h" in result.output
+    assert "Dosimetry calculation log for ROI 'Kidney_L' using Hanscheid 2017:" in result.output
+    assert "Effective half-life (Teff): 32.000 h" in result.output
+
+    # 2. Failure with typo suggestion for kiney
+    result_typo = runner.invoke(main, [
+        "dose",
+        str(image_path),
+        "-l", str(labels_path),
+        "-m", "hanscheid2017",
+        "--isotope", "Lu177",
+        "--teff", "kiney:32",
+    ])
+    assert result_typo.exit_code != 0
+    assert "Teff ROI 'kiney' not found. Did you mean 'Kidney_L'?" in result_typo.output
+
 

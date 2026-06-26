@@ -460,11 +460,13 @@ def dicom_list(folder_path):
 )
 @click.option(
     "--rois",
-    help="Comma-separated list of target ROI names.",
+    multiple=True,
+    help="Target ROI names. Can be specified multiple times or comma-separated.",
 )
 @click.option(
     "--teff",
-    help="Effective half-life params per ROI (e.g. Liver:45.2,Kidney_L:32.1).",
+    multiple=True,
+    help="Effective half-life params per ROI (e.g. --teff Liver:45.2 --teff Kidney_L:32.1). Can be specified multiple times or comma-separated.",
 )
 @click.option(
     "--resample",
@@ -500,24 +502,40 @@ def dose(
     """Compute absorbed doses for specified regions of interest (ROI)."""
     from radot.dose import compute_roi_dose_file
 
-    rois_list = None
+    rois_list = []
     if rois:
-        rois_list = [x.strip() for x in rois.split(",") if x.strip()]
+        for r in rois:
+            for item in r.split(","):
+                item_stripped = item.strip()
+                if item_stripped:
+                    rois_list.append(item_stripped)
+    if not rois_list:
+        rois_list = None
 
     teff_dict = {}
     if teff:
-        for item in teff.split(","):
-            if ":" in item:
-                parts = item.split(":")
-                if len(parts) == 2:
-                    roi_name = parts[0].strip()
-                    try:
-                        teff_val = float(parts[1].strip())
-                        teff_dict[roi_name] = teff_val
-                    except ValueError:
-                        raise click.BadParameter(
-                            f"Invalid teff value: {parts[1]} for ROI: {roi_name}"
-                        )
+        for t in teff:
+            for item in t.split(","):
+                item_stripped = item.strip()
+                if not item_stripped:
+                    continue
+                if ":" not in item_stripped:
+                    raise click.BadParameter(
+                        f"Teff parameter '{item_stripped}' must be in ROI:value format (e.g. Liver:45.2)."
+                    )
+                parts = item_stripped.split(":")
+                if len(parts) != 2:
+                    raise click.BadParameter(
+                        f"Teff parameter '{item_stripped}' must be in ROI:value format (e.g. Liver:45.2)."
+                    )
+                roi_name = parts[0].strip()
+                try:
+                    teff_val = float(parts[1].strip())
+                    teff_dict[roi_name] = teff_val
+                except ValueError:
+                    raise click.BadParameter(
+                        f"Invalid teff value: {parts[1]} for ROI: {roi_name}"
+                    )
 
     try:
         compute_roi_dose_file(
