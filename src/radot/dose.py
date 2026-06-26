@@ -73,6 +73,7 @@ def compute_dose_hanscheid2017(
     ct_arr: Optional[np.ndarray] = None,
     rois: Optional[List[str]] = None,
     method_params: Optional[Dict[str, Any]] = None,
+    verbose: bool = False,
 ) -> dict:
     """
     Implementation of the Hanscheid 2017 dosimetry method (Option B).
@@ -135,6 +136,31 @@ def compute_dose_hanscheid2017(
         else:
             # Fall back to water density (1.0 g/mL)
             roi_mass_g = roi_volume_ml
+
+        if verbose:
+            voxels_in_roi = np.sum(mask)
+            total_activity_bq = np.sum(image_arr[mask])
+            total_activity_mbq = total_activity_bq / 1e6
+            mean_activity_concentration_bq_ml = np.mean(image_arr[mask] / voxel_volume_ml)
+            mean_activity_concentration_mbq_ml = mean_activity_concentration_bq_ml / 1e6
+            
+            print(f"\nDosimetry calculation log for ROI '{roi_name}' using Hanscheid 2017:")
+            print(f"  - Radionuclide: {isotope}")
+            print(f"  - Scaling factor: 0.125")
+            print(f"  - ROI Volume: {roi_volume_ml:.3f} mL ({voxels_in_roi} voxels)")
+            print(f"  - ROI Mass: {roi_mass_g:.3f} g")
+            if ct_arr is not None:
+                mean_density = roi_mass_g / roi_volume_ml
+                print(f"    (computed using companion CT, mean density: {mean_density:.3f} g/mL)")
+            else:
+                print(f"    (no companion CT, assuming water density 1.0 g/mL)")
+            print(f"  - Total Activity in ROI: {total_activity_mbq:.3e} MBq")
+            print(f"  - Mean Activity Concentration: {mean_activity_concentration_mbq_ml:.3e} MBq/mL ({mean_activity_concentration_bq_ml:.3e} Bq/mL)")
+            print(f"  - Time from injection: {time_from_injection_h:.3f} h")
+            print(f"  - Effective half-life (Teff): {teff:.3f} h")
+            formula_str = f"0.125 * {mean_activity_concentration_mbq_ml:.3e} * 2^({time_from_injection_h:.2f} / {teff:.2f}) * {teff:.2f}"
+            print(f"  - Formula: {formula_str}")
+            print(f"  - Voxel-mean Absorbed Dose: {dose:.6f} Gy")
 
         results[roi_name] = {
             "mean_dose_gy": float(dose),
@@ -204,6 +230,7 @@ def compute_roi_dose(
     image_path: Optional[Path] = None,
     labels_path: Optional[Path] = None,
     labels_map: Optional[Dict[int, str]] = None,
+    verbose: bool = False,
 ) -> dict:
     """
     Computes average/voxel absorbed doses for specified regions of interest.
@@ -280,6 +307,7 @@ def compute_roi_dose(
         ct_arr=ct_arr,
         rois=rois,
         method_params=method_params,
+        verbose=verbose,
     )
 
 
@@ -294,6 +322,7 @@ def compute_roi_dose_file(
     teff_params: Optional[Dict[str, float]] = None,
     output_path: Optional[Path] = None,
     resample_target: Optional[str] = None,
+    verbose: bool = False,
 ) -> None:
     """
     File interface to compute ROI dose and print/save the results.
@@ -368,6 +397,7 @@ def compute_roi_dose_file(
         method_params=method_params,
         image_path=image_path,
         labels_path=labels_path,
+        verbose=verbose,
     )
 
     # Print results to stdout

@@ -208,3 +208,36 @@ def test_dose_cli_resampling(tmp_path):
     ])
     assert result_success.exit_code == 0
     assert output_path.exists()
+
+def test_dose_cli_verbose(tmp_path):
+    image_path = tmp_path / "spect.nii.gz"
+    labels_path = tmp_path / "labels.nii.gz"
+    
+    img = sitk.Image([5, 5, 5], sitk.sitkFloat32)
+    img.SetMetaData("time_from_injection", "24.0")
+    img.SetMetaData("unit", "Bq")
+    sitk.WriteImage(img, str(image_path))
+    
+    lbls = sitk.Image([5, 5, 5], sitk.sitkUInt16)
+    lbls[2, 2, 2] = 1
+    sitk.WriteImage(lbls, str(labels_path))
+    
+    with open(tmp_path / "labels.json", "w") as f:
+        json.dump({"1": "Liver"}, f)
+        
+    runner = CliRunner()
+    result = runner.invoke(main, [
+        "dose",
+        str(image_path),
+        "-l", str(labels_path),
+        "-m", "hanscheid2017",
+        "--isotope", "Lu177",
+        "--teff", "Liver:45.2",
+        "--verbose"
+    ])
+    
+    assert result.exit_code == 0
+    assert "Dosimetry calculation log for ROI 'Liver' using Hanscheid 2017:" in result.output
+    assert "Effective half-life (Teff): 45.2" in result.output
+    assert "Formula: 0.125 * " in result.output
+

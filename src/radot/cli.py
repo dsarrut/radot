@@ -478,6 +478,12 @@ def dicom_list(folder_path):
     type=click.Path(path_type=Path),
     help="Optional path to output dose JSON file.",
 )
+@click.option(
+    "-v",
+    "--verbose",
+    is_flag=True,
+    help="Print detailed calculation log including all parameters and units.",
+)
 def dose(
     image_path,
     labels_path,
@@ -489,6 +495,7 @@ def dose(
     teff,
     output_path,
     resample,
+    verbose,
 ):
     """Compute absorbed doses for specified regions of interest (ROI)."""
     from radot.dose import compute_roi_dose_file
@@ -524,6 +531,7 @@ def dose(
             teff_params=teff_dict,
             output_path=output_path,
             resample_target=resample,
+            verbose=verbose,
         )
     except Exception as e:
         raise click.ClickException(str(e))
