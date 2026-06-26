@@ -7,6 +7,11 @@ from datetime import datetime
 from radot.db import get_physical_half_life_h
 from radot.meta import get_time_from_injection_h
 
+DOSIMETRY_STRATEGIES = {
+    "hanscheid2017": strategy_hanscheid2017,
+    "hanscheid2018": strategy_hanscheid2018,
+}
+
 
 def dose_hanscheid2017(
     spect_bq_a: np.ndarray,
@@ -106,20 +111,12 @@ def strategy_hanscheid2017(
         voxels_in_roi = np.sum(mask)
         total_activity_bq = np.sum(image_arr[mask])
         total_activity_mbq = total_activity_bq / 1e6
-        mean_activity_concentration_bq_ml = np.mean(
-            image_arr[mask] / voxel_volume_ml
-        )
-        mean_activity_concentration_mbq_ml = (
-            mean_activity_concentration_bq_ml / 1e6
-        )
-        print(
-            f"\nDosimetry calculation log for ROI '{roi_name}' using Hanscheid 2017:"
-        )
+        mean_activity_concentration_bq_ml = np.mean(image_arr[mask] / voxel_volume_ml)
+        mean_activity_concentration_mbq_ml = mean_activity_concentration_bq_ml / 1e6
+        print(f"\nDosimetry calculation log for ROI '{roi_name}' using Hanscheid 2017:")
         print(f"  - Radionuclide: {isotope}")
         print(f"  - Scaling factor: 0.125")
-        print(
-            f"  - ROI Volume: {roi_volume_ml:.3f} mL ({voxels_in_roi} voxels)"
-        )
+        print(f"  - ROI Volume: {roi_volume_ml:.3f} mL ({voxels_in_roi} voxels)")
         print(f"  - ROI Mass: {roi_mass_g:.3f} g")
         if ct_arr is not None:
             mean_density = roi_mass_g / roi_volume_ml
@@ -181,16 +178,12 @@ def strategy_hanscheid2018(
         voxels_in_roi = np.sum(mask)
         total_activity_bq = np.sum(image_arr[mask])
         total_activity_mbq = total_activity_bq / 1e6
-        print(
-            f"\nDosimetry calculation log for ROI '{roi_name}' using Hanscheid 2018:"
-        )
+        print(f"\nDosimetry calculation log for ROI '{roi_name}' using Hanscheid 2018:")
         print(f"  - Radionuclide: {isotope}")
         print(f"  - Phantom model: {phantom}")
         print(f"  - OpenDose Organ Name: {opendose_organ}")
         print(f"  - Reference Organ Mass: {s_mass:.3f} g")
-        print(
-            f"  - ROI Volume: {roi_volume_ml:.3f} mL ({voxels_in_roi} voxels)"
-        )
+        print(f"  - ROI Volume: {roi_volume_ml:.3f} mL ({voxels_in_roi} voxels)")
         print(f"  - ROI Mass: {roi_mass_g:.3f} g")
         if ct_arr is not None:
             mean_density = roi_mass_g / roi_volume_ml
@@ -209,12 +202,6 @@ def strategy_hanscheid2018(
         print(f"  - Voxel-mean Absorbed Dose: {dose:.6f} Gy")
 
     return float(dose), float(teff)
-
-
-DOSIMETRY_STRATEGIES = {
-    "hanscheid2017": strategy_hanscheid2017,
-    "hanscheid2018": strategy_hanscheid2018,
-}
 
 
 def compute_dose_generic(
