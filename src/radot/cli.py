@@ -512,7 +512,7 @@ def dose(
     if not rois_list:
         rois_list = None
 
-    teff_dict = {}
+    method_params = {}
     if teff:
         for t in teff:
             for item in t.split(","):
@@ -531,7 +531,7 @@ def dose(
                 roi_name = parts[0].strip()
                 try:
                     teff_val = float(parts[1].strip())
-                    teff_dict[roi_name] = teff_val
+                    method_params[roi_name] = {"teff": teff_val}
                 except ValueError:
                     raise click.BadParameter(
                         f"Invalid teff value: {parts[1]} for ROI: {roi_name}"
@@ -546,7 +546,7 @@ def dose(
             ct_path=ct_path,
             total_activity_mbq=total_activity,
             rois=rois_list,
-            teff_params=teff_dict,
+            method_params=method_params,
             output_path=output_path,
             resample_target=resample,
             verbose=verbose,

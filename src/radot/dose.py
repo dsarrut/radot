@@ -199,6 +199,7 @@ def check_dosimetry_inputs(
     # Load label mapping
     labels_map = {}
     if labels_path is not None:
+        labels_path = Path(labels_path)
         json_path = labels_path.with_suffix("").with_suffix(".json")
         if json_path.exists():
             try:
@@ -381,33 +382,29 @@ def compute_roi_dose_file(
     ct_path: Optional[Path] = None,
     total_activity_mbq: Optional[float] = None,
     rois: Optional[List[str]] = None,
-    teff_params: Optional[Dict[str, float]] = None,
+    method_params: Optional[Dict[str, Any]] = None,
     output_path: Optional[Path] = None,
     resample_target: Optional[str] = None,
     verbose: bool = False,
 ) -> None:
-    """
-    File interface to compute ROI dose and print/save the results.
-    """
+    image_path = Path(image_path)
+    labels_path = Path(labels_path)
+    if ct_path is not None:
+        ct_path = Path(ct_path)
+    if output_path is not None:
+        output_path = Path(output_path)
+
     # 1. Fast boundary/input checks before reading heavy images
-    early_method_params = {}
-    if teff_params:
-        for roi, val in teff_params.items():
-            early_method_params[roi] = {"teff": val}
+    if method_params is None:
+        method_params = {}
 
     labels_map = check_dosimetry_inputs(
         method=method,
         isotope=isotope,
         labels_path=labels_path,
         rois=rois,
-        method_params=early_method_params,
+        method_params=method_params,
     )
-
-    # Sync back normalized teff_params
-    if teff_params:
-        teff_params.clear()
-        for roi, val in early_method_params.items():
-            teff_params[roi] = val["teff"]
 
     if resample_target == "like_ct" and not ct_path:
         raise ValueError("Cannot resample like CT image because companion CT path was not provided.")
@@ -465,7 +462,7 @@ def compute_roi_dose_file(
         image_path=image_path,
         labels_path=labels_path,
         verbose=verbose,
-        teff_params=teff_params,
+        method_params=method_params,
     )
 
     # Print results to stdout
