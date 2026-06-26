@@ -78,10 +78,6 @@ def compute_dose_hanscheid2017(
     """
     Implementation of the Hanscheid 2017 dosimetry method (Option B).
     """
-    if isotope.lower() != "lu177":
-        raise ValueError(
-            "The Hanscheid 2017 method (0.125 scaling factor) is specific to Lu177 isotope."
-        )
 
     unique_labels = sorted(np.unique(labels_arr))
     results = {}
@@ -193,6 +189,11 @@ def check_dosimetry_inputs(
 
     if not isotope:
         raise ValueError("Isotope is required.")
+
+    if method_key == "hanscheid2017" and isotope.lower() != "lu177":
+        raise ValueError(
+            "The Hanscheid 2017 method (0.125 scaling factor) is specific to Lu177 isotope."
+        )
 
     # Load label mapping
     labels_map = {}

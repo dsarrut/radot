@@ -218,6 +218,10 @@ def test_dose_cli_verbose(tmp_path):
     img.SetMetaData("unit", "Bq")
     sitk.WriteImage(img, str(image_path))
     
+    # Write companion spect.json sidecar to define metadata
+    with open(tmp_path / "spect.json", "w") as f:
+        json.dump({"unit": "Bq", "time_from_injection": "24.0"}, f)
+        
     lbls = sitk.Image([5, 5, 5], sitk.sitkUInt16)
     lbls[2, 2, 2] = 1
     sitk.WriteImage(lbls, str(labels_path))

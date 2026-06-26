@@ -14,14 +14,18 @@ def mock_opendose_dir_globally():
     # Create a temporary directory for the session
     temp_dir = Path(tempfile.mkdtemp())
     
+    # Define a mock package root and create data/opendose inside it
+    mock_pkg_root = temp_dir / "radot"
+    mock_opendose = mock_pkg_root / "data" / "opendose"
+    mock_opendose.mkdir(parents=True, exist_ok=True)
+    
     # Copy the actual masses.json (the reference files) from the live package
-    # so that tests that read them still function correctly with real reference data.
     live_db = Path(str(importlib.resources.files("radot").joinpath("data").joinpath("opendose")))
     
     if live_db.exists():
         for phantom_dir in live_db.iterdir():
             if phantom_dir.is_dir() and not phantom_dir.name.startswith("."):
-                dest_phantom = temp_dir / phantom_dir.name
+                dest_phantom = mock_opendose / phantom_dir.name
                 dest_phantom.mkdir(parents=True, exist_ok=True)
                 masses_file = phantom_dir / "masses.json"
                 if masses_file.exists():
@@ -32,17 +36,7 @@ def mock_opendose_dir_globally():
     
     def mock_files(package):
         if package == "radot":
-            class MockTraversable:
-                def joinpath(self, *parts):
-                    if len(parts) >= 2 and parts[0] == "data" and parts[1] == "opendose":
-                        # Redirect to our temp directory
-                        path = temp_dir
-                        for p in parts[2:]:
-                            path = path / p
-                        return path
-                    # Otherwise return original path
-                    return orig_files(package).joinpath(*parts)
-            return MockTraversable()
+            return mock_pkg_root
         return orig_files(package)
         
     mp = _pytest.monkeypatch.MonkeyPatch()
