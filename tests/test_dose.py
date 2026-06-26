@@ -345,3 +345,39 @@ def test_dose_cli_multiple_and_case_insensitive(tmp_path):
     assert "Teff ROI 'kiney' not found. Did you mean 'Kidney_L'?" in result_typo.output
 
 
+def test_compute_roi_dose_string_inputs(tmp_path):
+    image_path = tmp_path / "spect.nii.gz"
+    labels_path = tmp_path / "labels.nii.gz"
+    ct_path = tmp_path / "ct.nii.gz"
+    
+    img = sitk.Image([5, 5, 5], sitk.sitkFloat32)
+    img.SetMetaData("time_from_injection", "24.0")
+    img.SetMetaData("unit", "Bq")
+    sitk.WriteImage(img, str(image_path))
+    
+    lbls = sitk.Image([5, 5, 5], sitk.sitkUInt16)
+    lbls[2, 2, 2] = 1
+    sitk.WriteImage(lbls, str(labels_path))
+    
+    with open(tmp_path / "labels.json", "w") as f:
+        json.dump({"1": "Liver"}, f)
+        
+    ct_img = sitk.Image([5, 5, 5], sitk.sitkInt16)
+    sitk.WriteImage(ct_img, str(ct_path))
+    
+    # Verify we can pass file paths directly as strings to compute_roi_dose
+    # and pass ct_path/teff_params directly.
+    res = compute_roi_dose(
+        image=str(image_path),
+        labels=str(labels_path),
+        method="hanscheid2017",
+        isotope="Lu177",
+        ct_path=str(ct_path),
+        teff_params={"Liver": 45.2}
+    )
+    
+    assert "Liver" in res
+    assert res["Liver"]["roi_teff_h"] == 45.2
+
+
+

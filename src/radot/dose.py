@@ -252,18 +252,20 @@ def check_dosimetry_inputs(
 
 
 def compute_roi_dose(
-    image: sitk.Image,
-    labels: sitk.Image,
+    image: Any,
+    labels: Any,
     method: str,
     isotope: str,
     rois: Optional[List[str]] = None,
-    ct_image: Optional[sitk.Image] = None,
+    ct_image: Optional[Any] = None,
     total_activity_mbq: Optional[float] = None,
     method_params: Optional[Dict[str, Any]] = None,
     image_path: Optional[Path] = None,
     labels_path: Optional[Path] = None,
     labels_map: Optional[Dict[int, str]] = None,
     verbose: bool = False,
+    ct_path: Optional[Any] = None,
+    teff_params: Optional[Dict[str, float]] = None,
 ) -> dict:
     """
     Computes average/voxel absorbed doses for specified regions of interest.
@@ -271,6 +273,32 @@ def compute_roi_dose(
     from radot.stats import has_same_grid
     from radot.convert import convert_image_units
     from radot.meta import get_metadata_case_insensitive
+
+    # Convert paths/strings to SimpleITK images on-the-fly
+    if isinstance(image, (str, Path)):
+        if image_path is None:
+            image_path = Path(image)
+        image = sitk.ReadImage(str(image))
+
+    if isinstance(labels, (str, Path)):
+        if labels_path is None:
+            labels_path = Path(labels)
+        labels = sitk.ReadImage(str(labels))
+
+    if ct_image is None and ct_path is not None:
+        ct_image = ct_path
+
+    if isinstance(ct_image, (str, Path)):
+        ct_image = sitk.ReadImage(str(ct_image))
+
+    # Convert/merge teff_params into method_params structure
+    if method_params is None:
+        method_params = {}
+    if teff_params:
+        for roi, teff in teff_params.items():
+            if roi not in method_params:
+                method_params[roi] = {}
+            method_params[roi]["teff"] = teff
 
     # 1. Fast-Fail Boundary Checks
     method_key = method.lower()
@@ -426,12 +454,6 @@ def compute_roi_dose_file(
         else:
             raise ValueError(f"Unknown resample target: {resample_target}")
 
-    # Convert teff_params into method_params structure
-    method_params = {}
-    if teff_params:
-        for roi, teff in teff_params.items():
-            method_params[roi] = {"teff": teff}
-
     results = compute_roi_dose(
         image=image,
         labels=labels,
@@ -440,10 +462,10 @@ def compute_roi_dose_file(
         rois=rois,
         ct_image=ct_image,
         total_activity_mbq=total_activity_mbq,
-        method_params=method_params,
         image_path=image_path,
         labels_path=labels_path,
         verbose=verbose,
+        teff_params=teff_params,
     )
 
     # Print results to stdout
