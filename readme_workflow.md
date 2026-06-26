@@ -71,5 +71,4 @@ results = compute_roi_dose_file(
     verbose=True,
 )
 ```
-```
 
