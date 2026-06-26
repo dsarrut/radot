@@ -7,6 +7,7 @@ from datetime import datetime
 from radot.db import get_physical_half_life_h
 
 
+
 def get_time_from_injection_h(
     image: sitk.Image, image_path: Optional[Path] = None
 ) -> float:
@@ -81,9 +82,169 @@ def dose_hanscheid2018(
     At = np.sum(v) / 1e6
 
     # S is in (mGy/MBq/s), so we get dose in mGy
-    dose = At * (2 * time_from_injection_h * 3600.0) / np.log(2) * s_value / mass_scaling / 1000.0
+    dose = (
+        At
+        * (2 * time_from_injection_h * 3600.0)
+        / np.log(2)
+        * s_value
+        / mass_scaling
+        / 1000.0
+    )
 
     return float(dose)
+
+
+def strategy_hanscheid2017(
+    image_arr: np.ndarray,
+    mask: np.ndarray,
+    voxel_volume_ml: float,
+    roi_name: str,
+    time_from_injection_h: float,
+    isotope: str,
+    roi_mass_g: float,
+    roi_volume_ml: float,
+    method_params: Optional[Dict[str, Any]],
+    verbose: bool,
+    ct_arr: Optional[np.ndarray] = None,
+) -> tuple[float, float]:
+    """Strategy implementation for Hanscheid 2017 method."""
+    # Teff parameter resolution
+    teff = None
+    if method_params and roi_name in method_params:
+        teff = method_params[roi_name].get("teff")
+
+    if teff is None:
+        try:
+            teff = get_physical_half_life_h(isotope)
+        except ValueError as e:
+            raise ValueError(
+                f"No effective half-life (teff) provided for ROI '{roi_name}' and {e}"
+            )
+        print(
+            f"No Teff specified for '{roi_name}'. Using physical half-life of {isotope} ({teff:.2f} h) as fallback."
+        )
+
+    dose = dose_hanscheid2017(
+        spect_bq_a=image_arr,
+        roi_a=mask.astype(np.uint8),
+        time_from_injection_h=time_from_injection_h,
+        volume_voxel_m_l=voxel_volume_ml,
+        effective_time_h=teff,
+    )
+
+    if verbose:
+        voxels_in_roi = np.sum(mask)
+        total_activity_bq = np.sum(image_arr[mask])
+        total_activity_mbq = total_activity_bq / 1e6
+        mean_activity_concentration_bq_ml = np.mean(
+            image_arr[mask] / voxel_volume_ml
+        )
+        mean_activity_concentration_mbq_ml = (
+            mean_activity_concentration_bq_ml / 1e6
+        )
+        print(
+            f"\nDosimetry calculation log for ROI '{roi_name}' using Hanscheid 2017:"
+        )
+        print(f"  - Radionuclide: {isotope}")
+        print(f"  - Scaling factor: 0.125")
+        print(
+            f"  - ROI Volume: {roi_volume_ml:.3f} mL ({voxels_in_roi} voxels)"
+        )
+        print(f"  - ROI Mass: {roi_mass_g:.3f} g")
+        if ct_arr is not None:
+            mean_density = roi_mass_g / roi_volume_ml
+            print(
+                f"    (computed using companion CT, mean density: {mean_density:.3f} g/mL)"
+            )
+        else:
+            print(f"    (no companion CT, assuming water density 1.0 g/mL)")
+        print(f"  - Total Activity in ROI: {total_activity_mbq:.3e} MBq")
+        print(
+            f"  - Mean Activity Concentration: {mean_activity_concentration_mbq_ml:.3e} MBq/mL ({mean_activity_concentration_bq_ml:.3e} Bq/mL)"
+        )
+        print(f"  - Time from injection: {time_from_injection_h:.3f} h")
+        print(f"  - Effective half-life (Teff): {teff:.3f} h")
+        formula_str = f"0.125 * {mean_activity_concentration_mbq_ml:.3e} * 2^({time_from_injection_h:.2f} / {teff:.2f}) * {teff:.2f}"
+        print(f"  - Formula: {formula_str}")
+        print(f"  - Voxel-mean Absorbed Dose: {dose:.6f} Gy")
+
+    return float(dose), float(teff)
+
+
+def strategy_hanscheid2018(
+    image_arr: np.ndarray,
+    mask: np.ndarray,
+    voxel_volume_ml: float,
+    roi_name: str,
+    time_from_injection_h: float,
+    isotope: str,
+    roi_mass_g: float,
+    roi_volume_ml: float,
+    method_params: Optional[Dict[str, Any]],
+    verbose: bool,
+    ct_arr: Optional[np.ndarray] = None,
+) -> tuple[float, float]:
+    """Strategy implementation for Hanscheid 2018 method."""
+    from radot.db import resolve_organ_name, get_s_value, get_reference_mass
+
+    phantom = "male"
+    if method_params:
+        phantom = method_params.get("phantom", "male")
+
+    # Standardize phantom/organ/rad
+    opendose_organ = resolve_organ_name(roi_name, phantom)
+    s_value = get_s_value(phantom, isotope, opendose_organ, opendose_organ)
+    s_mass = get_reference_mass(phantom, opendose_organ)
+    mass_scaling = roi_mass_g / s_mass
+
+    dose = dose_hanscheid2018(
+        spect_bq_a=image_arr,
+        roi_a=mask.astype(np.uint8),
+        time_from_injection_h=time_from_injection_h,
+        s_value=s_value,
+        mass_scaling=mass_scaling,
+    )
+    # Teff for Hanscheid 2018 is always assumed as 2 * t
+    teff = 2.0 * time_from_injection_h
+
+    if verbose:
+        voxels_in_roi = np.sum(mask)
+        total_activity_bq = np.sum(image_arr[mask])
+        total_activity_mbq = total_activity_bq / 1e6
+        print(
+            f"\nDosimetry calculation log for ROI '{roi_name}' using Hanscheid 2018:"
+        )
+        print(f"  - Radionuclide: {isotope}")
+        print(f"  - Phantom model: {phantom}")
+        print(f"  - OpenDose Organ Name: {opendose_organ}")
+        print(f"  - Reference Organ Mass: {s_mass:.3f} g")
+        print(
+            f"  - ROI Volume: {roi_volume_ml:.3f} mL ({voxels_in_roi} voxels)"
+        )
+        print(f"  - ROI Mass: {roi_mass_g:.3f} g")
+        if ct_arr is not None:
+            mean_density = roi_mass_g / roi_volume_ml
+            print(
+                f"    (computed using companion CT, mean density: {mean_density:.3f} g/mL)"
+            )
+        else:
+            print(f"    (no companion CT, assuming water density 1.0 g/mL)")
+        print(f"  - Mass scaling factor: {mass_scaling:.4f}")
+        print(f"  - S-value (self): {s_value:.3e} mGy/MBq.s")
+        print(f"  - Total Activity in ROI: {total_activity_mbq:.3e} MBq")
+        print(f"  - Time from injection: {time_from_injection_h:.3f} h")
+        print(f"  - Effective half-life (Teff = 2*t): {teff:.3f} h")
+        formula_str = f"At * (2 * t * 3600) / ln(2) * S / mass_scaling / 1000"
+        print(f"  - Formula: {formula_str}")
+        print(f"  - Voxel-mean Absorbed Dose: {dose:.6f} Gy")
+
+    return float(dose), float(teff)
+
+
+DOSIMETRY_STRATEGIES = {
+    "hanscheid2017": strategy_hanscheid2017,
+    "hanscheid2018": strategy_hanscheid2018,
+}
 
 
 def compute_dose_generic(
@@ -100,11 +261,13 @@ def compute_dose_generic(
     method: str = "hanscheid2017",
 ) -> dict:
     """
-    Generic loop to calculate dosimetry for hanscheid2017 and hanscheid2018.
+    Generic loop to calculate dosimetry using strategy functions.
     """
-    from radot.db import resolve_organ_name, get_s_value, get_reference_mass
-
     method_key = method.lower()
+    strategy = DOSIMETRY_STRATEGIES.get(method_key)
+    if not strategy:
+        raise ValueError(f"Unknown dosimetry method: {method}")
+
     unique_labels = sorted(np.unique(labels_arr))
     results = {}
 
@@ -131,102 +294,20 @@ def compute_dose_generic(
         else:
             roi_mass_g = roi_volume_ml
 
-        if method_key == "hanscheid2017":
-            # Teff parameter resolution
-            teff = None
-            if method_params and roi_name in method_params:
-                teff = method_params[roi_name].get("teff")
-
-            if teff is None:
-                try:
-                    teff = get_physical_half_life_h(isotope)
-                except ValueError as e:
-                    raise ValueError(
-                        f"No effective half-life (teff) provided for ROI '{roi_name}' and {e}"
-                    )
-                print(
-                    f"No Teff specified for '{roi_name}'. Using physical half-life of {isotope} ({teff:.2f} h) as fallback."
-                )
-
-            dose = dose_hanscheid2017(
-                spect_bq_a=image_arr,
-                roi_a=mask.astype(np.uint8),
-                time_from_injection_h=time_from_injection_h,
-                volume_voxel_m_l=voxel_volume_ml,
-                effective_time_h=teff,
-            )
-
-        elif method_key == "hanscheid2018":
-            phantom = "male"
-            if method_params:
-                phantom = method_params.get("phantom", "male")
-
-            # Standardize phantom/organ/rad
-            opendose_organ = resolve_organ_name(roi_name, phantom)
-            s_value = get_s_value(phantom, isotope, opendose_organ, opendose_organ)
-            s_mass = get_reference_mass(phantom, opendose_organ)
-            mass_scaling = roi_mass_g / s_mass
-
-            dose = dose_hanscheid2018(
-                spect_bq_a=image_arr,
-                roi_a=mask.astype(np.uint8),
-                time_from_injection_h=time_from_injection_h,
-                s_value=s_value,
-                mass_scaling=mass_scaling,
-            )
-            # Teff for Hanscheid 2018 is always assumed as 2 * t
-            teff = 2.0 * time_from_injection_h
-
-        else:
-            raise ValueError(f"Unknown dosimetry method: {method}")
-
-        if verbose:
-            voxels_in_roi = np.sum(mask)
-            total_activity_bq = np.sum(image_arr[mask])
-            total_activity_mbq = total_activity_bq / 1e6
-
-            if method_key == "hanscheid2017":
-                mean_activity_concentration_bq_ml = np.mean(image_arr[mask] / voxel_volume_ml)
-                mean_activity_concentration_mbq_ml = mean_activity_concentration_bq_ml / 1e6
-                print(f"\nDosimetry calculation log for ROI '{roi_name}' using Hanscheid 2017:")
-                print(f"  - Radionuclide: {isotope}")
-                print(f"  - Scaling factor: 0.125")
-                print(f"  - ROI Volume: {roi_volume_ml:.3f} mL ({voxels_in_roi} voxels)")
-                print(f"  - ROI Mass: {roi_mass_g:.3f} g")
-                if ct_arr is not None:
-                    mean_density = roi_mass_g / roi_volume_ml
-                    print(f"    (computed using companion CT, mean density: {mean_density:.3f} g/mL)")
-                else:
-                    print(f"    (no companion CT, assuming water density 1.0 g/mL)")
-                print(f"  - Total Activity in ROI: {total_activity_mbq:.3e} MBq")
-                print(f"  - Mean Activity Concentration: {mean_activity_concentration_mbq_ml:.3e} MBq/mL ({mean_activity_concentration_bq_ml:.3e} Bq/mL)")
-                print(f"  - Time from injection: {time_from_injection_h:.3f} h")
-                print(f"  - Effective half-life (Teff): {teff:.3f} h")
-                formula_str = f"0.125 * {mean_activity_concentration_mbq_ml:.3e} * 2^({time_from_injection_h:.2f} / {teff:.2f}) * {teff:.2f}"
-                print(f"  - Formula: {formula_str}")
-                print(f"  - Voxel-mean Absorbed Dose: {dose:.6f} Gy")
-
-            elif method_key == "hanscheid2018":
-                print(f"\nDosimetry calculation log for ROI '{roi_name}' using Hanscheid 2018:")
-                print(f"  - Radionuclide: {isotope}")
-                print(f"  - Phantom model: {phantom}")
-                print(f"  - OpenDose Organ Name: {opendose_organ}")
-                print(f"  - Reference Organ Mass: {s_mass:.3f} g")
-                print(f"  - ROI Volume: {roi_volume_ml:.3f} mL ({voxels_in_roi} voxels)")
-                print(f"  - ROI Mass: {roi_mass_g:.3f} g")
-                if ct_arr is not None:
-                    mean_density = roi_mass_g / roi_volume_ml
-                    print(f"    (computed using companion CT, mean density: {mean_density:.3f} g/mL)")
-                else:
-                    print(f"    (no companion CT, assuming water density 1.0 g/mL)")
-                print(f"  - Mass scaling factor: {mass_scaling:.4f}")
-                print(f"  - S-value (self): {s_value:.3e} mGy/MBq.s")
-                print(f"  - Total Activity in ROI: {total_activity_mbq:.3e} MBq")
-                print(f"  - Time from injection: {time_from_injection_h:.3f} h")
-                print(f"  - Effective half-life (Teff = 2*t): {teff:.3f} h")
-                formula_str = f"At * (2 * t * 3600) / ln(2) * S / mass_scaling / 1000"
-                print(f"  - Formula: {formula_str}")
-                print(f"  - Voxel-mean Absorbed Dose: {dose:.6f} Gy")
+        # Delegate calculation and logging to the strategy
+        dose, teff = strategy(
+            image_arr=image_arr,
+            mask=mask,
+            voxel_volume_ml=voxel_volume_ml,
+            roi_name=roi_name,
+            time_from_injection_h=time_from_injection_h,
+            isotope=isotope,
+            roi_mass_g=roi_mass_g,
+            roi_volume_ml=roi_volume_ml,
+            method_params=method_params,
+            verbose=verbose,
+            ct_arr=ct_arr,
+        )
 
         results[roi_name] = {
             "mean_dose_gy": float(dose),
@@ -236,20 +317,6 @@ def compute_dose_generic(
         }
 
     return results
-
-
-def compute_dose_hanscheid2017(*args, **kwargs):
-    return compute_dose_generic(*args, method="hanscheid2017", **kwargs)
-
-
-def compute_dose_hanscheid2018(*args, **kwargs):
-    return compute_dose_generic(*args, method="hanscheid2018", **kwargs)
-
-
-DOSIMETRY_METHODS = {
-    "hanscheid2017": compute_dose_hanscheid2017,
-    "hanscheid2018": compute_dose_hanscheid2018,
-}
 
 
 def check_dosimetry_inputs(
@@ -264,9 +331,9 @@ def check_dosimetry_inputs(
     Returns the loaded labels map.
     """
     method_key = method.lower()
-    if method_key not in DOSIMETRY_METHODS:
+    if method_key not in DOSIMETRY_STRATEGIES:
         raise ValueError(
-            f"Dosimetry method '{method}' is not implemented yet. Available: {list(DOSIMETRY_METHODS.keys())}"
+            f"Dosimetry method '{method}' is not implemented yet. Available: {list(DOSIMETRY_STRATEGIES.keys())}"
         )
 
     if not isotope:
@@ -303,12 +370,19 @@ def check_dosimetry_inputs(
                     normalized_rois.append(norm_to_std[r_lower])
                 else:
                     import difflib
-                    close_matches = difflib.get_close_matches(r, known_rois, n=3, cutoff=0.5)
+
+                    close_matches = difflib.get_close_matches(
+                        r, known_rois, n=3, cutoff=0.5
+                    )
                     if close_matches:
                         suggestions = " or ".join(f"'{m}'" for m in close_matches)
-                        raise ValueError(f"Requested ROI '{r}' not found. Did you mean {suggestions}?")
+                        raise ValueError(
+                            f"Requested ROI '{r}' not found. Did you mean {suggestions}?"
+                        )
                     else:
-                        raise ValueError(f"Requested ROI '{r}' not found. Available ROIs: {known_rois}")
+                        raise ValueError(
+                            f"Requested ROI '{r}' not found. Available ROIs: {known_rois}"
+                        )
             rois.clear()
             rois.extend(normalized_rois)
 
@@ -324,12 +398,19 @@ def check_dosimetry_inputs(
                     normalized_params[norm_to_std[r_lower]] = val
                 else:
                     import difflib
-                    close_matches = difflib.get_close_matches(r, known_rois, n=3, cutoff=0.5)
+
+                    close_matches = difflib.get_close_matches(
+                        r, known_rois, n=3, cutoff=0.5
+                    )
                     if close_matches:
                         suggestions = " or ".join(f"'{m}'" for m in close_matches)
-                        raise ValueError(f"Teff ROI '{r}' not found. Did you mean {suggestions}?")
+                        raise ValueError(
+                            f"Teff ROI '{r}' not found. Did you mean {suggestions}?"
+                        )
                     else:
-                        raise ValueError(f"Teff ROI '{r}' not found. Available ROIs: {known_rois}")
+                        raise ValueError(
+                            f"Teff ROI '{r}' not found. Available ROIs: {known_rois}"
+                        )
             method_params.clear()
             method_params.update(normalized_params)
 
@@ -442,9 +523,8 @@ def compute_roi_dose(
     labels_arr = sitk.GetArrayFromImage(labels)
     ct_arr = sitk.GetArrayFromImage(ct_image) if ct_image is not None else None
 
-    # Call the specific dosimetry method
-    method_func = DOSIMETRY_METHODS[method_key]
-    return method_func(
+    # Call the generic dosimetry pipeline
+    return compute_dose_generic(
         image_arr=image_arr,
         labels_arr=labels_arr,
         isotope=isotope,
@@ -455,6 +535,7 @@ def compute_roi_dose(
         rois=rois,
         method_params=method_params,
         verbose=verbose,
+        method=method,
     )
 
 
@@ -491,7 +572,9 @@ def compute_roi_dose_file(
     )
 
     if resample_target == "like_ct" and not ct_path:
-        raise ValueError("Cannot resample like CT image because companion CT path was not provided.")
+        raise ValueError(
+            "Cannot resample like CT image because companion CT path was not provided."
+        )
 
     if not image_path.exists():
         raise FileNotFoundError(f"Activity image not found: {image_path}")
@@ -516,22 +599,50 @@ def compute_roi_dose_file(
         print(f"Resampling images to align grids: target is {resample_target}")
         from radot.resampling import resample_image
         from radot.meta import get_metadata_case_insensitive
-        
-        modality = get_metadata_case_insensitive(image, "modality", image_path) or "spect"
+
+        modality = (
+            get_metadata_case_insensitive(image, "modality", image_path) or "spect"
+        )
         unit = get_metadata_case_insensitive(image, "unit", image_path)
-        preserve_total = (unit is not None and unit.lower() == "bq")
+        preserve_total = unit is not None and unit.lower() == "bq"
 
         if resample_target == "like_activity":
             labels = resample_image(labels, image_type="labels", reference_image=image)
             if ct_image is not None:
-                ct_image = resample_image(ct_image, image_type="ct", preserve_total=False, gaussian=True, reference_image=image)
+                ct_image = resample_image(
+                    ct_image,
+                    image_type="ct",
+                    preserve_total=False,
+                    gaussian=True,
+                    reference_image=image,
+                )
         elif resample_target == "like_labels":
-            image = resample_image(image, image_type=modality.lower(), preserve_total=preserve_total, gaussian=True, reference_image=labels)
+            image = resample_image(
+                image,
+                image_type=modality.lower(),
+                preserve_total=preserve_total,
+                gaussian=True,
+                reference_image=labels,
+            )
             if ct_image is not None:
-                ct_image = resample_image(ct_image, image_type="ct", preserve_total=False, gaussian=True, reference_image=labels)
+                ct_image = resample_image(
+                    ct_image,
+                    image_type="ct",
+                    preserve_total=False,
+                    gaussian=True,
+                    reference_image=labels,
+                )
         elif resample_target == "like_ct":
-            image = resample_image(image, image_type=modality.lower(), preserve_total=preserve_total, gaussian=True, reference_image=ct_image)
-            labels = resample_image(labels, image_type="labels", reference_image=ct_image)
+            image = resample_image(
+                image,
+                image_type=modality.lower(),
+                preserve_total=preserve_total,
+                gaussian=True,
+                reference_image=ct_image,
+            )
+            labels = resample_image(
+                labels, image_type="labels", reference_image=ct_image
+            )
         else:
             raise ValueError(f"Unknown resample target: {resample_target}")
 
