@@ -268,7 +268,7 @@ def convert_dicom(
     print("DICOM conversion completed successfully.")
 
 
-def list_dicom_series(folder_path: Path) -> None:
+def list_dicom_series(folder_path: Path) -> list:
     if not folder_path.exists():
         raise FileNotFoundError(f"Folder not found: {folder_path}")
     if not folder_path.is_dir():
@@ -280,8 +280,6 @@ def list_dicom_series(folder_path: Path) -> None:
     subdirs = [p for p in folder_path.rglob("*") if p.is_dir()]
     subdirs.append(folder_path)
     subdirs = sorted(list(set(subdirs)))
-
-    print(f"Scanning folder recursively for DICOM series: {folder_path}\n")
     series_list = []
 
     # Disable SimpleITK global warnings during the scan to avoid "No Series were found" warnings
@@ -448,11 +446,19 @@ def list_dicom_series(folder_path: Path) -> None:
     for _, block in blocks:
         sorted_series_list.extend(block)
 
+    return sorted_series_list
+
+
+def print_dicom_series(series_list: list) -> None:
+    if not series_list:
+        print("No DICOM series found.")
+        return
+
     headers = ["Date/Time", "Modality", "Patient ID", "Slices", "Description", "Folder"]
     rows = []
-    for s in sorted_series_list:
+    for s in series_list:
         dt_str = s["datetime"]
-        if s["indented"]:
+        if s.get("indented", False):
             dt_str = f"  {dt_str}"
         rows.append([
             dt_str,
