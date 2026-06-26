@@ -108,4 +108,6 @@ download_opendose_data(
 
 1. Lazy Loading: The dosimetry calculation module automatically calls the lazy-downloading mechanism on-the-fly. If an S-value file or masses file is missing locally during a calculation, radot retrieves it from the central repository (https://www.creatis.insa-lyon.fr/~dsarrut/radot/opendose/) and saves it in the local package data path.
 2. In-Memory Caching: Downloaded masses and S-values are cached in-memory (using _masses_cache and _s_values_cache) so that subsequent calculations or lookups do not read from disk repeatedly.
-3. Offline Sandbox Fallback: Unit tests run in a sandbox where the download URL is mocked or dummy fallback values are used to keep tests fast, predictable, and 100% offline-compatible.
+3. Direct OpenDose Fallback: If downloading from the central Creatis registry fails, radot attempts to query and rebuild the required data by scraping the official OpenDose registry. If both sources are unavailable, a clear error is raised.
+
+DEFAULT_DATABASE_URL = "https://www.creatis.insa-lyon.fr/~dsarrut/radot/opendose/"

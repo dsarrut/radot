@@ -60,6 +60,10 @@ Compute the dose with the command line:
 
 ```bash
 radot dose spect.nii.gz -l labels_all.nii.gz -m hanscheid2017  --isotope lu177 --resample like_activity --verbose --ct ct.nii.gz --teff Liver:45 --teff kidney_l:32 --rois Liver --rois Kidney_L
+
+
+radot dose spect.nii.gz -l labels_all.nii.gz -m hanscheid2018  --isotope lu177 --resample like_activity --verbose --ct ct.nii.gz --rois Liver --rois Kidney_L
+
 ```
 
 Or with the equivalent Python function: 
