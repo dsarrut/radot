@@ -5,37 +5,7 @@ import SimpleITK as sitk
 from pathlib import Path
 from datetime import datetime
 from radot.db import get_physical_half_life_h
-
-
-
-def get_time_from_injection_h(
-    image: sitk.Image, image_path: Optional[Path] = None
-) -> float:
-    from radot.meta import get_metadata_case_insensitive
-
-    # 1. Try reading directly
-    t_str = get_metadata_case_insensitive(image, "time_from_injection", image_path)
-    if t_str is not None:
-        try:
-            return float(t_str)
-        except ValueError:
-            pass
-
-    # 2. Try calculating from acquisition and injection dates
-    inj_val = get_metadata_case_insensitive(image, "injection_date", image_path)
-    acq_val = get_metadata_case_insensitive(image, "acquisition_date", image_path)
-    if inj_val and acq_val:
-        try:
-            inj_dt = datetime.strptime(inj_val, "%Y-%m-%d %H:%M:%S")
-            acq_dt = datetime.strptime(acq_val, "%Y-%m-%d %H:%M:%S")
-            time_diff = acq_dt - inj_dt
-            return time_diff.total_seconds() / 3600.0
-        except Exception:
-            pass
-
-    raise ValueError(
-        "Time from injection is required but was not found in the image metadata."
-    )
+from radot.meta import get_time_from_injection_h
 
 
 def dose_hanscheid2017(

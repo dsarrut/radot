@@ -1,4 +1,6 @@
 import pytest
+import json
+from pathlib import Path
 from radot.db import (
     get_physical_half_life_h,
     normalize_phantom,
@@ -82,6 +84,28 @@ def test_db_errors():
 def test_cli_opendose(monkeypatch):
     from click.testing import CliRunner
     from radot.cli import main
+    import radot.db
+    
+    # Mock download_opendose_data to prevent live network calls during tests
+    def mock_download(phantom, isotope=None, force=False):
+        import gzip
+        import importlib.resources
+        from radot.db import normalize_phantom
+        norm_phantom = normalize_phantom(phantom)
+        print(f"Mock downloading for phantom: {norm_phantom}")
+        
+        dest_dir = Path(str(importlib.resources.files("radot").joinpath("data").joinpath("opendose").joinpath(norm_phantom)))
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        
+        if isotope:
+            norm_iso = isotope.lower()
+            with gzip.open(dest_dir / f"{norm_iso}.json.gz", "wt", encoding="utf-8") as f:
+                json.dump({"Left kidney": {"Left kidney": 1.5e-4}}, f)
+        
+        with open(dest_dir / "masses.json", "w", encoding="utf-8") as f:
+            json.dump({"Left kidney": 150.0}, f)
+            
+    monkeypatch.setattr(radot.db, "download_opendose_data", mock_download)
     
     runner = CliRunner()
     
