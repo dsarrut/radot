@@ -128,7 +128,99 @@ def format_memory_size(size_in_bytes: int) -> str:
     return f"{val:.2f} PB"
 
 
-def manage_metadata(
+def read_metadata(image_path: Path) -> dict:
+    """
+    Read metadata and image grid information from sidecar and file headers.
+    Returns a dictionary structured as:
+    {
+        "image_info": { ... },
+        "metadata": { ... }
+    }
+    """
+    image_path = Path(image_path)
+    if not image_path.exists():
+        raise FileNotFoundError(f"Image file not found: {image_path}")
+
+    # Gather image information (headers only)
+    image_info = {}
+    try:
+        reader = sitk.ImageFileReader()
+        reader.SetFileName(str(image_path))
+        reader.ReadImageInformation()
+        
+        size = reader.GetSize()
+        spacing = reader.GetSpacing()
+        origin = reader.GetOrigin()
+        dir_matrix = reader.GetDirection()
+        
+        pixel_type = sitk.GetPixelIDValueAsString(reader.GetPixelID())
+        
+        num_voxels = 1
+        for s in size:
+            num_voxels *= s
+
+        pixel_size = get_pixel_size_bytes(reader.GetPixelID()) * reader.GetNumberOfComponents()
+        mem_size = num_voxels * pixel_size
+        mem_size_str = format_memory_size(mem_size)
+
+        image_info = {
+            "size": size,
+            "spacing": spacing,
+            "origin": origin,
+            "direction": dir_matrix,
+            "pixel_type": pixel_type,
+            "num_voxels": num_voxels,
+            "memory_size": mem_size_str
+        }
+    except Exception:
+        pass
+
+    # Gather therapy metadata
+    modality = get_metadata_case_insensitive(None, "modality", image_path)
+    unit = get_metadata_case_insensitive(None, "unit", image_path)
+    weight = get_metadata_case_insensitive(None, "weight", image_path)
+    activity = get_metadata_case_insensitive(None, "activity", image_path)
+    injection_date = get_metadata_case_insensitive(None, "injection_date", image_path)
+    acquisition_date = get_metadata_case_insensitive(None, "acquisition_date", image_path)
+
+    # Convert numeric metadata types back if possible
+    if weight is not None:
+        try:
+            weight = float(weight)
+        except ValueError:
+            pass
+    if activity is not None:
+        try:
+            activity = float(activity)
+        except ValueError:
+            pass
+
+    metadata = {
+        "modality": modality,
+        "unit": unit,
+        "weight": weight,
+        "activity": activity,
+        "injection_date": injection_date,
+        "acquisition_date": acquisition_date,
+    }
+
+    # Compute time from injection if dates are set
+    if injection_date and acquisition_date:
+        try:
+            inj_dt = datetime.strptime(injection_date, "%Y-%m-%d %H:%M:%S")
+            acq_dt = datetime.strptime(acquisition_date, "%Y-%m-%d %H:%M:%S")
+            time_diff = acq_dt - inj_dt
+            metadata["time_from_injection"] = time_diff.total_seconds() / 3600.0
+        except Exception:
+            pass
+
+    return {
+        "image_info": image_info,
+        "metadata": metadata
+    }
+
+
+def write_metadata(
     image_path: Path,
     modality: Optional[str] = None,
     unit: Optional[str] = None,
@@ -139,9 +231,9 @@ def manage_metadata(
     time_from_injection: Optional[str] = None,
 ) -> None:
     """
-    Read or write metadata fields in the JSON sidecar file.
-    If no new metadata is specified, prints existing metadata to console.
+    Write or merge metadata fields in the JSON sidecar file.
     """
+    image_path = Path(image_path)
     if not image_path.exists():
         raise FileNotFoundError(f"Image file not found: {image_path}")
 
@@ -155,108 +247,92 @@ def manage_metadata(
             f"Invalid acquisition_date format: {acquisition_date}. Expected 'YYYY-MM-DD HH:MM:SS'"
         )
 
-    # Check if we are writing metadata
-    is_writing = any(
-        v is not None
-        for v in (modality, unit, weight, activity, injection_date, acquisition_date, time_from_injection)
+    # Read existing metadata to merge
+    existing_modality = get_metadata_case_insensitive(None, "modality", image_path)
+    existing_unit = get_metadata_case_insensitive(None, "unit", image_path)
+    existing_weight = get_metadata_case_insensitive(None, "weight", image_path)
+    existing_activity = get_metadata_case_insensitive(None, "activity", image_path)
+    existing_injection_date = get_metadata_case_insensitive(None, "injection_date", image_path)
+    existing_acquisition_date = get_metadata_case_insensitive(None, "acquisition_date", image_path)
+
+    # Merge with new values
+    final_modality = modality.lower() if modality is not None else existing_modality
+    final_unit = unit.lower() if unit is not None else existing_unit
+    if final_modality == "ct" and final_unit is None:
+        final_unit = "hu"
+    final_weight = (
+        weight
+        if weight is not None
+        else (float(existing_weight) if existing_weight else None)
+    )
+    final_activity = (
+        activity
+        if activity is not None
+        else (float(existing_activity) if existing_activity else None)
+    )
+    final_injection_date = (
+        injection_date if injection_date is not None else existing_injection_date
+    )
+    final_acquisition_date = (
+        acquisition_date
+        if acquisition_date is not None
+        else existing_acquisition_date
     )
 
-    if is_writing:
-        print("Writing metadata...")
-        # Read existing metadata to merge (using our helper that checks sidecars and falls back to headers)
-        existing_modality = get_metadata_case_insensitive(None, "modality", image_path)
-        existing_unit = get_metadata_case_insensitive(None, "unit", image_path)
-        existing_weight = get_metadata_case_insensitive(None, "weight", image_path)
-        existing_activity = get_metadata_case_insensitive(None, "activity", image_path)
-        existing_injection_date = get_metadata_case_insensitive(
-            None, "injection_date", image_path
-        )
-        existing_acquisition_date = get_metadata_case_insensitive(
-            None, "acquisition_date", image_path
-        )
+    # Apply time_from_injection logic
+    if time_from_injection is not None:
+        delta = parse_time_from_injection(time_from_injection)
+        if final_injection_date is not None and final_acquisition_date is not None:
+            raise ValueError("Cannot specify --time-from-injection when both injection and acquisition dates are present.")
+        elif final_injection_date is not None:
+            inj_dt = datetime.strptime(final_injection_date, "%Y-%m-%d %H:%M:%S")
+            acq_dt = inj_dt + delta
+            final_acquisition_date = acq_dt.strftime("%Y-%m-%d %H:%M:%S")
+        elif final_acquisition_date is not None:
+            acq_dt = datetime.strptime(final_acquisition_date, "%Y-%m-%d %H:%M:%S")
+            inj_dt = acq_dt - delta
+            final_injection_date = inj_dt.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            final_injection_date = "2000-01-01 12:00:00"
+            inj_dt = datetime.strptime(final_injection_date, "%Y-%m-%d %H:%M:%S")
+            acq_dt = inj_dt + delta
+            final_acquisition_date = acq_dt.strftime("%Y-%m-%d %H:%M:%S")
 
-        # Merge with new values
-        final_modality = modality.lower() if modality is not None else existing_modality
-        final_unit = unit.lower() if unit is not None else existing_unit
-        if final_modality == "ct" and final_unit is None:
-            final_unit = "hu"
-        final_weight = (
-            weight
-            if weight is not None
-            else (float(existing_weight) if existing_weight else None)
-        )
-        final_activity = (
-            activity
-            if activity is not None
-            else (float(existing_activity) if existing_activity else None)
-        )
-        final_injection_date = (
-            injection_date if injection_date is not None else existing_injection_date
-        )
-        final_acquisition_date = (
-            acquisition_date
-            if acquisition_date is not None
-            else existing_acquisition_date
-        )
+    # Write to JSON sidecar
+    meta_dict = {}
+    if final_modality is not None:
+        meta_dict["modality"] = final_modality
+    if final_unit is not None:
+        meta_dict["unit"] = final_unit
+    if final_weight is not None:
+        meta_dict["weight"] = final_weight
+    if final_activity is not None:
+        meta_dict["activity"] = final_activity
+    if final_injection_date is not None:
+        meta_dict["injection_date"] = final_injection_date
+    if final_acquisition_date is not None:
+        meta_dict["acquisition_date"] = final_acquisition_date
 
-        # Apply time_from_injection logic
-        if time_from_injection is not None:
-            delta = parse_time_from_injection(time_from_injection)
-            if final_injection_date is not None and final_acquisition_date is not None:
-                raise ValueError("Cannot specify --time-from-injection when both injection and acquisition dates are present.")
-            elif final_injection_date is not None:
-                inj_dt = datetime.strptime(final_injection_date, "%Y-%m-%d %H:%M:%S")
-                acq_dt = inj_dt + delta
-                final_acquisition_date = acq_dt.strftime("%Y-%m-%d %H:%M:%S")
-            elif final_acquisition_date is not None:
-                acq_dt = datetime.strptime(final_acquisition_date, "%Y-%m-%d %H:%M:%S")
-                inj_dt = acq_dt - delta
-                final_injection_date = inj_dt.strftime("%Y-%m-%d %H:%M:%S")
-            else:
-                final_injection_date = "2000-01-01 12:00:00"
-                inj_dt = datetime.strptime(final_injection_date, "%Y-%m-%d %H:%M:%S")
-                acq_dt = inj_dt + delta
-                final_acquisition_date = acq_dt.strftime("%Y-%m-%d %H:%M:%S")
+    sidecar_path = get_sidecar_path(image_path)
+    print(f"Saving metadata to sidecar: {sidecar_path}")
+    with open(sidecar_path, "w") as f:
+        json.dump(meta_dict, f, indent=4)
+    print("Metadata saved successfully.")
 
-        # Write to JSON sidecar
-        meta_dict = {}
-        if final_modality is not None:
-            meta_dict["modality"] = final_modality
-        if final_unit is not None:
-            meta_dict["unit"] = final_unit
-        if final_weight is not None:
-            meta_dict["weight"] = final_weight
-        if final_activity is not None:
-            meta_dict["activity"] = final_activity
-        if final_injection_date is not None:
-            meta_dict["injection_date"] = final_injection_date
-        if final_acquisition_date is not None:
-            meta_dict["acquisition_date"] = final_acquisition_date
 
-        sidecar_path = get_sidecar_path(image_path)
-        print(f"Saving metadata to sidecar: {sidecar_path}")
-        with open(sidecar_path, "w") as f:
-            json.dump(meta_dict, f, indent=4)
-        print("Metadata saved successfully.")
-    else:
-        # Just reading metadata using ImageFileReader to avoid loading pixel array
-        size = None
-        spacing = None
-        origin = None
-        matrix_str = None
-        pixel_type = None
-        num_voxels = None
-        mem_size_str = None
-
-        try:
-            reader = sitk.ImageFileReader()
-            reader.SetFileName(str(image_path))
-            reader.ReadImageInformation()
-            
-            size = reader.GetSize()
-            spacing = reader.GetSpacing()
-            origin = reader.GetOrigin()
-            dir_matrix = reader.GetDirection()
+def print_metadata(info_dict: dict) -> None:
+    """
+    Print gathered metadata and image information to the console.
+    """
+    image_info = info_dict.get("image_info", {})
+    if image_info:
+        size = image_info.get("size")
+        print(f"Image Size: {size}")
+        print(f"Spacing: {image_info.get('spacing')}")
+        print(f"Origin: {image_info.get('origin')}")
+        
+        dir_matrix = image_info.get("direction")
+        if dir_matrix:
             if len(dir_matrix) == 9:
                 matrix_str = (
                     f"[{dir_matrix[0]:.4f}, {dir_matrix[1]:.4f}, {dir_matrix[2]:.4f}]\n"
@@ -265,72 +341,65 @@ def manage_metadata(
                 )
             else:
                 matrix_str = str(dir_matrix)
-
-            pixel_type = sitk.GetPixelIDValueAsString(reader.GetPixelID())
-            
-            # Number of voxels
-            num_voxels = 1
-            for s in size:
-                num_voxels *= s
-
-            pixel_size = get_pixel_size_bytes(reader.GetPixelID()) * reader.GetNumberOfComponents()
-            mem_size = num_voxels * pixel_size
-            mem_size_str = format_memory_size(mem_size)
-        except Exception:
-            pass
-
-        if size is not None:
-            print(f"Image Size: {size}")
-            print(f"Spacing: {spacing}")
-            print(f"Origin: {origin}")
             print(f"Orientation Matrix: {matrix_str}")
-            print(f"Pixel Type: {pixel_type}")
-            print(f"Number of Voxels: {num_voxels}")
-            print(f"Memory Size: {mem_size_str}")
+            
+        print(f"Pixel Type: {image_info.get('pixel_type')}")
+        print(f"Number of Voxels: {image_info.get('num_voxels')}")
+        print(f"Memory Size: {image_info.get('memory_size')}")
 
-        mod_val = get_metadata_case_insensitive(None, "modality", image_path)
-        if mod_val:
-            print(f"Modality: {mod_val.upper()}")
-        else:
-            print("Modality: (not set)")
+    metadata = info_dict.get("metadata", {})
+    
+    mod_val = metadata.get("modality")
+    print(f"Modality: {mod_val.upper() if mod_val else '(not set)'}")
 
-        unit_val = get_metadata_case_insensitive(None, "unit", image_path)
-        if unit_val:
-            print(f"Unit: {unit_val.lower()}")
-        else:
-            print("Unit: (not set)")
+    unit_val = metadata.get("unit")
+    print(f"Unit: {unit_val.lower() if unit_val else '(not set)'}")
 
-        weight_val = get_metadata_case_insensitive(None, "weight", image_path)
-        if weight_val:
-            print(f"Weight: {weight_val} kg")
-        else:
-            print("Weight: (not set)")
+    weight_val = metadata.get("weight")
+    print(f"Weight: {f'{weight_val} kg' if weight_val is not None else '(not set)'}")
 
-        activity_val = get_metadata_case_insensitive(None, "activity", image_path)
-        if activity_val:
-            print(f"Activity: {activity_val} MBq")
-        else:
-            print("Activity: (not set)")
+    activity_val = metadata.get("activity")
+    print(f"Activity: {f'{activity_val} MBq' if activity_val is not None else '(not set)'}")
 
-        inj_val = get_metadata_case_insensitive(None, "injection_date", image_path)
-        if inj_val:
-            print(f"Injection Date: {inj_val}")
-        else:
-            print("Injection Date: (not set)")
+    inj_val = metadata.get("injection_date")
+    print(f"Injection Date: {inj_val if inj_val else '(not set)'}")
 
-        acq_val = get_metadata_case_insensitive(None, "acquisition_date", image_path)
-        if acq_val:
-            print(f"Acquisition Date: {acq_val}")
-        else:
-            print("Acquisition Date: (not set)")
+    acq_val = metadata.get("acquisition_date")
+    print(f"Acquisition Date: {acq_val if acq_val else '(not set)'}")
 
-        # Time from Injection (computed)
-        if inj_val and acq_val:
-            try:
-                inj_dt = datetime.strptime(inj_val, "%Y-%m-%d %H:%M:%S")
-                acq_dt = datetime.strptime(acq_val, "%Y-%m-%d %H:%M:%S")
-                time_diff = acq_dt - inj_dt
-                hours = time_diff.total_seconds() / 3600.0
-                print(f"Time from injection: {hours:.2f} hours")
-            except Exception:
-                pass
+    time_from_injection = metadata.get("time_from_injection")
+    if time_from_injection is not None:
+        print(f"Time from injection: {time_from_injection:.2f} hours")
+
+
+def manage_metadata(
+    image_path: Path,
+    modality: Optional[str] = None,
+    unit: Optional[str] = None,
+    weight: Optional[float] = None,
+    activity: Optional[float] = None,
+    injection_date: Optional[str] = None,
+    acquisition_date: Optional[str] = None,
+    time_from_injection: Optional[str] = None,
+) -> None:
+    """
+    Read or write metadata fields in the JSON sidecar file (wrapper for backward compatibility).
+    """
+    is_writing = any(
+        v is not None
+        for v in (modality, unit, weight, activity, injection_date, acquisition_date, time_from_injection)
+    )
+    if is_writing:
+        write_metadata(
+            image_path=image_path,
+            modality=modality,
+            unit=unit,
+            weight=weight,
+            activity=activity,
+            injection_date=injection_date,
+            acquisition_date=acquisition_date,
+            time_from_injection=time_from_injection,
+        )
+    else:
+        info_dict = read_metadata(image_path)
+        print_metadata(info_dict)

@@ -166,3 +166,40 @@ def test_info_alias(tmp_path):
     assert "Image Size: (5, 5, 5)" in result_read.output
     assert "Unit: bq" in result_read.output
 
+
+def test_read_write_metadata_api(tmp_path):
+    from radot.meta import read_metadata, write_metadata
+
+    image_path = tmp_path / "test_api.nii"
+    image = sitk.Image([6, 6, 6], sitk.sitkFloat32)
+    sitk.WriteImage(image, str(image_path))
+
+    # 1. Write metadata using the explicit write_metadata function
+    write_metadata(
+        image_path=image_path,
+        modality="spect",
+        unit="bq",
+        weight=82.5,
+        activity=150.0,
+        injection_date="2026-06-21 10:15:00",
+        acquisition_date="2026-06-21 12:30:00"
+    )
+
+    # 2. Read metadata using the explicit read_metadata function
+    res = read_metadata(image_path)
+    
+    assert "image_info" in res
+    assert "metadata" in res
+    
+    assert res["image_info"]["size"] == (6, 6, 6)
+    assert res["image_info"]["num_voxels"] == 216
+    
+    assert res["metadata"]["modality"] == "spect"
+    assert res["metadata"]["unit"] == "bq"
+    assert res["metadata"]["weight"] == 82.5
+    assert res["metadata"]["activity"] == 150.0
+    assert res["metadata"]["injection_date"] == "2026-06-21 10:15:00"
+    assert res["metadata"]["acquisition_date"] == "2026-06-21 12:30:00"
+    assert res["metadata"]["time_from_injection"] == 2.25
+
+
