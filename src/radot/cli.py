@@ -147,10 +147,16 @@ def stats(labels_path, image_path, image_type, output_path, labels, rois, resamp
 @click.option(
     "-s",
     "--spacing",
-    required=True,
     type=float,
     nargs=3,
     help="Target spacing in mm (e.g. -s 4 4 4).",
+)
+@click.option(
+    "-l",
+    "--like",
+    "like_path",
+    type=click.Path(exists=True, path_type=Path),
+    help="Reference image path to match grid layout (spacing, size, origin, direction).",
 )
 @click.option(
     "-t",
@@ -164,7 +170,7 @@ def stats(labels_path, image_path, image_type, output_path, labels, rois, resamp
     "--output",
     "output_path",
     type=click.Path(path_type=Path),
-    help="Optional path to output the resampled image. Defaults to <name>_<spacing>mm.<ext>.",
+    help="Optional path to output the resampled image. Defaults to <name>_<spacing>mm.<ext> or <name>_like_<ref>.<ext>.",
 )
 @click.option(
     "--unit",
@@ -182,9 +188,14 @@ def stats(labels_path, image_path, image_type, output_path, labels, rois, resamp
     help="Apply a Gaussian anti-aliasing filter when downsampling (continuous images only). Enabled by default.",
 )
 def resample(
-    image_path, spacing, image_type, output_path, unit, preserve_total, gaussian
+    image_path, spacing, like_path, image_type, output_path, unit, preserve_total, gaussian
 ):
-    """Resample an image to a target spacing."""
+    """Resample an image to a target spacing or to match another image grid."""
+
+    if not spacing and not like_path:
+        raise click.UsageError("Either --spacing (-s) or --like (-l) must be specified.")
+    if spacing and like_path:
+        raise click.UsageError("Cannot specify both --spacing (-s) and --like (-l).")
 
     image_type_lower = image_type.lower() if image_type else None
 
@@ -192,26 +203,44 @@ def resample(
         suffix = "".join(image_path.suffixes)
         base = image_path.name[: -len(suffix)] if suffix else image_path.name
 
-        # Format spacing to remove trailing decimals if integers (e.g. 4.0 -> 4)
-        if len(set(spacing)) == 1:
-            sp_str = f"{spacing[0]:g}"
+        if like_path:
+            like_suffix = "".join(like_path.suffixes)
+            like_base = like_path.name[: -len(like_suffix)] if like_suffix else like_path.name
+            output_path = Path(f"{base}_like_{like_base}{suffix}")
         else:
-            sp_str = "x".join(f"{s:g}" for s in spacing)
+            # Format spacing to remove trailing decimals if integers (e.g. 4.0 -> 4)
+            if len(set(spacing)) == 1:
+                sp_str = f"{spacing[0]:g}"
+            else:
+                sp_str = "x".join(f"{s:g}" for s in spacing)
 
-        output_path = Path(f"{base}_{sp_str}mm{suffix}")
+            output_path = Path(f"{base}_{sp_str}mm{suffix}")
 
     try:
-        from radot.resampling import resample_image_file
+        if like_path:
+            from radot.resampling import resample_image_file_like
 
-        resample_image_file(
-            image_path=image_path,
-            spacing=spacing,
-            image_type=image_type_lower,
-            output_path=output_path,
-            unit=unit,
-            preserve_total=preserve_total,
-            gaussian=gaussian,
-        )
+            resample_image_file_like(
+                image_path=image_path,
+                like_image_path=like_path,
+                output_path=output_path,
+                type=image_type_lower,
+                unit=unit,
+                preserve_total=preserve_total,
+                gaussian=gaussian,
+            )
+        else:
+            from radot.resampling import resample_image_file
+
+            resample_image_file(
+                image_path=image_path,
+                spacing=spacing,
+                image_type=image_type_lower,
+                output_path=output_path,
+                unit=unit,
+                preserve_total=preserve_total,
+                gaussian=gaussian,
+            )
     except Exception as e:
         raise click.ClickException(str(e))
 

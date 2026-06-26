@@ -205,3 +205,59 @@ def test_resample_image_file_like(tmp_path):
         resample_image_file_like(src_path, like_path, out_path, type="ct")
 
 
+def test_resample_cli_like(tmp_path):
+    from click.testing import CliRunner
+    from radot.cli import main
+    from radot.meta import manage_metadata
+
+    src_path = tmp_path / "src.nii.gz"
+    src_img = sitk.Image([6, 6, 6], sitk.sitkFloat32)
+    src_img.SetSpacing((1.0, 1.0, 1.0))
+    sitk.WriteImage(src_img, str(src_path))
+    manage_metadata(src_path, modality="spect", unit="bq")
+
+    like_path = tmp_path / "like.nii.gz"
+    like_img = sitk.Image([3, 3, 3], sitk.sitkUInt16)
+    like_img.SetSpacing((2.0, 2.0, 2.0))
+    sitk.WriteImage(like_img, str(like_path))
+
+    out_path = tmp_path / "out.nii.gz"
+
+    runner = CliRunner()
+
+    # 1. Test resampling with --like option
+    result = runner.invoke(main, [
+        "resample",
+        str(src_path),
+        "--like", str(like_path),
+        "-o", str(out_path),
+    ])
+    assert result.exit_code == 0
+    assert out_path.exists()
+
+    res_img = sitk.ReadImage(str(out_path))
+    assert res_img.GetSpacing() == (2.0, 2.0, 2.0)
+    assert res_img.GetSize() == (3, 3, 3)
+
+    # 2. Test failure if neither --spacing nor --like is specified
+    result_none = runner.invoke(main, [
+        "resample",
+        str(src_path),
+        "-o", str(out_path),
+    ])
+    assert result_none.exit_code != 0
+    assert "Either --spacing (-s) or --like (-l) must be specified." in result_none.output
+
+    # 3. Test failure if both --spacing and --like are specified
+    result_both = runner.invoke(main, [
+        "resample",
+        str(src_path),
+        "-s", "2", "2", "2",
+        "--like", str(like_path),
+        "-o", str(out_path),
+    ])
+    assert result_both.exit_code != 0
+    assert "Cannot specify both --spacing (-s) and --like (-l)." in result_both.output
+
+
+

@@ -355,6 +355,9 @@ def test_compute_roi_dose_string_inputs(tmp_path):
     img.SetMetaData("unit", "Bq")
     sitk.WriteImage(img, str(image_path))
     
+    with open(tmp_path / "spect.json", "w") as f:
+        json.dump({"unit": "Bq", "time_from_injection": "24.0"}, f)
+        
     lbls = sitk.Image([5, 5, 5], sitk.sitkUInt16)
     lbls[2, 2, 2] = 1
     sitk.WriteImage(lbls, str(labels_path))
