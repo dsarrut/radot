@@ -166,43 +166,24 @@ def _ensure_file_downloaded(phantom: str, filename: str) -> Path:
             with open(local_file, "wb") as f:
                 f.write(content)
         except Exception as e:
-            # Check if this is a test or if we have offline mock fallback data we can write
-            import sys
-            is_testing = "pytest" in sys.modules or "_pytest" in sys.modules
-            if is_testing or "opendose" in str(e).lower() or "connection refused" in str(e).lower() or "forbidden" in str(e).lower():
-                # Write mock data to make tests pass seamlessly when offline/sandboxed
+            print(f"RADOT: Download of {filename} from central registry failed: {e}. Trying to download from OpenDose directly...")
+            try:
                 if filename == "masses.json":
-                    if phantom == "icrp_110_male":
-                        masses = {"Left kidney": 152.983, "Right kidney": 157.011, "Liver": 1799.776, "Spleen": 149.968}
-                    else:
-                        masses = {"Left kidney": 149.483, "Right kidney": 125.530, "Liver": 1399.995, "Spleen": 129.996}
-                    with open(local_file, "w", encoding="utf-8") as f:
-                        json.dump(masses, f, indent=4)
+                    download_opendose_data(phantom, isotope="lu177", force=True)
                 elif filename.endswith(".json.gz"):
                     iso_name = filename[:-8]
-                    # Write mock matrix
-                    if iso_name == "lu177":
-                        if phantom == "icrp_110_male":
-                            s_matrix = {
-                                "Left kidney": {"Left kidney": 1.5662e-4, "Right kidney": 5.4199e-8, "Liver": 4.6791e-8, "Spleen": 3.4509e-7},
-                                "Liver": {"Left kidney": 4.7165e-8, "Right kidney": 2.2932e-7, "Liver": 1.3713e-5, "Spleen": 4.1688e-8}
-                            }
-                        else:
-                            s_matrix = {
-                                "Left kidney": {"Left kidney": 1.6034e-4, "Right kidney": 9.0396e-8, "Liver": 8.6437e-8, "Spleen": 4.2378e-7},
-                                "Liver": {"Left kidney": 8.6622e-8, "Right kidney": 3.0864e-7, "Liver": 1.7533e-5, "Spleen": 7.6519e-8}
-                            }
-                    else:
-                        s_matrix = {
-                            "Left kidney": {"Left kidney": 1.5e-4, "Right kidney": 9.0e-8, "Liver": 8.0e-8, "Spleen": 4.0e-7},
-                            "Liver": {"Left kidney": 9.0e-8, "Right kidney": 3.0e-7, "Liver": 1.7e-5, "Spleen": 7.0e-8}
-                        }
-                    with gzip.open(local_file, "wt", encoding="utf-8") as f:
-                        json.dump(s_matrix, f, indent=4)
+                    download_opendose_data(phantom, isotope=iso_name, force=True)
                 else:
-                    raise FileNotFoundError(f"RADOT Database: Failed to download '{filename}' for phantom '{phantom}' from web registry: {e}")
-            else:
-                raise FileNotFoundError(f"RADOT Database: Failed to download '{filename}' for phantom '{phantom}' from web registry: {e}")
+                    raise ValueError(f"Unknown database file name format: {filename}")
+                
+                if not local_file.exists():
+                    raise FileNotFoundError(f"OpenDose download did not produce the expected file {filename}")
+            except Exception as od_err:
+                raise FileNotFoundError(
+                    f"RADOT Database: Failed to download '{filename}' for phantom '{phantom}'.\n"
+                    f"  - First download (Creatis) error: {e}\n"
+                    f"  - Second download (OpenDose) error: {od_err}"
+                )
                 
     return local_file
 
@@ -384,131 +365,26 @@ def download_opendose_data(phantom: str, isotope: Optional[str] = None, force: b
     dest_dir = Path(str(importlib.resources.files("radot").joinpath("data").joinpath("opendose").joinpath(norm_phantom)))
     dest_dir.mkdir(parents=True, exist_ok=True)
     
-    import sys
-    is_testing = "pytest" in sys.modules or "_pytest" in sys.modules
-    
     url_options = ["https://opendose.polsl.pl/svalues/", "https://opendose.org/svalues"]
     html = None
     base_url = None
-    if not is_testing:
-        for u in url_options:
-            try:
-                req = urllib.request.Request(
-                    u,
-                    headers={'User-Agent': 'Mozilla/5.0'}
-                )
-                with urllib.request.urlopen(req, timeout=10) as response:
-                    html = response.read().decode('utf-8')
-                    base_url = u
-                    break
-            except Exception:
-                continue
+    for u in url_options:
+        try:
+            req = urllib.request.Request(
+                u,
+                headers={'User-Agent': 'Mozilla/5.0'}
+            )
+            with urllib.request.urlopen(req, timeout=10) as response:
+                html = response.read().decode('utf-8')
+                base_url = u
+                break
+        except Exception:
+            continue
             
-    offline_fallback = (html is None)
-    
-    if offline_fallback:
-        print("RADOT Warning: Failed to connect to opendose.org. Using offline mock fallback data.")
-        if norm_phantom == "icrp_110_male":
-            masses = {
-                "Left kidney": 152.983,
-                "Right kidney": 157.011,
-                "Liver": 1799.776,
-                "Spleen": 149.968
-            }
-        else:
-            masses = {
-                "Left kidney": 149.483,
-                "Right kidney": 125.530,
-                "Liver": 1399.995,
-                "Spleen": 129.996
-            }
-            
-        with open(dest_dir / "masses.json", "w", encoding="utf-8") as f:
-            json.dump(masses, f, indent=4)
-            
-        for iso_name in isotopes_to_download:
-            norm_iso = normalize_isotope(iso_name)
-            if norm_iso == "lu177":
-                if norm_phantom == "icrp_110_male":
-                    s_matrix = {
-                        "Left kidney": {
-                            "Left kidney": 1.5662e-4,
-                            "Right kidney": 5.4199e-8,
-                            "Liver": 4.6791e-8,
-                            "Spleen": 3.4509e-7
-                        },
-                        "Liver": {
-                            "Left kidney": 4.7165e-8,
-                            "Right kidney": 2.2932e-7,
-                            "Liver": 1.3713e-5,
-                            "Spleen": 4.1688e-8
-                        }
-                    }
-                else:
-                    s_matrix = {
-                        "Left kidney": {
-                            "Left kidney": 1.6034e-4,
-                            "Right kidney": 9.0396e-8,
-                            "Liver": 8.6437e-8,
-                            "Spleen": 4.2378e-7
-                        },
-                        "Liver": {
-                            "Left kidney": 8.6622e-8,
-                            "Right kidney": 3.0864e-7,
-                            "Liver": 1.7533e-5,
-                            "Spleen": 7.6519e-8
-                        }
-                    }
-            elif norm_iso == "y90":
-                if norm_phantom == "icrp_110_male":
-                    s_matrix = {
-                        "Left kidney": {
-                            "Left kidney": 5.1234e-6,
-                            "Right kidney": 2.1234e-7,
-                            "Liver": 1.9876e-7,
-                            "Spleen": 1.1122e-6
-                        },
-                        "Liver": {
-                            "Left kidney": 2.1122e-7,
-                            "Right kidney": 8.9876e-7,
-                            "Liver": 6.1234e-5,
-                            "Spleen": 2.1234e-7
-                        }
-                    }
-                else:
-                    s_matrix = {
-                        "Left kidney": {
-                            "Left kidney": 5.9876e-6,
-                            "Right kidney": 2.9876e-7,
-                            "Liver": 2.1234e-7,
-                            "Spleen": 1.2345e-6
-                        },
-                        "Liver": {
-                            "Left kidney": 2.1234e-7,
-                            "Right kidney": 9.1234e-7,
-                            "Liver": 6.9876e-5,
-                            "Spleen": 2.9876e-7
-                        }
-                    }
-            else:
-                s_matrix = {
-                    "Left kidney": {
-                        "Left kidney": 1.5e-4,
-                        "Right kidney": 9.0e-8,
-                        "Liver": 8.0e-8,
-                        "Spleen": 4.0e-7
-                    },
-                    "Liver": {
-                        "Left kidney": 9.0e-8,
-                        "Right kidney": 3.0e-7,
-                        "Liver": 1.7e-5,
-                        "Spleen": 7.0e-8
-                    }
-                }
-            with gzip.open(dest_dir / f"{norm_iso}.json.gz", "wt", encoding="utf-8") as f:
-                json.dump(s_matrix, f, indent=4)
-        print(f"Created offline mock database under: {dest_dir}")
-        return
+    if html is None:
+        raise ConnectionError(
+            f"RADOT Database: Failed to connect to OpenDose registry url options: {url_options}"
+        )
         
     src_parser = DropdownParser("source")
     src_parser.feed(html)
