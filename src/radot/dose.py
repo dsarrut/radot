@@ -7,11 +7,6 @@ from datetime import datetime
 from radot.db import get_physical_half_life_h
 from radot.meta import get_time_from_injection_h
 
-DOSIMETRY_STRATEGIES = {
-    "hanscheid2017": strategy_hanscheid2017,
-    "hanscheid2018": strategy_hanscheid2018,
-}
-
 
 def dose_hanscheid2017(
     spect_bq_a: np.ndarray,
@@ -202,6 +197,12 @@ def strategy_hanscheid2018(
         print(f"  - Voxel-mean Absorbed Dose: {dose:.6f} Gy")
 
     return float(dose), float(teff)
+
+
+DOSIMETRY_STRATEGIES = {
+    "hanscheid2017": strategy_hanscheid2017,
+    "hanscheid2018": strategy_hanscheid2018,
+}
 
 
 def compute_dose_generic(
