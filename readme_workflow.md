@@ -48,6 +48,12 @@ radot resample ct.nii.gz -s 4 4 4 -o ct_resampled.nii.gz --unit HU
 radot resample spect.nii.gz -l labels_all.nii.gz -o spect_resampled.nii.gz -t spect --unit suv
 ```
 
+## Step 3 ter (optional) ; stats
+
+```bash
+radot stats labels_all.nii.gz -i spect.nii.gz --unit bqml --rois Liver,Kidney_L
+```
+
 ## Step 4 : dose
 
 Compute the dose with the command line: 
