@@ -32,6 +32,26 @@ radot stats <labels_path> -i <image_path> [options]
 3. Peak Value Estimation: Computes the maximum intensity value within each ROI after applying a Gaussian smoothing filter (using the specified --sigma).
 4. Sidecar Mapping: If a companion JSON mapping file exists next to the labels file (e.g., labels.json next to labels.nii.gz), the module automatically maps numeric IDs to clinical names in the output table.
 
+#### Examples:
+
+1. Basic usage analyzing a CT scan:
+```bash
+radot stats labels.nii.gz -i ct.nii.gz
+```
+Calculates volumes and physical tissue masses (in grams/kilograms) for all ROIs.
+
+2. Analyzing specific organs on a SPECT scan:
+```bash
+radot stats labels.nii.gz -i spect.nii.gz --unit bqml --rois Liver,Kidney_L
+```
+Calculates volume and activity metrics specifically for the Liver and Kidney_L, explicitly setting the voxel unit to bqml.
+
+3. Aligning grids and exporting statistics to JSON:
+```bash
+radot stats labels.nii.gz -i pet.nii.gz -o stats.json --resample-to labels
+```
+Resamples the PET image to the labels grid space before calculating statistics, and saves the output dictionary as a JSON file.
+
 ---
 
 ## 2. Python API

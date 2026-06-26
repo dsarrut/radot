@@ -34,17 +34,28 @@ def compute_stats(
     If the image does not share the same grid as the labels, it is resampled based on `resample_to`.
     Returns a dictionary of statistics per label.
     """
-    from radot.meta import get_metadata_case_insensitive
+    from radot.meta import read_metadata, get_metadata_case_insensitive
+
+    meta = {}
+    if image_path is not None:
+        try:
+            meta = read_metadata(image_path).get("metadata", {})
+        except Exception:
+            pass
 
     # 1. Resolve image_type (modality)
     if image_type is None:
-        image_type = get_metadata_case_insensitive(image, "modality", image_path)
+        image_type = meta.get("modality")
+        if image_type is None:
+            image_type = get_metadata_case_insensitive(image, "modality", image_path)
         if image_type is None:
             raise ValueError("Image modality type is not specified and was not found in the image metadata.")
     image_type = image_type.lower()
 
     # 2. Resolve unit
-    stored_unit = get_metadata_case_insensitive(image, "unit", image_path)
+    stored_unit = meta.get("unit")
+    if stored_unit is None:
+        stored_unit = get_metadata_case_insensitive(image, "unit", image_path)
     if unit is not None:
         unit = unit.lower()
         if stored_unit is not None and stored_unit.lower() != unit:
@@ -249,18 +260,42 @@ def compute_stats_file(
             try:
                 with open(json_path, "r") as f:
                     raw_map = json.load(f)
-                    labels_map = {int(k): v for k, v in raw_map.items()}
-                print(f"Loaded label name mappings from: {json_path}")
+                    labels_map = {}
+                    for k, v in raw_map.items():
+                        try:
+                            labels_map[int(k)] = v
+                        except ValueError:
+                            pass
+                if labels_map:
+                    print(f"Loaded label name mappings from: {json_path}")
             except Exception as e:
                 print(f"Warning: Could not read mapping JSON {json_path}: {e}")
     
     print(f"Reading image from: {image_path}")
     image = sitk.ReadImage(str(image_path))
 
+    # Detect if arguments are swapped
+    if labels_image is not None:
+        lbl_min_max = sitk.MinimumMaximumImageFilter()
+        lbl_min_max.Execute(labels_image)
+        if lbl_min_max.GetMinimum() < 0:
+            print("Warning: It appears that the label file and intensity image file are swapped. The labels file has negative values, which is typical of intensity images (like CT).")
+        elif labels_image.GetPixelID() in (sitk.sitkFloat32, sitk.sitkFloat64) and image.GetPixelID() not in (sitk.sitkFloat32, sitk.sitkFloat64):
+            print("Warning: It appears that the label file and intensity image file are swapped. The labels file has a floating-point type, while the intensity image has an integer type.")
+
+    from radot.meta import read_metadata, get_metadata_case_insensitive
+    meta = {}
+    if image_path is not None:
+        try:
+            meta = read_metadata(image_path).get("metadata", {})
+        except Exception:
+            pass
+
     # Resolve image_type (modality)
     if image_type is None:
-        from radot.meta import get_metadata_case_insensitive
-        image_type = get_metadata_case_insensitive(image, "modality", image_path)
+        image_type = meta.get("modality")
+        if image_type is None:
+            image_type = get_metadata_case_insensitive(image, "modality", image_path)
         if image_type is None:
             raise ValueError("Image modality type is not specified and was not found in the image metadata.")
     image_type = image_type.lower()
@@ -288,8 +323,9 @@ def compute_stats_file(
         # Print to console pretty printed
         resolved_unit = unit
         if resolved_unit is None:
-            from radot.meta import get_metadata_case_insensitive
-            resolved_unit = get_metadata_case_insensitive(image, "unit", image_path)
+            resolved_unit = meta.get("unit")
+            if resolved_unit is None:
+                resolved_unit = get_metadata_case_insensitive(image, "unit", image_path)
         if resolved_unit is None and image_type.lower() == "ct":
             resolved_unit = "hu"
         pretty_print_stats(stats_dict, image_type, resolved_unit)

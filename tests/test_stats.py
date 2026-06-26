@@ -50,6 +50,42 @@ def test_compute_stats_matching_grid(tmp_path):
     assert "mass_g" in stats["5"]
     assert stats["5"]["mass_g"] == pytest.approx(0.064 * 1.1)
 
+def test_compute_stats_non_integer_mapping_keys(tmp_path):
+    spacing = (1.0, 1.0, 1.0)
+    labels_arr = np.zeros((10, 10, 10), dtype=np.uint16)
+    labels_arr[3:7, 3:7, 3:7] = 5
+    labels_image = sitk.GetImageFromArray(labels_arr)
+    labels_image.SetSpacing(spacing)
+    
+    ct_image = sitk.GetImageFromArray(np.zeros((10, 10, 10), dtype=np.int16))
+    ct_image.SetSpacing(spacing)
+    
+    labels_path = tmp_path / "labels.nii.gz"
+    image_path = tmp_path / "ct.nii.gz"
+    sitk.WriteImage(labels_image, str(labels_path))
+    sitk.WriteImage(ct_image, str(image_path))
+    
+    # Write a mapping JSON sidecar with non-integer keys (like general image metadata)
+    mapping = {"modality": "ct", "unit": "hu", "5": "Kidney_L"}
+    with open(tmp_path / "labels.json", "w") as f:
+        json.dump(mapping, f)
+        
+    output_path = tmp_path / "stats.json"
+    
+    # This should run without throwing or showing warning exceptions
+    compute_stats_file(
+        labels_path=labels_path,
+        image_path=image_path,
+        image_type="ct",
+        output_path=output_path
+    )
+    
+    assert output_path.exists()
+    with open(output_path, "r") as f:
+        stats = json.load(f)
+    assert "5" in stats
+    assert stats["5"]["roi"] == "Kidney_L"
+
 def test_compute_stats_mismatch_grid(tmp_path):
     # Create labels with 1mm spacing
     labels_arr = np.zeros((10, 10, 10), dtype=np.uint16)
@@ -549,5 +585,26 @@ def test_stats_total_bq(tmp_path):
     assert "6.400 kBq" in result_kbq.output
 
 
+def test_compute_stats_swapped_arguments(tmp_path):
+    from click.testing import CliRunner
+    from radot.cli import main
+    runner = CliRunner()
 
+    # Create a CT-like intensity image with negative values
+    ct_arr = np.zeros((5, 5, 5), dtype=np.int16)
+    ct_arr[2, 2, 2] = -100
+    ct_image = sitk.GetImageFromArray(ct_arr)
+    ct_path = tmp_path / "ct.nii.gz"
+    sitk.WriteImage(ct_image, str(ct_path))
 
+    # Create a label map
+    lbl_arr = np.zeros((5, 5, 5), dtype=np.uint8)
+    lbl_arr[2, 2, 2] = 1
+    lbl_image = sitk.GetImageFromArray(lbl_arr)
+    lbl_path = tmp_path / "labels.nii.gz"
+    sitk.WriteImage(lbl_image, str(lbl_path))
+
+    # Run with swapped parameters: stats <intensity_ct> -i <labels>
+    # This should warn the user about negative values in the first argument
+    result = runner.invoke(main, ["stats", str(ct_path), "-i", str(lbl_path), "-t", "ct"])
+    assert "Warning: It appears that the label file and intensity image file are swapped" in result.output
