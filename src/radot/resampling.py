@@ -181,3 +181,103 @@ def resample_image_file(
         shutil.copy2(in_sidecar, out_sidecar)
 
     print("Resampling completed successfully.")
+
+
+def resample_image_file_like(
+    image_path: Path,
+    like_image_path: Path,
+    output_path: Path,
+    type: Optional[str] = None,
+    unit: Optional[str] = None,
+    preserve_total: bool = False,
+    gaussian: bool = True,
+) -> None:
+    """
+    Load an image from image_path, resample it to match the grid of the image at like_image_path,
+    and save to output_path.
+    """
+    image_path = Path(image_path)
+    like_image_path = Path(like_image_path)
+    output_path = Path(output_path)
+
+    if not image_path.exists():
+        raise FileNotFoundError(f"Input image not found: {image_path}")
+    if not like_image_path.exists():
+        raise FileNotFoundError(f"Reference ('like') image not found: {like_image_path}")
+
+    print(f"Reading image from: {image_path}")
+    image = sitk.ReadImage(str(image_path))
+
+    print(f"Reading reference image from: {like_image_path}")
+    like_image = sitk.ReadImage(str(like_image_path))
+
+    from radot.meta import get_metadata_case_insensitive
+
+    # Resolve modality / image type
+    meta_type = get_metadata_case_insensitive(image, "modality", image_path)
+    if meta_type is not None:
+        meta_type = meta_type.lower()
+
+    if type is not None:
+        resolved_type = type.lower()
+        if meta_type is not None and meta_type != resolved_type:
+            raise ValueError(
+                f"Modality mismatch: image metadata specifies '{meta_type}' but type parameter is '{resolved_type}'."
+            )
+    else:
+        if meta_type is None:
+            raise ValueError(
+                "Image modality type is not specified and was not found in the image metadata."
+            )
+        resolved_type = meta_type
+
+    # Resolve unit
+    if unit is None:
+        unit = get_metadata_case_insensitive(image, "unit", image_path)
+        if unit is None:
+            if resolved_type == "ct":
+                unit = "hu"
+            elif resolved_type in ("pet", "spect"):
+                raise ValueError("The unit option is required for PET and SPECT modalities (not found in image metadata).")
+            else:
+                unit = "none"
+    else:
+        unit = unit.lower()
+
+    # Validate unit vs resolved_type
+    if unit == "hu" and resolved_type != "ct":
+        raise ValueError("HU units can only be used with CT images.")
+    if unit in ["suv", "bqml", "bq"] and resolved_type not in ["pet", "spect"]:
+        raise ValueError("SUV/Bqml/Bq units can only be used with PET or SPECT images.")
+    if unit != "none" and resolved_type == "labels":
+        raise ValueError("Labels cannot have a unit option.")
+
+    # Force preserve_total if unit is absolute activity (bq)
+    if unit == "bq":
+        preserve_total = True
+
+    print(
+        f"Resampling like-grid (type: {resolved_type}, unit: {unit}, preserve_total: {preserve_total}, gaussian: {gaussian})"
+    )
+
+    resampled = resample_image(
+        image=image,
+        image_type=resolved_type,
+        preserve_total=preserve_total,
+        gaussian=gaussian,
+        reference_image=like_image,
+    )
+
+    print(f"Saving resampled image to: {output_path}")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    sitk.WriteImage(resampled, str(output_path))
+
+    # Copy sidecar JSON if it exists
+    from radot.meta import get_sidecar_path
+    import shutil
+    in_sidecar = get_sidecar_path(image_path)
+    if in_sidecar.exists():
+        out_sidecar = get_sidecar_path(output_path)
+        shutil.copy2(in_sidecar, out_sidecar)
+
+    print("Resampling completed successfully.")

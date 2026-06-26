@@ -148,3 +148,60 @@ def test_resample_missing_metadata_errors(tmp_path):
     assert result2.exit_code != 0
     assert "unit option is required" in result2.output
 
+
+def test_resample_image_file_like(tmp_path):
+    from radot.resampling import resample_image_file_like
+    from radot.meta import manage_metadata
+
+    # Create source image (6x6x6, 1mm spacing)
+    src_path = tmp_path / "src.nii.gz"
+    src_img = sitk.Image([6, 6, 6], sitk.sitkFloat32)
+    src_img.SetSpacing((1.0, 1.0, 1.0))
+    sitk.WriteImage(src_img, str(src_path))
+
+    # Create like image (3x3x3, 2mm spacing)
+    like_path = tmp_path / "like.nii.gz"
+    like_img = sitk.Image([3, 3, 3], sitk.sitkUInt16)
+    like_img.SetSpacing((2.0, 2.0, 2.0))
+    sitk.WriteImage(like_img, str(like_path))
+
+    out_path = tmp_path / "out.nii.gz"
+
+    # 1. Fail because no type parameter and no modality in metadata
+    with pytest.raises(ValueError, match="Image modality type is not specified"):
+        resample_image_file_like(src_path, like_path, out_path)
+
+    # 2. Succeed when providing explicit type
+    resample_image_file_like(src_path, like_path, out_path, type="ct")
+    assert out_path.exists()
+    res_img = sitk.ReadImage(str(out_path))
+    assert res_img.GetSpacing() == (2.0, 2.0, 2.0)
+    assert res_img.GetSize() == (3, 3, 3)
+
+    # Clean up output
+    out_path.unlink()
+
+    # 3. Set metadata to "spect", "bq"
+    manage_metadata(src_path, modality="spect", unit="bq")
+
+    # 4. Succeed if type parameter is ignored/omitted since type is in metadata
+    resample_image_file_like(src_path, like_path, out_path)
+    assert out_path.exists()
+    out_img = sitk.ReadImage(str(out_path))
+    assert out_img.GetSpacing() == (2.0, 2.0, 2.0)
+
+    # Clean up output
+    out_path.unlink()
+
+    # 5. Succeed if both provided and they match
+    resample_image_file_like(src_path, like_path, out_path, type="spect")
+    assert out_path.exists()
+
+    # Clean up output
+    out_path.unlink()
+
+    # 6. Fail if both provided and they are different (e.g. meta="spect", parameter="ct")
+    with pytest.raises(ValueError, match="Modality mismatch"):
+        resample_image_file_like(src_path, like_path, out_path, type="ct")
+
+
