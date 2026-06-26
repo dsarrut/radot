@@ -184,13 +184,13 @@ def _ensure_file_downloaded(phantom: str, filename: str) -> Path:
                     if iso_name == "lu177":
                         if phantom == "icrp_110_male":
                             s_matrix = {
-                                "Left kidney": {"Left kidney": 1.3499e-7, "Right kidney": 9.0850e-8, "Liver": 8.6622e-8, "Spleen": 4.2378e-7},
-                                "Liver": {"Left kidney": 9.1512e-8, "Right kidney": 3.3894e-7, "Liver": 1.7533e-5, "Spleen": 7.6519e-8}
+                                "Left kidney": {"Left kidney": 1.5662e-4, "Right kidney": 5.4199e-8, "Liver": 4.6791e-8, "Spleen": 3.4509e-7},
+                                "Liver": {"Left kidney": 4.7165e-8, "Right kidney": 2.2932e-7, "Liver": 1.3713e-5, "Spleen": 4.1688e-8}
                             }
                         else:
                             s_matrix = {
                                 "Left kidney": {"Left kidney": 1.6034e-4, "Right kidney": 9.0396e-8, "Liver": 8.6437e-8, "Spleen": 4.2378e-7},
-                                "Liver": {"Left kidney": 9.1512e-8, "Right kidney": 3.0825e-7, "Liver": 1.7533e-5, "Spleen": 7.6519e-8}
+                                "Liver": {"Left kidney": 8.6622e-8, "Right kidney": 3.0864e-7, "Liver": 1.7533e-5, "Spleen": 7.6519e-8}
                             }
                     else:
                         s_matrix = {
@@ -432,16 +432,16 @@ def download_opendose_data(phantom: str, isotope: Optional[str] = None, force: b
                 if norm_phantom == "icrp_110_male":
                     s_matrix = {
                         "Left kidney": {
-                            "Left kidney": 1.3499e-7,
-                            "Right kidney": 9.0850e-8,
-                            "Liver": 8.6622e-8,
-                            "Spleen": 4.2378e-7
+                            "Left kidney": 1.5662e-4,
+                            "Right kidney": 5.4199e-8,
+                            "Liver": 4.6791e-8,
+                            "Spleen": 3.4509e-7
                         },
                         "Liver": {
-                            "Left kidney": 9.1512e-8,
-                            "Right kidney": 3.3894e-7,
-                            "Liver": 1.7533e-5,
-                            "Spleen": 7.6519e-8
+                            "Left kidney": 4.7165e-8,
+                            "Right kidney": 2.2932e-7,
+                            "Liver": 1.3713e-5,
+                            "Spleen": 4.1688e-8
                         }
                     }
                 else:
@@ -453,8 +453,8 @@ def download_opendose_data(phantom: str, isotope: Optional[str] = None, force: b
                             "Spleen": 4.2378e-7
                         },
                         "Liver": {
-                            "Left kidney": 9.1512e-8,
-                            "Right kidney": 3.0825e-7,
+                            "Left kidney": 8.6622e-8,
+                            "Right kidney": 3.0864e-7,
                             "Liver": 1.7533e-5,
                             "Spleen": 7.6519e-8
                         }

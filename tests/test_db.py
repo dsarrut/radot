@@ -30,16 +30,16 @@ def mock_db_data(monkeypatch):
             if phantom == "icrp_110_male":
                 return {
                     "Left kidney": {
-                        "Left kidney": 1.3499e-7,
-                        "Right kidney": 9.0850e-8,
-                        "Liver": 8.6622e-8,
-                        "Spleen": 4.2378e-7
+                        "Left kidney": 1.5662e-4,
+                        "Right kidney": 5.4199e-8,
+                        "Liver": 4.6791e-8,
+                        "Spleen": 3.4509e-7
                     },
                     "Liver": {
-                        "Left kidney": 9.1512e-8,
-                        "Right kidney": 3.3894e-7,
-                        "Liver": 1.7533e-5,
-                        "Spleen": 7.6519e-8
+                        "Left kidney": 4.7165e-8,
+                        "Right kidney": 2.2932e-7,
+                        "Liver": 1.3713e-5,
+                        "Spleen": 4.1688e-8
                     }
                 }
             else:
@@ -51,8 +51,8 @@ def mock_db_data(monkeypatch):
                         "Spleen": 4.2378e-7
                     },
                     "Liver": {
-                        "Left kidney": 9.1512e-8,
-                        "Right kidney": 3.0825e-7,
+                        "Left kidney": 8.6622e-8,
+                        "Right kidney": 3.0864e-7,
                         "Liver": 1.7533e-5,
                         "Spleen": 7.6519e-8
                     }
@@ -146,7 +146,7 @@ def test_get_reference_mass():
 
 def test_get_s_value():
     # Check male S-values from fake matrix
-    assert get_s_value("male", "lu177", "left_kidney", "right_kidney") == pytest.approx(9.0850e-8)
+    assert get_s_value("male", "lu177", "left_kidney", "right_kidney") == pytest.approx(5.4199e-8)
     assert get_s_value("AM", "Y90", "liver", "spleen") == pytest.approx(2.1234e-7)
     
     # Check female S-values from fake matrix

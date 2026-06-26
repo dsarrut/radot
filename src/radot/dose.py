@@ -63,7 +63,30 @@ def dose_hanscheid2017(
     return float(dose)
 
 
-def compute_dose_hanscheid2017(
+def dose_hanscheid2018(
+    spect_bq_a: np.ndarray,
+    roi_a: np.ndarray,
+    time_from_injection_h: float,
+    s_value: float,
+    mass_scaling: float,
+) -> float:
+    """
+    Input image and ROI must be numpy arrays
+    - spect must be in Bq (not concentration)
+    - acquisition time in hours
+    - output is in Gray
+    """
+    # compute mean activity in the ROI, in MBq
+    v = spect_bq_a[roi_a == 1]
+    At = np.sum(v) / 1e6
+
+    # S is in (mGy/MBq/s), so we get dose in mGy
+    dose = At * (2 * time_from_injection_h * 3600.0) / np.log(2) * s_value / mass_scaling / 1000.0
+
+    return float(dose)
+
+
+def compute_dose_generic(
     image_arr: np.ndarray,
     labels_arr: np.ndarray,
     isotope: str,
@@ -74,11 +97,14 @@ def compute_dose_hanscheid2017(
     rois: Optional[List[str]] = None,
     method_params: Optional[Dict[str, Any]] = None,
     verbose: bool = False,
+    method: str = "hanscheid2017",
 ) -> dict:
     """
-    Implementation of the Hanscheid 2017 dosimetry method (Option B).
+    Generic loop to calculate dosimetry for hanscheid2017 and hanscheid2018.
     """
+    from radot.db import resolve_organ_name, get_s_value, get_reference_mass
 
+    method_key = method.lower()
     unique_labels = sorted(np.unique(labels_arr))
     results = {}
 
@@ -96,67 +122,111 @@ def compute_dose_hanscheid2017(
         if not np.any(mask):
             continue
 
-        # Get effective half-life (Teff)
-        teff = None
-        if method_params and roi_name in method_params:
-            teff = method_params[roi_name].get("teff")
-
-        if teff is None:
-            # Fall back to physical half-life
-            try:
-                teff = get_physical_half_life_h(isotope)
-            except ValueError as e:
-                raise ValueError(
-                    f"No effective half-life (teff) provided for ROI '{roi_name}' and {e}"
-                )
-            print(
-                f"No Teff specified for '{roi_name}'. Using physical half-life of {isotope} ({teff:.2f} h) as fallback."
-            )
-
-        # compute dose using the specific hanscheid2017 method
-        dose = dose_hanscheid2017(
-            spect_bq_a=image_arr,
-            roi_a=mask.astype(np.uint8),
-            time_from_injection_h=time_from_injection_h,
-            volume_voxel_m_l=voxel_volume_ml,
-            effective_time_h=teff,
-        )
-
-        # compute volume and mass
+        # Common calculations: volume and mass
         roi_volume_ml = np.sum(mask) * voxel_volume_ml
 
         if ct_arr is not None:
-            # density = 1.0 + (HU / 1000)
             density = np.maximum(0.0, 1.0 + (ct_arr[mask] / 1000.0))
             roi_mass_g = np.sum(density) * voxel_volume_ml
         else:
-            # Fall back to water density (1.0 g/mL)
             roi_mass_g = roi_volume_ml
+
+        if method_key == "hanscheid2017":
+            # Teff parameter resolution
+            teff = None
+            if method_params and roi_name in method_params:
+                teff = method_params[roi_name].get("teff")
+
+            if teff is None:
+                try:
+                    teff = get_physical_half_life_h(isotope)
+                except ValueError as e:
+                    raise ValueError(
+                        f"No effective half-life (teff) provided for ROI '{roi_name}' and {e}"
+                    )
+                print(
+                    f"No Teff specified for '{roi_name}'. Using physical half-life of {isotope} ({teff:.2f} h) as fallback."
+                )
+
+            dose = dose_hanscheid2017(
+                spect_bq_a=image_arr,
+                roi_a=mask.astype(np.uint8),
+                time_from_injection_h=time_from_injection_h,
+                volume_voxel_m_l=voxel_volume_ml,
+                effective_time_h=teff,
+            )
+
+        elif method_key == "hanscheid2018":
+            phantom = "male"
+            if method_params:
+                phantom = method_params.get("phantom", "male")
+
+            # Standardize phantom/organ/rad
+            opendose_organ = resolve_organ_name(roi_name, phantom)
+            s_value = get_s_value(phantom, isotope, opendose_organ, opendose_organ)
+            s_mass = get_reference_mass(phantom, opendose_organ)
+            mass_scaling = roi_mass_g / s_mass
+
+            dose = dose_hanscheid2018(
+                spect_bq_a=image_arr,
+                roi_a=mask.astype(np.uint8),
+                time_from_injection_h=time_from_injection_h,
+                s_value=s_value,
+                mass_scaling=mass_scaling,
+            )
+            # Teff for Hanscheid 2018 is always assumed as 2 * t
+            teff = 2.0 * time_from_injection_h
+
+        else:
+            raise ValueError(f"Unknown dosimetry method: {method}")
 
         if verbose:
             voxels_in_roi = np.sum(mask)
             total_activity_bq = np.sum(image_arr[mask])
             total_activity_mbq = total_activity_bq / 1e6
-            mean_activity_concentration_bq_ml = np.mean(image_arr[mask] / voxel_volume_ml)
-            mean_activity_concentration_mbq_ml = mean_activity_concentration_bq_ml / 1e6
-            
-            print(f"\nDosimetry calculation log for ROI '{roi_name}' using Hanscheid 2017:")
-            print(f"  - Radionuclide: {isotope}")
-            print(f"  - Scaling factor: 0.125")
-            print(f"  - ROI Volume: {roi_volume_ml:.3f} mL ({voxels_in_roi} voxels)")
-            print(f"  - ROI Mass: {roi_mass_g:.3f} g")
-            if ct_arr is not None:
-                mean_density = roi_mass_g / roi_volume_ml
-                print(f"    (computed using companion CT, mean density: {mean_density:.3f} g/mL)")
-            else:
-                print(f"    (no companion CT, assuming water density 1.0 g/mL)")
-            print(f"  - Total Activity in ROI: {total_activity_mbq:.3e} MBq")
-            print(f"  - Mean Activity Concentration: {mean_activity_concentration_mbq_ml:.3e} MBq/mL ({mean_activity_concentration_bq_ml:.3e} Bq/mL)")
-            print(f"  - Time from injection: {time_from_injection_h:.3f} h")
-            print(f"  - Effective half-life (Teff): {teff:.3f} h")
-            formula_str = f"0.125 * {mean_activity_concentration_mbq_ml:.3e} * 2^({time_from_injection_h:.2f} / {teff:.2f}) * {teff:.2f}"
-            print(f"  - Formula: {formula_str}")
-            print(f"  - Voxel-mean Absorbed Dose: {dose:.6f} Gy")
+
+            if method_key == "hanscheid2017":
+                mean_activity_concentration_bq_ml = np.mean(image_arr[mask] / voxel_volume_ml)
+                mean_activity_concentration_mbq_ml = mean_activity_concentration_bq_ml / 1e6
+                print(f"\nDosimetry calculation log for ROI '{roi_name}' using Hanscheid 2017:")
+                print(f"  - Radionuclide: {isotope}")
+                print(f"  - Scaling factor: 0.125")
+                print(f"  - ROI Volume: {roi_volume_ml:.3f} mL ({voxels_in_roi} voxels)")
+                print(f"  - ROI Mass: {roi_mass_g:.3f} g")
+                if ct_arr is not None:
+                    mean_density = roi_mass_g / roi_volume_ml
+                    print(f"    (computed using companion CT, mean density: {mean_density:.3f} g/mL)")
+                else:
+                    print(f"    (no companion CT, assuming water density 1.0 g/mL)")
+                print(f"  - Total Activity in ROI: {total_activity_mbq:.3e} MBq")
+                print(f"  - Mean Activity Concentration: {mean_activity_concentration_mbq_ml:.3e} MBq/mL ({mean_activity_concentration_bq_ml:.3e} Bq/mL)")
+                print(f"  - Time from injection: {time_from_injection_h:.3f} h")
+                print(f"  - Effective half-life (Teff): {teff:.3f} h")
+                formula_str = f"0.125 * {mean_activity_concentration_mbq_ml:.3e} * 2^({time_from_injection_h:.2f} / {teff:.2f}) * {teff:.2f}"
+                print(f"  - Formula: {formula_str}")
+                print(f"  - Voxel-mean Absorbed Dose: {dose:.6f} Gy")
+
+            elif method_key == "hanscheid2018":
+                print(f"\nDosimetry calculation log for ROI '{roi_name}' using Hanscheid 2018:")
+                print(f"  - Radionuclide: {isotope}")
+                print(f"  - Phantom model: {phantom}")
+                print(f"  - OpenDose Organ Name: {opendose_organ}")
+                print(f"  - Reference Organ Mass: {s_mass:.3f} g")
+                print(f"  - ROI Volume: {roi_volume_ml:.3f} mL ({voxels_in_roi} voxels)")
+                print(f"  - ROI Mass: {roi_mass_g:.3f} g")
+                if ct_arr is not None:
+                    mean_density = roi_mass_g / roi_volume_ml
+                    print(f"    (computed using companion CT, mean density: {mean_density:.3f} g/mL)")
+                else:
+                    print(f"    (no companion CT, assuming water density 1.0 g/mL)")
+                print(f"  - Mass scaling factor: {mass_scaling:.4f}")
+                print(f"  - S-value (self): {s_value:.3e} mGy/MBq.s")
+                print(f"  - Total Activity in ROI: {total_activity_mbq:.3e} MBq")
+                print(f"  - Time from injection: {time_from_injection_h:.3f} h")
+                print(f"  - Effective half-life (Teff = 2*t): {teff:.3f} h")
+                formula_str = f"At * (2 * t * 3600) / ln(2) * S / mass_scaling / 1000"
+                print(f"  - Formula: {formula_str}")
+                print(f"  - Voxel-mean Absorbed Dose: {dose:.6f} Gy")
 
         results[roi_name] = {
             "mean_dose_gy": float(dose),
@@ -168,7 +238,18 @@ def compute_dose_hanscheid2017(
     return results
 
 
-DOSIMETRY_METHODS = {"hanscheid2017": compute_dose_hanscheid2017}
+def compute_dose_hanscheid2017(*args, **kwargs):
+    return compute_dose_generic(*args, method="hanscheid2017", **kwargs)
+
+
+def compute_dose_hanscheid2018(*args, **kwargs):
+    return compute_dose_generic(*args, method="hanscheid2018", **kwargs)
+
+
+DOSIMETRY_METHODS = {
+    "hanscheid2017": compute_dose_hanscheid2017,
+    "hanscheid2018": compute_dose_hanscheid2018,
+}
 
 
 def check_dosimetry_inputs(
@@ -235,6 +316,9 @@ def check_dosimetry_inputs(
         if method_params:
             normalized_params = {}
             for r, val in method_params.items():
+                if r.lower() == "phantom":
+                    normalized_params[r] = val
+                    continue
                 r_lower = r.lower()
                 if r_lower in norm_to_std:
                     normalized_params[norm_to_std[r_lower]] = val

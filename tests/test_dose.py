@@ -383,4 +383,51 @@ def test_compute_roi_dose_string_inputs(tmp_path):
     assert res["Liver"]["roi_teff_h"] == 45.2
 
 
+def test_compute_roi_dose_hanscheid2018():
+    # Create dummy images with appropriate metadata tags
+    # Voxel size 10x10x10 mm -> voxel volume = 1 mL
+    image = sitk.Image([5, 5, 5], sitk.sitkFloat32)
+    image.SetSpacing((10.0, 10.0, 10.0))
+    image.SetMetaData("time_from_injection", "24.0")
+    image.SetMetaData("unit", "Bq")
+    # Put 100 Bq in voxel (2,2,2)
+    image[2, 2, 2] = 100.0
+
+    labels = sitk.Image([5, 5, 5], sitk.sitkUInt16)
+    labels.SetSpacing((10.0, 10.0, 10.0))
+    labels[2, 2, 2] = 1  # Label 1 mapping to Left kidney
+
+    labels_map = {1: "Left kidney"}
+
+    # 1. Test male phantom
+    res_male = compute_roi_dose(
+        image=image,
+        labels=labels,
+        method="hanscheid2018",
+        isotope="Lu177",
+        labels_map=labels_map,
+        method_params={"phantom": "male"},
+        rois=None
+    )
+    assert "Left kidney" in res_male
+    # Expected dose: ~0.0005974 Gy
+    assert res_male["Left kidney"]["mean_dose_gy"] == pytest.approx(0.000597389, rel=1e-3)
+    assert res_male["Left kidney"]["roi_teff_h"] == 48.0
+
+    # 2. Test female phantom
+    res_female = compute_roi_dose(
+        image=image,
+        labels=labels,
+        method="hanscheid2018",
+        isotope="Lu177",
+        labels_map=labels_map,
+        method_params={"phantom": "female"},
+        rois=None
+    )
+    assert "Left kidney" in res_female
+    # Expected dose: ~0.0005975 Gy
+    assert res_female["Left kidney"]["mean_dose_gy"] == pytest.approx(0.000597525, rel=1e-3)
+
+
+
 

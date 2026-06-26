@@ -517,6 +517,11 @@ def dicom_list(folder_path):
     is_flag=True,
     help="Print detailed calculation log including all parameters and units.",
 )
+@click.option(
+    "--phantom",
+    default="male",
+    help="OpenDose phantom name (e.g. male, female).",
+)
 def dose(
     image_path,
     labels_path,
@@ -529,6 +534,7 @@ def dose(
     output_path,
     resample,
     verbose,
+    phantom,
 ):
     """Compute absorbed doses for specified regions of interest (ROI)."""
     from radot.dose import compute_roi_dose_file
@@ -543,7 +549,7 @@ def dose(
     if not rois_list:
         rois_list = None
 
-    method_params = {}
+    method_params = {"phantom": phantom}
     if teff:
         for t in teff:
             for item in t.split(","):
