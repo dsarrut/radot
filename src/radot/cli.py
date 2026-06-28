@@ -1104,6 +1104,124 @@ def roi_verify(path):
         click.echo()
 
 
+@main.group(name="radionuclide")
+def radionuclide():
+    """Radionuclide information tools."""
+    pass
+
+
+@radionuclide.command(name="list")
+def radionuclide_list():
+    """List all available radionuclides in the ICRP-107 database."""
+    import importlib.resources
+    import sys
+    
+    try:
+        icrp_dir = importlib.resources.files("icrp107_database").joinpath("icrp107")
+        available = []
+        for p in icrp_dir.iterdir():
+            if p.name.endswith(".json"):
+                available.append(p.name[:-5])
+        
+        if not available:
+            sys.stdout.write("No radionuclides found in the icrp107-database.\n")
+            return
+            
+        available.sort()
+        sys.stdout.write("\nAvailable Radionuclides:\n")
+        # Format as 6 columns
+        col_width = 12
+        num_cols = 6
+        for i in range(0, len(available), num_cols):
+            chunk = available[i:i + num_cols]
+            line = "".join(f"{name:<{col_width}}" for name in chunk) + "\n"
+            sys.stdout.write(line)
+        sys.stdout.write("\n")
+    except Exception as e:
+        handle_cli_exception(e)
+
+
+@radionuclide.command(name="info")
+@click.argument("isotope")
+def radionuclide_info(isotope):
+    """Print physical half-life and emissions summary for a radionuclide."""
+    import importlib.resources
+    import json
+    import re
+    import sys
+    
+    try:
+        iso_clean = re.sub(r'[-_\s]', '', isotope).lower()
+        icrp_dir = importlib.resources.files("icrp107_database").joinpath("icrp107")
+        
+        matched_path = None
+        for p in icrp_dir.iterdir():
+            if p.name.endswith(".json"):
+                name_without_ext = p.name[:-5]
+                if re.sub(r'[-_\s]', '', name_without_ext).lower() == iso_clean:
+                    matched_path = p
+                    break
+                    
+        if not matched_path:
+            raise ValueError(f"Isotope '{isotope}' is not available in the icrp107-database package.")
+            
+        with matched_path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+            if isinstance(data, str):
+                data = json.loads(data)
+                
+        name = data.get("name", matched_path.name[:-5])
+        half_life = data.get("half_life")
+        time_unit = data.get("time_unit", "s")
+        
+        # Display physical half-life with original units and converted units
+        from radot.db import get_physical_half_life_h
+        try:
+            hl_hours = get_physical_half_life_h(name)
+            hl_days = hl_hours / 24.0
+            if hl_days >= 1.0:
+                hl_str = f"{half_life} {time_unit} ({hl_days:.3f} days / {hl_hours:.2f} hours)"
+            else:
+                hl_str = f"{half_life} {time_unit} ({hl_hours:.4f} hours)"
+        except Exception:
+            hl_str = f"{half_life} {time_unit}"
+            
+        sys.stdout.write(f"\nRadionuclide: {name}\n")
+        sys.stdout.write(f"Physical Half-life: {hl_str}\n\n")
+        
+        emissions = data.get("emissions", {})
+        if not emissions:
+            sys.stdout.write("No emissions data available for this radionuclide.\n")
+            return
+            
+        sys.stdout.write("Emissions Summary:\n")
+        sys.stdout.write(f"{'Type':<12} | {'Num':<5} | {'Total Yield':<11} | {'Total Energy (MeV)':<18} | {'Avg Energy (MeV)':<16}\n")
+        sys.stdout.write("─" * 73 + "\n")
+        
+        # We order standard emission types
+        emission_types = ["alpha", "beta-", "beta+", "gamma", "X", "auger", "IE", "neutron", "alpha recoil", "annihilation", "fission", "betaD"]
+        for etype in emission_types:
+            val = emissions.get(etype, [])
+            if not val:
+                continue
+                
+            num = len(val)
+            total_yield = 0.0
+            total_energy = 0.0
+            for item in val:
+                if len(item) >= 2:
+                    energy, yield_val = item[0], item[1]
+                    total_yield += yield_val
+                    total_energy += energy * yield_val
+            
+            avg_energy = total_energy / total_yield if total_yield > 0 else 0.0
+            sys.stdout.write(f"{etype:<12} | {num:<5} | {total_yield:<11.4f} | {total_energy:<18.4f} | {avg_energy:<16.4f}\n")
+        sys.stdout.write("\n")
+        
+    except Exception as e:
+        handle_cli_exception(e)
+
+
 if __name__ == "__main__":
     main()
 

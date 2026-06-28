@@ -117,7 +117,7 @@ def strategy_hanscheid2017(
             else "no companion CT, assuming water density 1.0 g/mL"
         )
         formula_str = f"0.125 * {mean_activity_concentration_mbq_ml:.3e} * 2^({time_from_injection_h:.2f} / {teff:.2f}) * {teff:.2f}"
-        
+
         log_msg = (
             f"\nDosimetry calculation log for ROI '{roi_name}' using Hanscheid 2017:\n"
             f"  - Radionuclide: {isotope}\n"
@@ -186,7 +186,7 @@ def strategy_hanscheid2018(
             else "no companion CT, assuming water density 1.0 g/mL"
         )
         formula_str = f"At * (2 * t * 3600) / ln(2) * S / mass_scaling / 1000"
-        
+
         log_msg = (
             f"\nDosimetry calculation log for ROI '{roi_name}' using Hanscheid 2018:\n"
             f"  - Radionuclide: {isotope}\n"
@@ -465,7 +465,7 @@ def compute_roi_dose(
     # 2. Strict Grid Validation
     if not has_same_grid(image, labels):
         raise ValueError(
-            "Activity image grid does not match labels grid, resample image first."
+            "Activity image grid does not match labels grid, resample image first (option --resample)."
         )
 
     if ct_image is not None:
@@ -659,6 +659,7 @@ def compute_roi_dose_file(
 def pretty_print_dose(results: dict) -> None:
     """Pretty print dosimetry results as a table."""
     import sys
+
     headers = ["ROI", "Mean Dose (Gy)", "Mass (g)", "Volume (mL)", "Teff (h)"]
     rows = []
     for roi, data in results.items():
