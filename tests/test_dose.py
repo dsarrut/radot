@@ -429,5 +429,33 @@ def test_compute_roi_dose_hanscheid2018():
     assert res_female["Left kidney"]["mean_dose_gy"] == pytest.approx(0.000597525, rel=1e-3)
 
 
+def test_dose_missing_organ_halt():
+    import numpy as np
+    from radot.dose import compute_roi_dose
+    import click
+    
+    image = sitk.Image([3, 3, 3], sitk.sitkFloat32)
+    image.SetMetaData("time_from_injection", "24.0")
+    image.SetMetaData("unit", "Bq")
+    
+    labels = sitk.Image([3, 3, 3], sitk.sitkUInt16)
+    labels[1, 1, 1] = 1
+    
+    # prostate is in male, but NOT in female
+    labels_map = {1: "Prostate"}
+    
+    # It should raise click.ClickException with instructions rather than skipping
+    with pytest.raises(click.ClickException, match="Dosimetry Halt:.*Prostate.*not found in S-value matrix"):
+        compute_roi_dose(
+            image=image,
+            labels=labels,
+            method="hanscheid2018",
+            isotope="Lu177",
+            labels_map=labels_map,
+            method_params={"phantom": "female"},
+            rois=None
+        )
+
+
 
 

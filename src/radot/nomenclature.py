@@ -4,18 +4,22 @@ import difflib
 from pathlib import Path
 from typing import Dict, Tuple, List, Optional, Any
 
+
 def _load_json_data(filename: str) -> dict:
     p = importlib.resources.files("radot").joinpath("data").joinpath(filename)
     with open(str(p), "r", encoding="utf-8") as f:
         return json.load(f)
 
+
 # Load the raw mapping dictionaries
 TS_TO_TG263: Dict[str, List] = _load_json_data("ts_to_tg263.json")
-OD_TO_TG263: Dict[str, str] = _load_json_data("od_to_tg263.json")
 TS_TO_OD_FALLBACK: Dict[str, str] = _load_json_data("ts_to_od_fallback.json")
+TS_GROUPS: Dict[str, str] = _load_json_data("ts_groups.json")
+OPENDOSE_PASSIVE_TARGETS: List[str] = _load_json_data("opendose_passive_targets.json")
 
-# Invert OD_TO_TG263 to map TG-263 label -> OpenDose reference organ name
-TG263_TO_OD: Dict[str, str] = {v: k for k, v in OD_TO_TG263.items()}
+# Load TG-263 to OpenDose mapping and invert it for reverse lookup
+TG263_TO_OD: Dict[str, str] = _load_json_data("tg263_to_od.json")
+OD_TO_TG263: Dict[str, str] = {v: k for k, v in TG263_TO_OD.items()}
 
 
 def resolve_roi_name_to_opendose(name: str) -> str:
@@ -66,9 +70,11 @@ def get_all_mappings() -> List[Tuple[str, str, str]]:
     return sorted(mappings, key=lambda x: x[0])
 
 
-def find_closest_matches(query: str, n: int = 3) -> List[Tuple[str, str]]:
+def find_closest_matches(query: str, n: int = 10) -> List[Tuple[str, str]]:
     """Find closest nomenclature matches for a query string using string distance."""
+    query_clean = query.strip().lower()
     candidates = []
+
     for name in TS_TO_TG263.keys():
         candidates.append((name, "TotalSegmentator"))
     for name in TG263_TO_OD.keys():
@@ -76,18 +82,29 @@ def find_closest_matches(query: str, n: int = 3) -> List[Tuple[str, str]]:
     for name in OD_TO_TG263.keys():
         candidates.append((name, "OpenDose"))
     for name in TS_TO_OD_FALLBACK.keys():
-        if (name, "TotalSegmentator") not in candidates:
+        if not any(c[0] == name for c in candidates):
             candidates.append((name, "TotalSegmentator"))
 
-    names_list = [c[0] for c in candidates]
-    matches = difflib.get_close_matches(query.strip(), names_list, n=n, cutoff=0.4)
+    scored = []
+    for cand_name, source in candidates:
+        ratio = difflib.SequenceMatcher(None, query_clean, cand_name.lower()).ratio()
+        if ratio >= 0.4:
+            scored.append((ratio, cand_name, source))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
 
     results = []
-    for m in matches:
-        for cand_name, source in candidates:
-            if cand_name == m:
-                results.append((cand_name, source))
+    seen = set()
+    for ratio, name, source in scored:
+        if name not in seen:
+            seen.add(name)
+            results.append((name, source))
+            if len(results) >= n:
                 break
+                
+    # Sort by source priority: TG-263 (1), TotalSegmentator (2), OpenDose (3)
+    source_priority = {"TG-263": 1, "TotalSegmentator": 2, "OpenDose": 3}
+    results.sort(key=lambda x: source_priority.get(x[1], 99))
     return results
 
 

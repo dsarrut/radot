@@ -253,26 +253,36 @@ def compute_dose_generic(
             roi_mass_g = roi_volume_ml
 
         # Delegate calculation and logging to the strategy
-        dose, teff = strategy(
-            image_arr=image_arr,
-            mask=mask,
-            voxel_volume_ml=voxel_volume_ml,
-            roi_name=roi_name,
-            time_from_injection_h=time_from_injection_h,
-            isotope=isotope,
-            roi_mass_g=roi_mass_g,
-            roi_volume_ml=roi_volume_ml,
-            method_params=method_params,
-            verbose=verbose,
-            ct_arr=ct_arr,
-        )
-
-        results[roi_name] = {
-            "mean_dose_gy": float(dose),
-            "roi_mass_g": float(roi_mass_g),
-            "roi_volume_ml": float(roi_volume_ml),
-            "roi_teff_h": float(teff),
-        }
+        try:
+            dose, teff = strategy(
+                image_arr=image_arr,
+                mask=mask,
+                voxel_volume_ml=voxel_volume_ml,
+                roi_name=roi_name,
+                time_from_injection_h=time_from_injection_h,
+                isotope=isotope,
+                roi_mass_g=roi_mass_g,
+                roi_volume_ml=roi_volume_ml,
+                method_params=method_params,
+                verbose=verbose,
+                ct_arr=ct_arr,
+            )
+            results[roi_name] = {
+                "mean_dose_gy": float(dose),
+                "roi_mass_g": float(roi_mass_g),
+                "roi_volume_ml": float(roi_volume_ml),
+                "roi_teff_h": float(teff),
+            }
+        except ValueError as e:
+            if "not found in" in str(e) and ("S-value matrix" in str(e) or "phantom" in str(e)):
+                import click
+                raise click.ClickException(
+                    f"Dosimetry Halt: {e}\n"
+                    "Note: OpenDose lacks a single 'Skeleton' compartment and instead requires specific cortical/spongiosa targets.\n"
+                    "To proceed, you must explicitly provide an external S-value override file via the CLI parameters (e.g., using --custom-s-values override.json) or adjust your input sidecar JSON mapping definitions to explicitly match target OpenDose bone/tissue definitions."
+                )
+            else:
+                raise e
 
     return results
 

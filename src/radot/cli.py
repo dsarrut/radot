@@ -864,28 +864,140 @@ def roi():
 @roi.command(name="list")
 @click.option(
     "--source",
-    type=click.Choice(["ts", "od"]),
-    help="Filter mappings by origin ('ts' for TotalSegmentator, 'od' for OpenDose).",
+    type=click.Choice(["all", "ts", "od", "tg"]),
+    default="all",
+    help="Filter mappings by origin ('all' for TG-263 Hub, 'ts' for TotalSegmentator checklist, 'od' for OpenDose phantom capability, 'tg' for AAPM compliance).",
 )
 def roi_list(source):
     """List all explicit anatomical correspondences in the nomenclature mapping."""
-    from radot.nomenclature import get_all_mappings
+    import re
+    from radot.nomenclature import (
+        TS_TO_TG263,
+        OD_TO_TG263,
+        TS_TO_OD_FALLBACK,
+        TG263_TO_OD,
+        TS_GROUPS,
+        OPENDOSE_PASSIVE_TARGETS,
+    )
     
-    mappings = get_all_mappings()
-    
-    click.echo("\nRegistered ROI Nomenclature Maps (TG-263 Hub):\n")
-    click.echo(f"{'TotalSegmentator Name':<30} {'TG-263 Label':<20} {'OpenDose Target':<25}")
-    click.echo("─" * 78)
-    
-    for ts_name, tg263_label, od_target in mappings:
-        if source == "ts":
-            # TS is always the origin for these mappings
-            pass
-        elif source == "od" and not od_target:
-            continue
+    if source == "all":
+        click.echo("\nRegistered ROI Nomenclature Maps (TG-263 Hub)\n")
+        click.echo(f"{'TotalSegmentator Name':<30} {'TG-263 Label':<20} {'OpenDose Target':<25}")
+        click.echo("─" * 78)
+        
+        for ts_name, val in sorted(TS_TO_TG263.items()):
+            tg263_label = val[1]
+            od_target = TG263_TO_OD.get(tg263_label, "")
+            click.echo(f"{ts_name:<30} {tg263_label:<20} {od_target:<25}")
+        click.echo()
+        
+    elif source == "ts":
+        click.echo("\nTotalSegmentator Mapping Inventory\n")
+        click.echo(f"{'TotalSegmentator Name':<30} {'TG-263 Label':<20} {'Mapping Route':<20} {'OpenDose Target':<25}")
+        click.echo("─" * 98)
+        
+        for ts_name, val in sorted(TS_TO_TG263.items()):
+            tg263_label = val[1]
+            od_target = TG263_TO_OD.get(tg263_label, "")
             
-        click.echo(f"{ts_name:<30} {tg263_label:<20} {od_target:<25}")
-    click.echo()
+            if od_target:
+                route = "[STAGE 1] Hub"
+                resolves_to = od_target
+            elif ts_name in TS_TO_OD_FALLBACK:
+                route = "[STAGE 2] Bypass"
+                resolves_to = TS_TO_OD_FALLBACK[ts_name]
+            elif ts_name in TS_GROUPS:
+                route = "[STAGE 2] Group"
+                resolves_to = TS_GROUPS[ts_name]
+            else:
+                route = "[STAGE 3] UNMAPPED"
+                resolves_to = "⛔ CRASH SAFEGUARD"
+                
+            click.echo(f"{ts_name:<30} {tg263_label:<20} {route:<20} {resolves_to:<25}")
+        click.echo()
+        
+    elif source == "od":
+        # Build mapping from OpenDose target -> list of TS Names
+        od_to_ts_names = {}
+        for ts_name, val in TS_TO_TG263.items():
+            tg263_label = val[1]
+            od_target = TG263_TO_OD.get(tg263_label, "")
+            if od_target:
+                od_to_ts_names.setdefault(od_target, []).append(ts_name)
+                
+        for ts_name, od_val in TS_TO_OD_FALLBACK.items():
+            od_to_ts_names.setdefault(od_val, []).append(ts_name)
+            
+        for ts_name, od_val in TS_GROUPS.items():
+            od_to_ts_names.setdefault(od_val, []).append(ts_name)
+            
+        from radot.db import _find_matching_key, _load_masses
+        
+        try:
+            masses_male = _load_masses("icrp_110_male")
+            masses_female = _load_masses("icrp_110_female")
+            standard_od_organs = set(masses_male.keys()) | set(masses_female.keys())
+        except Exception:
+            standard_od_organs = set(OD_TO_TG263.keys()) | set(TS_TO_OD_FALLBACK.values()) | set(OPENDOSE_PASSIVE_TARGETS)
+            
+        full_od_to_ts_names = {}
+        for od_organ in standard_od_organs:
+            matched_base = _find_matching_key(od_to_ts_names, od_organ)
+            if matched_base:
+                full_od_to_ts_names[od_organ] = od_to_ts_names[matched_base]
+            else:
+                for base_target, ts_list in od_to_ts_names.items():
+                    if od_organ.lower().startswith(base_target.lower()) or base_target.lower().startswith(od_organ.lower()):
+                        full_od_to_ts_names[od_organ] = ts_list
+                        break
+        
+        click.echo("\nOpenDose Reference Phantom Targets\n")
+        click.echo(f"{'OpenDose Organ Name':<50} {'Status':<20} {'Mapped From (TS)':<25}")
+        click.echo("─" * 98)
+        
+        for od_name in sorted(standard_od_organs):
+            ts_list = full_od_to_ts_names.get(od_name, [])
+            if ts_list:
+                status = "[ACTIVE]"
+                mapped_from = ", ".join(ts_list)
+                if len(mapped_from) > 40:
+                    mapped_from = mapped_from[:37] + "..."
+            elif od_name in OPENDOSE_PASSIVE_TARGETS:
+                status = "[PASSIVE TARGET]"
+                mapped_from = "-- (Cross-fire only)"
+            else:
+                is_passive = False
+                for p_target in OPENDOSE_PASSIVE_TARGETS:
+                    if od_name.lower().startswith(p_target.lower()) or p_target.lower().startswith(od_name.lower()):
+                        is_passive = True
+                        break
+                if is_passive:
+                    status = "[PASSIVE TARGET]"
+                    mapped_from = "-- (Cross-fire only)"
+                else:
+                    status = "[INACTIVE]"
+                    mapped_from = "--"
+                
+            click.echo(f"{od_name:<50} {status:<20} {mapped_from:<25}")
+        click.echo()
+        
+    elif source == "tg":
+        tg263_labels = set(TG263_TO_OD.keys()) | {val[1] for val in TS_TO_TG263.values()}
+        
+        click.echo("\nSupported AAPM TG-263 Standard Labels\n")
+        click.echo(f"{'TG-263 Label':<25} {'Description':<35} {'Status':<15}")
+        click.echo("─" * 78)
+        
+        for label in sorted(tg263_labels):
+            desc = label.replace("_", " ")
+            od_name = TG263_TO_OD.get(label, "")
+            if od_name:
+                desc = f"TG-263 standard for {od_name.lower()}"
+            else:
+                desc = f"TG-263 standard for {desc.lower()}"
+                
+            click.echo(f"{label:<25} {desc:<35} {'Registered':<15}")
+        click.echo()
 
 
 @roi.command(name="match")

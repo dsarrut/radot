@@ -16,8 +16,8 @@ def test_resolve_roi_name_to_opendose():
     assert resolve_roi_name_to_opendose("Left kidney") == "Left kidney"
 
     # Stage 2: Bypass TG-263 (Direct TS to OpenDose fallback)
-    assert resolve_roi_name_to_opendose("adrenal_gland_left") == "Adrenals"
-    assert resolve_roi_name_to_opendose("rib_left_5") == "Skeleton"
+    assert resolve_roi_name_to_opendose("adrenal_gland_left") == "Adrenal, left"
+    assert resolve_roi_name_to_opendose("rib_left_5") == "rib_left_5"
     assert resolve_roi_name_to_opendose("autochthon_left") == "Muscle"
 
     # Stage 3: Raw retain fallback
@@ -49,7 +49,7 @@ def test_verify_sidecar_mappings():
     assert 1 in report["mapped"]
     assert report["mapped"][1] == ("kidney_left", "Left kidney")
     assert 2 in report["mapped"]
-    assert report["mapped"][2] == ("adrenal_gland_right", "Adrenals")
+    assert report["mapped"][2] == ("adrenal_gland_right", "Adrenal, right")
     assert 3 in report["unmapped"]
     assert report["unmapped"][3] == "custom_tumor_lesion"
 
@@ -58,13 +58,32 @@ def test_cli_roi_list():
     runner = CliRunner()
     result = runner.invoke(main, ["roi", "list"])
     assert result.exit_code == 0
+    assert "Registered ROI Nomenclature Maps (TG-263 Hub)" in result.output
     assert "kidney_left" in result.output
     assert "Kidney_L" in result.output
 
     # Source TS option
     result_ts = runner.invoke(main, ["roi", "list", "--source", "ts"])
     assert result_ts.exit_code == 0
+    assert "TotalSegmentator Mapping Inventory" in result_ts.output
+    assert "OpenDose Target" in result_ts.output
     assert "kidney_left" in result_ts.output
+    assert "Kidney_L" in result_ts.output
+    assert "[STAGE 1] Hub" in result_ts.output
+
+    # Source OD option
+    result_od = runner.invoke(main, ["roi", "list", "--source", "od"])
+    assert result_od.exit_code == 0
+    assert "OpenDose Reference Phantom Targets" in result_od.output
+    assert "Left kidney" in result_od.output
+    assert "[ACTIVE]" in result_od.output
+
+    # Source TG option
+    result_tg = runner.invoke(main, ["roi", "list", "--source", "tg"])
+    assert result_tg.exit_code == 0
+    assert "Supported AAPM TG-263 Standard Labels" in result_tg.output
+    assert "Kidney_L" in result_tg.output
+    assert "Registered" in result_tg.output
 
 
 def test_cli_roi_match():
