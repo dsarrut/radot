@@ -176,9 +176,23 @@ def _load_s_values(phantom: str, isotope: str) -> Dict[str, Dict[str, float]]:
     key = (phantom, isotope)
     if key not in _s_values_cache:
         try:
-            s_file_gz = _ensure_file_downloaded(phantom, f"{isotope}.json.gz")
-            with gzip.open(s_file_gz, "rt", encoding="utf-8") as f:
-                _s_values_cache[key] = json.load(f)
+            import importlib.resources
+            from pathlib import Path
+            p_dir = importlib.resources.files("radot").joinpath("data").joinpath("opendose").joinpath(phantom)
+            local_json = Path(str(p_dir)) / f"{isotope}.json"
+            
+            if local_json.exists():
+                with open(local_json, "r", encoding="utf-8") as f:
+                    _s_values_cache[key] = json.load(f)
+            else:
+                s_file_gz = _ensure_file_downloaded(phantom, f"{isotope}.json.gz")
+                try:
+                    with gzip.open(s_file_gz, "rt", encoding="utf-8") as f:
+                        _s_values_cache[key] = json.load(f)
+                except Exception:
+                    # In case they decompressed the .json.gz file in-place keeping the .gz extension
+                    with open(s_file_gz, "r", encoding="utf-8") as f:
+                        _s_values_cache[key] = json.load(f)
         except Exception as e:
             raise FileNotFoundError(f"RADOT Database: Failed S-value matrix file for '{isotope}' on '{phantom}': {e}")
     return _s_values_cache[key]
