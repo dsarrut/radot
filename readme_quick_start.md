@@ -66,7 +66,7 @@ radot dose spect.nii.gz -l labels_all.nii.gz -m hanscheid2018  --isotope lu177 -
 
 ```
 
-Or with the equivalent Python function: 
+Or in a script with the equivalent Python function: 
 
 ```python
 results = compute_roi_dose_file(
