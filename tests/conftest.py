@@ -19,17 +19,25 @@ def mock_opendose_dir_globally():
     mock_opendose = mock_pkg_root / "data" / "opendose"
     mock_opendose.mkdir(parents=True, exist_ok=True)
     
-    # Copy the actual masses.json (the reference files) from the live package
-    live_db = Path(str(importlib.resources.files("radot").joinpath("data").joinpath("opendose")))
+    # Copy the actual masses.json and parent JSON mappings from the live package
+    live_data = Path(str(importlib.resources.files("radot").joinpath("data")))
     
-    if live_db.exists():
-        for phantom_dir in live_db.iterdir():
-            if phantom_dir.is_dir() and not phantom_dir.name.startswith("."):
-                dest_phantom = mock_opendose / phantom_dir.name
-                dest_phantom.mkdir(parents=True, exist_ok=True)
-                masses_file = phantom_dir / "masses.json"
-                if masses_file.exists():
-                    shutil.copy(masses_file, dest_phantom / "masses.json")
+    if live_data.exists():
+        # Copy standard JSON maps (e.g. ts_to_tg263.json)
+        for p in live_data.iterdir():
+            if p.is_file() and p.name.endswith(".json"):
+                shutil.copy(p, mock_pkg_root / "data" / p.name)
+        
+        # Copy masses.json reference databases
+        live_db = live_data / "opendose"
+        if live_db.exists():
+            for phantom_dir in live_db.iterdir():
+                if phantom_dir.is_dir() and not phantom_dir.name.startswith("."):
+                    dest_phantom = mock_opendose / phantom_dir.name
+                    dest_phantom.mkdir(parents=True, exist_ok=True)
+                    masses_file = phantom_dir / "masses.json"
+                    if masses_file.exists():
+                        shutil.copy(masses_file, dest_phantom / "masses.json")
                     
     # Now monkeypatch importlib.resources.files
     orig_files = importlib.resources.files

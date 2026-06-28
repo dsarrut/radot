@@ -483,7 +483,7 @@ def dicom_list(folder_path):
     "-l",
     "--labels",
     "labels_path",
-    required=True,
+    required=False,
     type=click.Path(exists=True, path_type=Path),
     help="Labels segmentation image path.",
 )
@@ -577,6 +577,12 @@ def dose(
         if not cli_verbose and ctx.obj.get("verbose"):
             cli_verbose = True
     configure_logging(verbose=cli_verbose, quiet=cli_quiet)
+
+    method_key = method.lower()
+    if method_key != "ldm" and not labels_path:
+        raise click.UsageError("Missing option '-l' / '--labels'.")
+    if method_key == "ldm" and not output_path:
+        raise click.UsageError("Option '-o' / '--output' is required when using the LDM method.")
 
     rois_list = []
     if rois:

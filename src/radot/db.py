@@ -476,3 +476,46 @@ def download_opendose_data(phantom: str, isotope: Optional[str] = None, force: b
                     
         logger.info(f"Successfully saved OpenDose S-values for '{iso_name}' to: {target_file}")
 
+
+def get_non_penetrating_energy_constant_mev(isotope: str) -> float:
+    """
+    Calculate the non-penetrating decay energy constant (Delta_local) in MeV
+    for a chosen isotope by summing the energy * yield for non-penetrating emissions:
+    alpha, beta-, beta+, auger, IE, and alpha recoil.
+    """
+    import importlib.resources
+    import json
+    import re
+    
+    iso_clean = re.sub(r'[-_\s]', '', isotope).lower()
+    icrp_dir = importlib.resources.files("icrp107_database").joinpath("icrp107")
+    
+    matched_path = None
+    for p in icrp_dir.iterdir():
+        if p.name.endswith(".json"):
+            name_without_ext = p.name[:-5]
+            if re.sub(r'[-_\s]', '', name_without_ext).lower() == iso_clean:
+                matched_path = p
+                break
+                
+    if not matched_path:
+        raise ValueError(f"Isotope '{isotope}' is not available in the ICRP-107 database.")
+        
+    with matched_path.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+        if isinstance(data, str):
+            data = json.loads(data)
+            
+    emissions = data.get("emissions", {})
+    non_penetrating_keys = ["alpha", "beta-", "beta+", "auger", "IE", "alpha recoil"]
+    
+    total_energy_mev = 0.0
+    for key in non_penetrating_keys:
+        em_list = emissions.get(key, [])
+        for item in em_list:
+            if len(item) >= 2:
+                energy, yield_val = item[0], item[1]
+                total_energy_mev += energy * yield_val
+                
+    return total_energy_mev
+

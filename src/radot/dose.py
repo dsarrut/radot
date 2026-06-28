@@ -316,9 +316,9 @@ def check_dosimetry_inputs(
     Returns the loaded labels map.
     """
     method_key = method.lower()
-    if method_key not in DOSIMETRY_STRATEGIES:
+    if method_key not in DOSIMETRY_STRATEGIES and method_key != "ldm":
         raise ValueError(
-            f"Dosimetry method '{method}' is not implemented yet. Available: {list(DOSIMETRY_STRATEGIES.keys())}"
+            f"Dosimetry method '{method}' is not implemented yet. Available: {list(DOSIMETRY_STRATEGIES.keys()) + ['ldm']}"
         )
 
     if not isotope:
@@ -404,9 +404,9 @@ def check_dosimetry_inputs(
 
 def compute_roi_dose(
     image: Any,
-    labels: Any,
     method: str,
     isotope: str,
+    labels: Optional[Any] = None,
     rois: Optional[List[str]] = None,
     ct_image: Optional[Any] = None,
     total_activity_mbq: Optional[float] = None,
@@ -417,7 +417,7 @@ def compute_roi_dose(
     verbose: bool = False,
     ct_path: Optional[Any] = None,
     teff_params: Optional[Dict[str, float]] = None,
-) -> dict:
+) -> Any:
     """
     Computes average/voxel absorbed doses for specified regions of interest.
     """
@@ -431,7 +431,7 @@ def compute_roi_dose(
             image_path = Path(image)
         image = sitk.ReadImage(str(image))
 
-    if isinstance(labels, (str, Path)):
+    if labels is not None and isinstance(labels, (str, Path)):
         if labels_path is None:
             labels_path = Path(labels)
         labels = sitk.ReadImage(str(labels))
@@ -453,24 +453,31 @@ def compute_roi_dose(
 
     # 1. Fast-Fail Boundary Checks
     method_key = method.lower()
-    if labels_map is None:
-        labels_map = check_dosimetry_inputs(
-            method=method,
-            isotope=isotope,
-            labels_path=labels_path,
-            rois=rois,
-            method_params=method_params,
-        )
+    if method_key == "ldm":
+        labels_map = {}
+    else:
+        if labels_map is None:
+            labels_map = check_dosimetry_inputs(
+                method=method,
+                isotope=isotope,
+                labels_path=labels_path,
+                rois=rois,
+                method_params=method_params,
+            )
 
-    # 2. Strict Grid Validation
-    if not has_same_grid(image, labels):
-        raise ValueError(
-            "Activity image grid does not match labels grid, resample image first (option --resample)."
-        )
-
-    if ct_image is not None:
-        if not has_same_grid(ct_image, labels):
-            raise ValueError("CT image grid does not match labels grid.")
+    # 2. Strict Grid Validation (skip labels validation for ldm)
+    if method_key != "ldm":
+        if not has_same_grid(image, labels):
+            raise ValueError(
+                "Activity image grid does not match labels grid, resample image first (option --resample)."
+            )
+        if ct_image is not None:
+            if not has_same_grid(ct_image, labels):
+                raise ValueError("CT image grid does not match labels grid.")
+    else:
+        if ct_image is not None:
+            if not has_same_grid(image, ct_image):
+                raise ValueError("CT image grid does not match activity image grid. Please resample CT first.")
 
     # 3. Timing Extraction
     time_from_injection_h = get_time_from_injection_h(image, image_path)
@@ -505,6 +512,47 @@ def compute_roi_dose(
     voxel_volume_ml = (spacing[0] * spacing[1] * spacing[2]) / 1000.0
 
     image_arr = sitk.GetArrayFromImage(image)
+
+    if method_key == "ldm":
+        from radot.db import get_non_penetrating_energy_constant_mev
+        
+        # Get Delta_local in MeV
+        delta_local_mev = get_non_penetrating_energy_constant_mev(isotope)
+        
+        # Convert MeV to Joules: 1 MeV = 1.60218e-13 Joules
+        # Since mass will be in grams, we scale by 1000 to convert Joules/g to Gy (Joules/kg):
+        # 1.60218e-13 * 1000 = 1.60218e-10
+        mev_to_joules_per_g = 1.60218e-10
+        
+        # Physical decay constant lambda = ln(2) / T_p (in hours)
+        t_p_h = get_physical_half_life_h(isotope)
+        decay_constant_h = np.log(2) / t_p_h
+        
+        # Compute Time Integrated Activity (TIA) per voxel in Bq.s:
+        # TIA = A_voxel_t * e^(lambda * t) / lambda_s (where lambda_s is in seconds)
+        decay_constant_s = decay_constant_h / 3600.0
+        tia_arr = image_arr * np.exp(decay_constant_h * time_from_injection_h) / decay_constant_s
+        
+        # Compute density map (g/cm3 = g/mL) from Hounsfield Units (HU)
+        if ct_image is not None:
+            ct_arr = sitk.GetArrayFromImage(ct_image)
+            density_arr = 1.0 + (ct_arr / 1000.0)
+            # Ensure density is positive
+            density_arr = np.clip(density_arr, 1e-3, None)
+        else:
+            density_arr = np.ones_like(image_arr)
+            
+        # Voxel mass in grams: Volume (mL) * Density (g/mL)
+        voxel_mass_g = voxel_volume_ml * density_arr
+        
+        # Absorbed Dose (Gy) per voxel: TIA (Bq.s) * Delta_local (MeV) * conversions / mass (g)
+        dose_arr = (tia_arr * delta_local_mev * mev_to_joules_per_g) / voxel_mass_g
+        
+        # Create SimpleITK image matching activity image space
+        dose_image = sitk.GetImageFromArray(dose_arr.astype(np.float32))
+        dose_image.CopyInformation(image)
+        return dose_image
+
     labels_arr = sitk.GetArrayFromImage(labels)
     ct_arr = sitk.GetArrayFromImage(ct_image) if ct_image is not None else None
 
@@ -526,7 +574,7 @@ def compute_roi_dose(
 
 def compute_roi_dose_file(
     image_path: Path,
-    labels_path: Path,
+    labels_path: Optional[Path],
     method: str,
     isotope: str,
     ct_path: Optional[Path] = None,
@@ -538,7 +586,8 @@ def compute_roi_dose_file(
     verbose: bool = False,
 ) -> None:
     image_path = Path(image_path)
-    labels_path = Path(labels_path)
+    if labels_path is not None:
+        labels_path = Path(labels_path)
     if ct_path is not None:
         ct_path = Path(ct_path)
     if output_path is not None:
@@ -548,13 +597,26 @@ def compute_roi_dose_file(
     if method_params is None:
         method_params = {}
 
-    labels_map = check_dosimetry_inputs(
-        method=method,
-        isotope=isotope,
-        labels_path=labels_path,
-        rois=rois,
-        method_params=method_params,
-    )
+    method_key = method.lower()
+    labels_map = {}
+    if method_key != "ldm":
+        if not labels_path:
+            raise ValueError("Labels path is required for S-value dosimetry methods.")
+        labels_map = check_dosimetry_inputs(
+            method=method,
+            isotope=isotope,
+            labels_path=labels_path,
+            rois=rois,
+            method_params=method_params,
+        )
+    else:
+        check_dosimetry_inputs(
+            method=method,
+            isotope=isotope,
+            labels_path=None,
+            rois=None,
+            method_params=None,
+        )
 
     if resample_target == "like_ct" and not ct_path:
         raise ValueError(
@@ -563,14 +625,16 @@ def compute_roi_dose_file(
 
     if not image_path.exists():
         raise FileNotFoundError(f"Activity image not found: {image_path}")
-    if not labels_path.exists():
+    if labels_path is not None and not labels_path.exists():
         raise FileNotFoundError(f"Labels image not found: {labels_path}")
 
     logger.info(f"Reading activity image: {image_path}")
     image = sitk.ReadImage(str(image_path))
 
-    logger.info(f"Reading labels image: {labels_path}")
-    labels = sitk.ReadImage(str(labels_path))
+    labels = None
+    if labels_path is not None:
+        logger.info(f"Reading labels image: {labels_path}")
+        labels = sitk.ReadImage(str(labels_path))
 
     ct_image = None
     if ct_path:
@@ -592,7 +656,8 @@ def compute_roi_dose_file(
         preserve_total = unit is not None and unit.lower() == "bq"
 
         if resample_target == "like_activity":
-            labels = resample_image(labels, image_type="labels", reference_image=image)
+            if labels is not None:
+                labels = resample_image(labels, image_type="labels", reference_image=image)
             if ct_image is not None:
                 ct_image = resample_image(
                     ct_image,
@@ -602,6 +667,8 @@ def compute_roi_dose_file(
                     reference_image=image,
                 )
         elif resample_target == "like_labels":
+            if labels is None:
+                raise ValueError("Cannot resample like labels because labels image is not provided.")
             image = resample_image(
                 image,
                 image_type=modality.lower(),
@@ -618,6 +685,8 @@ def compute_roi_dose_file(
                     reference_image=labels,
                 )
         elif resample_target == "like_ct":
+            if ct_image is None:
+                raise ValueError("Cannot resample like CT because CT image is not provided.")
             image = resample_image(
                 image,
                 image_type=modality.lower(),
@@ -625,9 +694,10 @@ def compute_roi_dose_file(
                 gaussian=True,
                 reference_image=ct_image,
             )
-            labels = resample_image(
-                labels, image_type="labels", reference_image=ct_image
-            )
+            if labels is not None:
+                labels = resample_image(
+                    labels, image_type="labels", reference_image=ct_image
+                )
         else:
             raise ValueError(f"Unknown resample target: {resample_target}")
 
@@ -644,6 +714,14 @@ def compute_roi_dose_file(
         verbose=verbose,
         method_params=method_params,
     )
+
+    if method_key == "ldm":
+        if not output_path:
+            output_path = Path("dose.nii.gz")
+        logger.info(f"Saving dose results to: {output_path}")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        sitk.WriteImage(results, str(output_path))
+        return
 
     # Print results to stdout
     if output_path:

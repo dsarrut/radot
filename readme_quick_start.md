@@ -64,6 +64,15 @@ radot dose spect.nii.gz -l labels_all.nii.gz -m hanscheid2017  --isotope lu177 -
 
 radot dose spect.nii.gz -l labels_all.nii.gz -m hanscheid2018  --isotope lu177 --resample like_activity --verbose --ct ct.nii.gz --rois Liver --rois Kidney_L
 
+
+radot dose spect.nii.gz -m ldm  -l labels_all.nii.gz --isotope lu177 --resample like_activity --verbose --ct ct.nii.gz --rois Liver --rois Kidney_L
+
+radot dose spect.nii.gz -m ldm  --isotope lu177 --resample like_activity --verbose --ct ct.nii.gz --rois Liver --rois Kidney_L -o dose.nii.gz
+
+radot stats labels_all.nii.gz -i dose.nii.gz --unit Gy --rois Liver, Kidney_L
+
+
+
 ```
 
 Or in a script with the equivalent Python function: 
