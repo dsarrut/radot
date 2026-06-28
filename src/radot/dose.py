@@ -417,6 +417,7 @@ def compute_roi_dose(
     verbose: bool = False,
     ct_path: Optional[Any] = None,
     teff_params: Optional[Dict[str, float]] = None,
+    hu_threshold: Optional[float] = -800.0,
 ) -> Any:
     """
     Computes average/voxel absorbed doses for specified regions of interest.
@@ -557,6 +558,10 @@ def compute_roi_dose(
         # Absorbed Dose (Gy) per voxel: TIA (Bq.s) * Delta_local (MeV) * conversions / mass (g)
         dose_arr = (tia_arr * delta_local_mev * mev_to_joules_per_g) / voxel_mass_g
         
+        # Apply HU threshold if CT is present (set dose to 0 for voxels with CT HU below threshold)
+        if ct_image is not None and hu_threshold is not None:
+            dose_arr[ct_arr < hu_threshold] = 0.0
+        
         # Create SimpleITK image matching activity image space
         dose_image = sitk.GetImageFromArray(dose_arr.astype(np.float32))
         dose_image.CopyInformation(image)
@@ -618,6 +623,7 @@ def compute_roi_dose_file(
     output_path: Optional[Path] = None,
     resample_target: Optional[str] = None,
     verbose: bool = False,
+    hu_threshold: Optional[float] = -800.0,
 ) -> None:
     image_path = Path(image_path)
     if labels_path is not None:
@@ -756,6 +762,7 @@ def compute_roi_dose_file(
         labels_path=labels_path,
         verbose=verbose,
         method_params=method_params,
+        hu_threshold=hu_threshold,
     )
 
     if method_key == "ldm":

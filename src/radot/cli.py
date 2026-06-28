@@ -534,6 +534,13 @@ def dicom_list(folder_path):
     help="Optionally resample mismatched images to a specific target grid layout.",
 )
 @click.option(
+    "--hu-threshold",
+    type=float,
+    default=-800.0,
+    show_default=True,
+    help="Voxels with CT HU below this value will have dose set to 0. Only used if CT is provided.",
+)
+@click.option(
     "-o",
     "--output",
     "output_path",
@@ -571,6 +578,7 @@ def dose(
     verbose,
     phantom,
     quiet,
+    hu_threshold,
 ):
     """Compute absorbed doses for specified regions of interest (ROI)."""
     from radot.dose import compute_roi_dose_file
@@ -640,6 +648,7 @@ def dose(
             output_path=output_path,
             resample_target=resample,
             verbose=verbose,
+            hu_threshold=hu_threshold,
         )
     except Exception as e:
         handle_cli_exception(e)
