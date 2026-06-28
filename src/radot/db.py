@@ -68,35 +68,6 @@ def get_physical_half_life_h(isotope: str) -> float:
 _masses_cache: Dict[str, Dict[str, float]] = {}
 _s_values_cache: Dict[tuple, Dict[str, Dict[str, float]]] = {}
 
-# Nomenclature dictionary mapping AAPM TG-263 to OpenDose reference names
-NOMENCLATURE_MAP = {
-    "kidney_l": "Left kidney",
-    "kidney_r": "Right kidney",
-    "kidneyl": "Left kidney",
-    "kidneyr": "Right kidney",
-    "left_kidney": "Left kidney",
-    "right_kidney": "Right kidney",
-    "leftkidney": "Left kidney",
-    "rightkidney": "Right kidney",
-    "leftkidneycmp": "Left kidney",
-    "rightkidneycmp": "Right kidney",
-    "liver": "Liver",
-    "spleen": "Spleen",
-    "stomach": "Stomach wall",
-    "stomach_wall": "Stomach wall",
-    "stomachwall": "Stomach wall",
-    "bladder": "Urinary bladder wall",
-    "urinary_bladder": "Urinary bladder wall",
-    "urinary_bladder_wall": "Urinary bladder wall",
-    "urinarybladderwall": "Urinary bladder wall",
-    "lung_l": "Left lung lobe",
-    "lung_r": "Right lung lobe",
-    "lungl": "Left lung lobe",
-    "lungr": "Right lung lobe",
-    "left_lung": "Left lung lobe",
-    "right_lung": "Right lung lobe",
-}
-
 def normalize_phantom(phantom: str) -> str:
     """Normalize phantom name to standard OpenDose folder names."""
     p = phantom.lower().strip()
@@ -121,14 +92,12 @@ def resolve_organ_name(user_name: str, phantom: Optional[str] = None) -> str:
     to the standard OpenDose reference organ name.
     If phantom is provided, checks the organs list from that phantom's masses.json.
     """
-    clean_name = user_name.strip().lower()
+    from radot.nomenclature import resolve_roi_name_to_opendose
+
+    resolved = resolve_roi_name_to_opendose(user_name)
     
-    # Try the explicit TG-263 mapping first
-    if clean_name in NOMENCLATURE_MAP:
-        return NOMENCLATURE_MAP[clean_name]
-        
     # Standardize spaces and underscores/hyphens for fallback check
-    standardized = re.sub(r'[-_\s]+', ' ', clean_name)
+    standardized = re.sub(r'[-_\s]+', ' ', resolved)
     
     # If phantom is provided, we can look up the exact name in masses.json case-insensitively
     if phantom is not None:
@@ -136,13 +105,15 @@ def resolve_organ_name(user_name: str, phantom: Optional[str] = None) -> str:
             norm_phantom = normalize_phantom(phantom)
             masses = _load_masses(norm_phantom)
             for official_name in masses.keys():
-                if official_name.lower() == clean_name or official_name.lower() == standardized:
+                if official_name.lower() == resolved.lower() or official_name.lower() == standardized.lower():
                     return official_name
         except Exception:
             pass
             
-    # Fallback to simple title/capitalization or guess
-    return standardized.capitalize()
+    # Fallback or resolved name
+    if resolved == user_name:
+        return standardized.capitalize()
+    return resolved
 
 DEFAULT_DATABASE_URL = "https://www.creatis.insa-lyon.fr/~dsarrut/radot/opendose/"
 

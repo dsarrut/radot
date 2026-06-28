@@ -855,6 +855,103 @@ def opendose_list(ctx, model, radionuclide):
     """List local OpenDose database inventory or print downloaded values."""
     ctx.forward(opendose_status)
 
+@main.group(name="roi")
+def roi():
+    """Nomenclature mapping and ROI verification tools."""
+    pass
+
+
+@roi.command(name="list")
+@click.option(
+    "--source",
+    type=click.Choice(["ts", "od"]),
+    help="Filter mappings by origin ('ts' for TotalSegmentator, 'od' for OpenDose).",
+)
+def roi_list(source):
+    """List all explicit anatomical correspondences in the nomenclature mapping."""
+    from radot.nomenclature import get_all_mappings
+    
+    mappings = get_all_mappings()
+    
+    click.echo("\nRegistered ROI Nomenclature Maps (TG-263 Hub):\n")
+    click.echo(f"{'TotalSegmentator Name':<30} {'TG-263 Label':<20} {'OpenDose Target':<25}")
+    click.echo("─" * 78)
+    
+    for ts_name, tg263_label, od_target in mappings:
+        if source == "ts":
+            # TS is always the origin for these mappings
+            pass
+        elif source == "od" and not od_target:
+            continue
+            
+        click.echo(f"{ts_name:<30} {tg263_label:<20} {od_target:<25}")
+    click.echo()
+
+
+@roi.command(name="match")
+@click.argument("name")
+def roi_match(name):
+    """Query an ROI name to find exact matches or closest nomenclature suggestions."""
+    from radot.nomenclature import resolve_roi_name_to_opendose, find_closest_matches, TS_TO_TG263, TG263_TO_OD, TS_TO_OD_FALLBACK
+    
+    lower_name = name.lower()
+    is_registered = False
+    
+    if lower_name in [k.lower() for k in TS_TO_TG263.keys()]:
+        is_registered = True
+    elif lower_name in [k.lower() for k in TG263_TO_OD.keys()]:
+        is_registered = True
+    elif lower_name in [k.lower() for k in TG263_TO_OD.values()]:
+        is_registered = True
+    elif lower_name in [k.lower() for k in TS_TO_OD_FALLBACK.keys()]:
+        is_registered = True
+        
+    if is_registered:
+        resolved = resolve_roi_name_to_opendose(name)
+        click.echo(f"\n✅ \"{name}\" is registered. Resolves to OpenDose: \"{resolved}\"\n")
+    else:
+        click.echo(f"\n❌ \"{name}\" is not explicitly registered.")
+        closest = find_closest_matches(name)
+        if closest:
+            click.echo("💡 Did you mean one of these?")
+            for match_name, source in closest:
+                click.echo(f"   - {match_name}  ({source})")
+        click.echo()
+
+
+@roi.command(name="verify")
+@click.argument("path", type=click.Path(exists=True, file_okay=True, dir_okay=False))
+def roi_verify(path):
+    """Scan a patient sidecar JSON mapping file before execution to report unmapped structures."""
+    from radot.nomenclature import verify_sidecar_mappings
+    import json
+    
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            raw_map = json.load(f)
+            labels_map = {int(k): v for k, v in raw_map.items()}
+    except Exception as e:
+        raise click.ClickException(f"Failed to parse label mapping JSON file: {e}")
+        
+    report = verify_sidecar_mappings(labels_map)
+    
+    click.echo(f"\nScanning sidecar mappings from: {path}\n")
+    
+    if report["mapped"]:
+        click.echo("Mapped structures:")
+        for lid, (name, resolved) in sorted(report["mapped"].items()):
+            click.echo(f"   - Label {lid}: \"{name}\" -> \"{resolved}\" (OpenDose)")
+            
+    if report["unmapped"]:
+        click.echo("\n❌ Unmapped structures (requires override or manual S-value definition):")
+        for lid, name in sorted(report["unmapped"].items()):
+            click.echo(f"   - Label {lid}: \"{name}\"")
+        click.echo()
+        raise click.ClickException("Verification failed: sidecar contains unmapped structures.")
+    else:
+        click.echo("\n✅ Verification successful: all structures successfully mapped!")
+        click.echo()
+
 
 if __name__ == "__main__":
     main()

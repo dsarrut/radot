@@ -1,0 +1,758 @@
+{
+    "adrenal_gland_left": [
+        1,
+        "Adrenal_L"
+    ],
+    "adrenal_gland_right": [
+        2,
+        "Adrenal_R"
+    ],
+    "brain": [
+        3,
+        "Brain"
+    ],
+    "gallbladder": [
+        4,
+        "Gallbladder"
+    ],
+    "kidney_left": [
+        5,
+        "Kidney_L"
+    ],
+    "kidney_right": [
+        6,
+        "Kidney_R"
+    ],
+    "kidney_cyst_left": [
+        7,
+        "Kidney_L_Cyst"
+    ],
+    "kidney_cyst_right": [
+        8,
+        "Kidney_R_Cyst"
+    ],
+    "liver": [
+        9,
+        "Liver"
+    ],
+    "pancreas": [
+        10,
+        "Pancreas"
+    ],
+    "prostate": [
+        11,
+        "Prostate"
+    ],
+    "spleen": [
+        12,
+        "Spleen"
+    ],
+    "thyroid_gland": [
+        13,
+        "Thyroid"
+    ],
+    "urinary_bladder": [
+        14,
+        "Bladder"
+    ],
+    "colon": [
+        15,
+        "Bowel_Lrg"
+    ],
+    "small_bowel": [
+        16,
+        "Bowel_Sm"
+    ],
+    "duodenum": [
+        17,
+        "Duodenum"
+    ],
+    "esophagus": [
+        18,
+        "Esophagus"
+    ],
+    "stomach": [
+        19,
+        "Stomach"
+    ],
+    "heart": [
+        20,
+        "Heart"
+    ],
+    "atrial_appendage_left": [
+        21,
+        "Atrium_L_Append"
+    ],
+    "aorta": [
+        22,
+        "Aorta"
+    ],
+    "inferior_vena_cava": [
+        23,
+        "V_Cava_I"
+    ],
+    "superior_vena_cava": [
+        24,
+        "V_Cava_S"
+    ],
+    "pulmonary_vein": [
+        25,
+        "V_Pulmonary"
+    ],
+    "brachiocephalic_trunk": [
+        26,
+        "A_Brachioceph"
+    ],
+    "brachiocephalic_vein_left": [
+        27,
+        "V_Brachioceph_L"
+    ],
+    "brachiocephalic_vein_right": [
+        28,
+        "V_Brachioceph_R"
+    ],
+    "common_carotid_artery_left": [
+        29,
+        "A_Carotid_C_L"
+    ],
+    "common_carotid_artery_right": [
+        30,
+        "A_Carotid_C_R"
+    ],
+    "subclavian_artery_left": [
+        31,
+        "A_Subclavian_L"
+    ],
+    "subclavian_artery_right": [
+        32,
+        "A_Subclavian_R"
+    ],
+    "iliac_artery_left": [
+        33,
+        "A_Iliac_L"
+    ],
+    "iliac_artery_right": [
+        34,
+        "A_Iliac_R"
+    ],
+    "iliac_vena_left": [
+        35,
+        "V_Iliac_L"
+    ],
+    "iliac_vena_right": [
+        36,
+        "V_Iliac_R"
+    ],
+    "portal_vein_and_splenic_vein": [
+        37,
+        "V_Portal"
+    ],
+    "trachea": [
+        38,
+        "Trachea"
+    ],
+    "lung_lower_lobe_left": [
+        39,
+        "Lung_L_Lower"
+    ],
+    "lung_lower_lobe_right": [
+        40,
+        "Lung_R_Lower"
+    ],
+    "lung_middle_lobe_right": [
+        41,
+        "Lung_R_Middle"
+    ],
+    "lung_upper_lobe_left": [
+        42,
+        "Lung_L_Upper"
+    ],
+    "lung_upper_lobe_right": [
+        43,
+        "Lung_R_Upper"
+    ],
+    "spinal_cord": [
+        44,
+        "SpinalCord"
+    ],
+    "body": [
+        45,
+        "External"
+    ],
+    "body_trunc": [
+        46,
+        "External"
+    ],
+    "skin": [
+        47,
+        "Skin"
+    ],
+    "autochthon_left": [
+        48,
+        "Muscle_Back_L"
+    ],
+    "autochthon_right": [
+        49,
+        "Muscle_Back_R"
+    ],
+    "gluteus_maximus_left": [
+        50,
+        "Muscle_GlutMax_L"
+    ],
+    "gluteus_maximus_right": [
+        51,
+        "Muscle_GlutMax_R"
+    ],
+    "gluteus_medius_left": [
+        52,
+        "Muscle_GlutMed_L"
+    ],
+    "gluteus_medius_right": [
+        53,
+        "Muscle_GlutMed_R"
+    ],
+    "gluteus_minimus_left": [
+        54,
+        "Muscle_GlutMin_L"
+    ],
+    "gluteus_minimus_right": [
+        55,
+        "Muscle_GlutMin_R"
+    ],
+    "iliopsoas_left": [
+        56,
+        "Muscle_Iliopsoas_L"
+    ],
+    "iliopsoas_right": [
+        57,
+        "Muscle_Iliopsoas_R"
+    ],
+    "clavicula_left": [
+        58,
+        "Bone_Clavicle_L"
+    ],
+    "clavicula_right": [
+        59,
+        "Bone_Clavicle_R"
+    ],
+    "femur_left": [
+        60,
+        "Bone_Femur_L"
+    ],
+    "femur_right": [
+        61,
+        "Bone_Femur_R"
+    ],
+    "humerus_left": [
+        62,
+        "Bone_Humerus_L"
+    ],
+    "humerus_right": [
+        63,
+        "Bone_Humerus_R"
+    ],
+    "scapula_left": [
+        64,
+        "Bone_Scapula_L"
+    ],
+    "scapula_right": [
+        65,
+        "Bone_Scapula_R"
+    ],
+    "sacrum": [
+        66,
+        "Bone_Sacrum"
+    ],
+    "skull": [
+        67,
+        "Bone_Skull"
+    ],
+    "sternum": [
+        68,
+        "Bone_Sternum"
+    ],
+    "costal_cartilages": [
+        69,
+        "Bone_Cartilage_Costal"
+    ],
+    "hip_left": [
+        138,
+        "Bone_Ilium_L"
+    ],
+    "hip_right": [
+        139,
+        "Bone_Ilium_R"
+    ],
+    "eye_left": [
+        119,
+        "Eye_L"
+    ],
+    "eye_right": [
+        120,
+        "Eye_R"
+    ],
+    "eye_lens_left": [
+        121,
+        "Lens_L"
+    ],
+    "eye_lens_right": [
+        122,
+        "Lens_R"
+    ],
+    "optic_nerve_left": [
+        123,
+        "OpticNrv_L"
+    ],
+    "optic_nerve_right": [
+        124,
+        "OpticNrv_R"
+    ],
+    "parotid_gland_left": [
+        125,
+        "Parotid_L"
+    ],
+    "parotid_gland_right": [
+        126,
+        "Parotid_R"
+    ],
+    "submandibular_gland_left": [
+        127,
+        "Glnd_Submand_L"
+    ],
+    "submandibular_gland_right": [
+        128,
+        "Glnd_Submand_R"
+    ],
+    "nasopharynx": [
+        129,
+        "Pharynx_Naso"
+    ],
+    "oropharynx": [
+        130,
+        "Pharynx_Oro"
+    ],
+    "hypopharynx": [
+        131,
+        "Pharynx_Hypo"
+    ],
+    "nasal_cavity_left": [
+        132,
+        "Cavity_Nasal_L"
+    ],
+    "nasal_cavity_right": [
+        133,
+        "Cavity_Nasal_R"
+    ],
+    "auditory_canal_left": [
+        134,
+        "Canal_Auditory_L"
+    ],
+    "auditory_canal_right": [
+        135,
+        "Canal_Auditory_R"
+    ],
+    "soft_palate": [
+        136,
+        "Palate_Soft"
+    ],
+    "hard_palate": [
+        137,
+        "Palate_Hard"
+    ],
+    "rib_left_1": [
+        70,
+        "Bone_Rib_L_01"
+    ],
+    "rib_right_1": [
+        71,
+        "Bone_Rib_R_01"
+    ],
+    "rib_left_2": [
+        72,
+        "Bone_Rib_L_02"
+    ],
+    "rib_right_2": [
+        73,
+        "Bone_Rib_R_02"
+    ],
+    "rib_left_3": [
+        74,
+        "Bone_Rib_L_03"
+    ],
+    "rib_right_3": [
+        75,
+        "Bone_Rib_R_03"
+    ],
+    "rib_left_4": [
+        76,
+        "Bone_Rib_L_04"
+    ],
+    "rib_right_4": [
+        77,
+        "Bone_Rib_R_04"
+    ],
+    "rib_left_5": [
+        78,
+        "Bone_Rib_L_05"
+    ],
+    "rib_right_5": [
+        79,
+        "Bone_Rib_R_05"
+    ],
+    "rib_left_6": [
+        80,
+        "Bone_Rib_L_06"
+    ],
+    "rib_right_6": [
+        81,
+        "Bone_Rib_R_06"
+    ],
+    "rib_left_7": [
+        82,
+        "Bone_Rib_L_07"
+    ],
+    "rib_right_7": [
+        83,
+        "Bone_Rib_R_07"
+    ],
+    "rib_left_8": [
+        84,
+        "Bone_Rib_L_08"
+    ],
+    "rib_right_8": [
+        85,
+        "Bone_Rib_R_08"
+    ],
+    "rib_left_9": [
+        86,
+        "Bone_Rib_L_09"
+    ],
+    "rib_right_9": [
+        87,
+        "Bone_Rib_R_09"
+    ],
+    "rib_left_10": [
+        88,
+        "Bone_Rib_L_10"
+    ],
+    "rib_right_10": [
+        89,
+        "Bone_Rib_R_10"
+    ],
+    "rib_left_11": [
+        90,
+        "Bone_Rib_L_11"
+    ],
+    "rib_right_11": [
+        91,
+        "Bone_Rib_R_11"
+    ],
+    "rib_left_12": [
+        92,
+        "Bone_Rib_L_12"
+    ],
+    "rib_right_12": [
+        93,
+        "Bone_Rib_R_12"
+    ],
+    "vertebra__C1": [
+        94,
+        "Bone_V_C01"
+    ],
+    "vertebra_C1": [
+        94,
+        "Bone_V_C01"
+    ],
+    "vertebrae_C1": [
+        94,
+        "Bone_V_C01"
+    ],
+    "vertebra__C2": [
+        95,
+        "Bone_V_C02"
+    ],
+    "vertebra_C2": [
+        95,
+        "Bone_V_C02"
+    ],
+    "vertebrae_C2": [
+        95,
+        "Bone_V_C02"
+    ],
+    "vertebra__C3": [
+        96,
+        "Bone_V_C03"
+    ],
+    "vertebra_C3": [
+        96,
+        "Bone_V_C03"
+    ],
+    "vertebrae_C3": [
+        96,
+        "Bone_V_C03"
+    ],
+    "vertebra__C4": [
+        97,
+        "Bone_V_C04"
+    ],
+    "vertebra_C4": [
+        97,
+        "Bone_V_C04"
+    ],
+    "vertebrae_C4": [
+        97,
+        "Bone_V_C04"
+    ],
+    "vertebra__C5": [
+        98,
+        "Bone_V_C05"
+    ],
+    "vertebra_C5": [
+        98,
+        "Bone_V_C05"
+    ],
+    "vertebrae_C5": [
+        98,
+        "Bone_V_C05"
+    ],
+    "vertebra__C6": [
+        99,
+        "Bone_V_C06"
+    ],
+    "vertebra_C6": [
+        99,
+        "Bone_V_C06"
+    ],
+    "vertebrae_C6": [
+        99,
+        "Bone_V_C06"
+    ],
+    "vertebra__C7": [
+        100,
+        "Bone_V_C07"
+    ],
+    "vertebra_C7": [
+        100,
+        "Bone_V_C07"
+    ],
+    "vertebrae_C7": [
+        100,
+        "Bone_V_C07"
+    ],
+    "vertebra__T1": [
+        101,
+        "Bone_V_T01"
+    ],
+    "vertebra_T1": [
+        101,
+        "Bone_V_T01"
+    ],
+    "vertebrae_T1": [
+        101,
+        "Bone_V_T01"
+    ],
+    "vertebra__T2": [
+        102,
+        "Bone_V_T02"
+    ],
+    "vertebra_T2": [
+        102,
+        "Bone_V_T02"
+    ],
+    "vertebrae_T2": [
+        102,
+        "Bone_V_T02"
+    ],
+    "vertebra__T3": [
+        103,
+        "Bone_V_T03"
+    ],
+    "vertebra_T3": [
+        103,
+        "Bone_V_T03"
+    ],
+    "vertebrae_T3": [
+        103,
+        "Bone_V_T03"
+    ],
+    "vertebra__T4": [
+        104,
+        "Bone_V_T04"
+    ],
+    "vertebra_T4": [
+        104,
+        "Bone_V_T04"
+    ],
+    "vertebrae_T4": [
+        104,
+        "Bone_V_T04"
+    ],
+    "vertebra__T5": [
+        105,
+        "Bone_V_T05"
+    ],
+    "vertebra_T5": [
+        105,
+        "Bone_V_T05"
+    ],
+    "vertebrae_T5": [
+        105,
+        "Bone_V_T05"
+    ],
+    "vertebra__T6": [
+        106,
+        "Bone_V_T06"
+    ],
+    "vertebra_T6": [
+        106,
+        "Bone_V_T06"
+    ],
+    "vertebrae_T6": [
+        106,
+        "Bone_V_T06"
+    ],
+    "vertebra__T7": [
+        107,
+        "Bone_V_T07"
+    ],
+    "vertebra_T7": [
+        107,
+        "Bone_V_T07"
+    ],
+    "vertebrae_T7": [
+        107,
+        "Bone_V_T07"
+    ],
+    "vertebra__T8": [
+        108,
+        "Bone_V_T08"
+    ],
+    "vertebra_T8": [
+        108,
+        "Bone_V_T08"
+    ],
+    "vertebrae_T8": [
+        108,
+        "Bone_V_T08"
+    ],
+    "vertebra__T9": [
+        109,
+        "Bone_V_T09"
+    ],
+    "vertebra_T9": [
+        109,
+        "Bone_V_T09"
+    ],
+    "vertebrae_T9": [
+        109,
+        "Bone_V_T09"
+    ],
+    "vertebra__T10": [
+        110,
+        "Bone_V_T10"
+    ],
+    "vertebra_T10": [
+        110,
+        "Bone_V_T10"
+    ],
+    "vertebrae_T10": [
+        110,
+        "Bone_V_T10"
+    ],
+    "vertebra__T11": [
+        111,
+        "Bone_V_T11"
+    ],
+    "vertebra_T11": [
+        111,
+        "Bone_V_T11"
+    ],
+    "vertebrae_T11": [
+        111,
+        "Bone_V_T11"
+    ],
+    "vertebra__T12": [
+        112,
+        "Bone_V_T12"
+    ],
+    "vertebra_T12": [
+        112,
+        "Bone_V_T12"
+    ],
+    "vertebrae_T12": [
+        112,
+        "Bone_V_T12"
+    ],
+    "vertebra__L1": [
+        113,
+        "Bone_V_L01"
+    ],
+    "vertebra_L1": [
+        113,
+        "Bone_V_L01"
+    ],
+    "vertebrae_L1": [
+        113,
+        "Bone_V_L01"
+    ],
+    "vertebra__L2": [
+        114,
+        "Bone_V_L02"
+    ],
+    "vertebra_L2": [
+        114,
+        "Bone_V_L02"
+    ],
+    "vertebrae_L2": [
+        114,
+        "Bone_V_L02"
+    ],
+    "vertebra__L3": [
+        115,
+        "Bone_V_L03"
+    ],
+    "vertebra_L3": [
+        115,
+        "Bone_V_L03"
+    ],
+    "vertebrae_L3": [
+        115,
+        "Bone_V_L03"
+    ],
+    "vertebra__L4": [
+        116,
+        "Bone_V_L04"
+    ],
+    "vertebra_L4": [
+        116,
+        "Bone_V_L04"
+    ],
+    "vertebrae_L4": [
+        116,
+        "Bone_V_L04"
+    ],
+    "vertebra__L5": [
+        117,
+        "Bone_V_L05"
+    ],
+    "vertebra_L5": [
+        117,
+        "Bone_V_L05"
+    ],
+    "vertebrae_L5": [
+        117,
+        "Bone_V_L05"
+    ],
+    "vertebra__S1": [
+        118,
+        "Bone_V_S01"
+    ],
+    "vertebra_S1": [
+        118,
+        "Bone_V_S01"
+    ],
+    "vertebrae_S1": [
+        118,
+        "Bone_V_S01"
+    ]
+}
