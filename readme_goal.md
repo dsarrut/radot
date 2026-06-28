@@ -1,33 +1,40 @@
 # radot (Radiation Dosimetry for Therapy)
 
-A Python library and command-line tools to manage dosimetry in radionuclide therapy.
+The radot library provides a unified Python API and command-line interface to manage dosimetry calculations, image resampling, and metadata workflows in radionuclide therapy.
 
-## Core Stack & Design
-- **Packaging**: Standard `pyproject.toml` with `setuptools`.
-- **Target OS**: Linux, macOS, and Windows.
-- **Key Libraries**: `SimpleITK`, `pydicom`, `click`.
-- **Interface**: Command-line interface (CLI) only, no GUI.
+## Core Modules
 
-## Proposed Modules (Ideas/Drafts)
+1. DICOM Conversion:
+   - Scans and converts patient DICOM series (CT, SPECT, PET) to dosimetry-ready formats (NIfTI, NRRD).
+   - Generates companion JSON sidecars to store key acquisition and therapy metadata.
 
-The following modules represent the current planned architecture and may evolve over time:
+2. CT Segmentation:
+   - Automates anatomical segmentation using TotalSegmentator.
+   - Remaps label indices and names dynamically to standardized AAPM TG-263 nomenclature.
 
-1. **DICOM Conversion**:
-   - Convert DICOM images (CT, SPECT, PET, RTSTRUCT, etc.) to NIfTI or similar image formats.
+**TODO LATER -> PET/SPECT Segmentation**
 
-2. **CT Segmentation & Label Grouping**:
-   - Run automatic segmentations using `TotalSegmentator`.
-   - Organize and rename/group labels according to **AAPM TG-263** nomenclature standards.
+3. Image Resampling:
+   - Resamples multi-modality grids to target isotropic spacings or reference image grids.
+   - Preserves total activity concentration metrics during spatial scaling.
 
-3. **Image Resampling**:
-   - Resample CT, labels, and functional images (SPECT, PET).
-   - Ensure preservation of activity concentration/physical units during resampling.
+4. Dose Computation:
+   - Implements voxel-mean absorbed dose computation models (e.g. Madsen 2018, Hanscheid 2017/2018).
+   - Integrates lazy on-demand downloads of OpenDose reference masses and S-values.
 
-4. **Dose Computations (Main Module)**:
-   - Implement dosimetry methods from literature (e.g., Madsen, Jackson, S-values, point kernels).
-   - Compute dose rate maps and time-integration over time-activity curves, including support for GATE outputs.
+5. Radionuclide Database:
+   - Queries physical half-lives and decay emission yields/energies from the reference ICRP-107 database.
 
-5. **TTV (Total Tumor Volume) Computation**:
-   - Compute Total Tumor Volume (TTV) / Metabolic Tumor Volume (MTV) based on segmentation labels and SUV/activity concentration thresholds.
+## Installation
 
+The package requires Python 3.10 or higher
 
+To install the package in editable mode for local development:
+```bash
+pip install -e .
+```
+
+To enable command autocompletion for the radot CLI in zsh, append the following line to your shell configuration profile (e.g., ~/.zshrc) or at the end of your "activate" script from the venv:
+```bash
+eval "$(_RADOT_COMPLETE=zsh_source radot)"
+```
