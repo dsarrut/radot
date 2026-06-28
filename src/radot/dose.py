@@ -11,6 +11,58 @@ from radot.db import get_physical_half_life_h
 from radot.meta import get_time_from_injection_h
 
 
+def dose_ldm(
+    image_arr: np.ndarray,
+    voxel_volume_ml: float,
+    time_from_injection_h: float,
+    isotope: str,
+    ct_arr: Optional[np.ndarray] = None,
+    hu_threshold: Optional[float] = -800.0,
+) -> np.ndarray:
+    """
+    Voxel-level physical Local Deposition Model (LDM).
+    - image_arr is physical activity in Bq per voxel
+    - returns 3D float numpy array of absorbed dose in Gy per voxel
+    """
+    from radot.db import get_non_penetrating_energy_constant_mev
+    
+    # Get Delta_local in MeV
+    delta_local_mev = get_non_penetrating_energy_constant_mev(isotope)
+    
+    # Convert MeV to Joules: 1 MeV = 1.60218e-13 Joules
+    # Since mass will be in grams, we scale by 1000 to convert Joules/g to Gy (Joules/kg):
+    # 1.60218e-13 * 1000 = 1.60218e-10
+    mev_to_joules_per_g = 1.60218e-10
+    
+    # Physical decay constant lambda = ln(2) / T_p (in hours)
+    t_p_h = get_physical_half_life_h(isotope)
+    decay_constant_h = np.log(2) / t_p_h
+    
+    # Compute Time Integrated Activity (TIA) per voxel in Bq.s:
+    decay_constant_s = decay_constant_h / 3600.0
+    tia_arr = image_arr * np.exp(decay_constant_h * time_from_injection_h) / decay_constant_s
+    
+    # Compute density map (g/cm3 = g/mL) from Hounsfield Units (HU)
+    if ct_arr is not None:
+        density_arr = 1.0 + (ct_arr / 1000.0)
+        # Ensure density is positive
+        density_arr = np.clip(density_arr, 1e-3, None)
+    else:
+        density_arr = np.ones_like(image_arr)
+        
+    # Voxel mass in grams: Volume (mL) * Density (g/mL)
+    voxel_mass_g = voxel_volume_ml * density_arr
+    
+    # Absorbed Dose (Gy) per voxel: TIA (Bq.s) * Delta_local (MeV) * conversions / mass (g)
+    dose_arr = (tia_arr * delta_local_mev * mev_to_joules_per_g) / voxel_mass_g
+    
+    # Apply HU threshold if CT is present
+    if ct_arr is not None and hu_threshold is not None:
+        dose_arr[ct_arr < hu_threshold] = 0.0
+        
+    return dose_arr
+
+
 def dose_hanscheid2017(
     spect_bq_a: np.ndarray,
     roi_a: np.ndarray,
@@ -524,54 +576,38 @@ def compute_roi_dose(
     image_arr = sitk.GetArrayFromImage(image)
 
     if method_key == "ldm":
-        from radot.db import get_non_penetrating_energy_constant_mev
-        
-        # Get Delta_local in MeV
-        delta_local_mev = get_non_penetrating_energy_constant_mev(isotope)
-        
-        # Convert MeV to Joules: 1 MeV = 1.60218e-13 Joules
-        # Since mass will be in grams, we scale by 1000 to convert Joules/g to Gy (Joules/kg):
-        # 1.60218e-13 * 1000 = 1.60218e-10
-        mev_to_joules_per_g = 1.60218e-10
-        
-        # Physical decay constant lambda = ln(2) / T_p (in hours)
+        from radot.db import get_physical_half_life_h
         t_p_h = get_physical_half_life_h(isotope)
-        decay_constant_h = np.log(2) / t_p_h
-        
-        # Compute Time Integrated Activity (TIA) per voxel in Bq.s:
-        # TIA = A_voxel_t * e^(lambda * t) / lambda_s (where lambda_s is in seconds)
-        decay_constant_s = decay_constant_h / 3600.0
-        tia_arr = image_arr * np.exp(decay_constant_h * time_from_injection_h) / decay_constant_s
-        
-        # Compute density map (g/cm3 = g/mL) from Hounsfield Units (HU)
-        if ct_image is not None:
-            ct_arr = sitk.GetArrayFromImage(ct_image)
-            density_arr = 1.0 + (ct_arr / 1000.0)
-            # Ensure density is positive
-            density_arr = np.clip(density_arr, 1e-3, None)
-        else:
-            density_arr = np.ones_like(image_arr)
-            
-        # Voxel mass in grams: Volume (mL) * Density (g/mL)
-        voxel_mass_g = voxel_volume_ml * density_arr
-        
-        # Absorbed Dose (Gy) per voxel: TIA (Bq.s) * Delta_local (MeV) * conversions / mass (g)
-        dose_arr = (tia_arr * delta_local_mev * mev_to_joules_per_g) / voxel_mass_g
-        
-        # Apply HU threshold if CT is present (set dose to 0 for voxels with CT HU below threshold)
-        if ct_image is not None and hu_threshold is not None:
-            dose_arr[ct_arr < hu_threshold] = 0.0
-        
+        ct_arr = sitk.GetArrayFromImage(ct_image) if ct_image is not None else None
+
+        # Call the dedicated ldm dosimetry function
+        dose_arr = dose_ldm(
+            image_arr=image_arr,
+            voxel_volume_ml=voxel_volume_ml,
+            time_from_injection_h=time_from_injection_h,
+            isotope=isotope,
+            ct_arr=ct_arr,
+            hu_threshold=hu_threshold,
+        )
+
         # Create SimpleITK image matching activity image space
         dose_image = sitk.GetImageFromArray(dose_arr.astype(np.float32))
         dose_image.CopyInformation(image)
         dose_image.SetMetaData("unit", "gy")
         dose_image.SetMetaData("modality", "dose")
-        
+
         if labels is None:
             return dose_image
 
         labels_arr = sitk.GetArrayFromImage(labels)
+        
+        # Compute voxel mass array for region-absorbed dose aggregation
+        if ct_image is not None:
+            density_arr = np.clip(1.0 + (ct_arr / 1000.0), 1e-3, None)
+        else:
+            density_arr = np.ones_like(image_arr)
+        voxel_mass_g = voxel_volume_ml * density_arr
+
         results = {}
         for label_val, roi_name in labels_map.items():
             if rois and roi_name not in rois:

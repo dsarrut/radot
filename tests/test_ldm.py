@@ -188,3 +188,38 @@ def test_ldm_cli_with_labels_no_output(tmp_path):
     assert result.exit_code == 0
     assert "Liver" in result.output
 
+
+def test_ldm_hu_threshold():
+    # Activity image (2x2x2) with activity = 1e6 Bq
+    image = sitk.Image([2, 2, 2], sitk.sitkFloat32)
+    image.SetSpacing([2.0, 2.0, 2.0])
+    image_arr = np.ones((2, 2, 2), dtype=np.float32) * 1e6
+    sitk_image = sitk.GetImageFromArray(image_arr)
+    sitk_image.SetSpacing([2.0, 2.0, 2.0])
+    sitk_image.SetMetaData("time_from_injection", "24.0")
+    sitk_image.SetMetaData("unit", "Bq")
+
+    # CT image where one voxel has HU = -900, another has HU = 0
+    ct_arr = np.zeros((2, 2, 2), dtype=np.int16)
+    ct_arr[0, 0, 0] = -900
+    ct_image = sitk.GetImageFromArray(ct_arr)
+    ct_image.SetSpacing([2.0, 2.0, 2.0])
+
+    # Run LDM with hu_threshold = -800
+    dose_img = compute_roi_dose(
+        image=sitk_image,
+        labels=None,
+        method="ldm",
+        isotope="Lu177",
+        ct_image=ct_image,
+        hu_threshold=-800.0,
+        verbose=True
+    )
+
+    dose_arr = sitk.GetArrayFromImage(dose_img)
+    # The voxel at (0, 0, 0) should be zeroed out
+    assert dose_arr[0, 0, 0] == 0.0
+    # The other voxels (HU = 0 >= -800) should have dose > 0.0
+    assert dose_arr[1, 1, 1] > 0.0
+
+
