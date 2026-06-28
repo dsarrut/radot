@@ -1,9 +1,12 @@
 import json
+import logging
 from typing import List, Optional, Dict, Any
 import numpy as np
 import SimpleITK as sitk
 from pathlib import Path
 from datetime import datetime
+
+logger = logging.getLogger("radot")
 from radot.db import get_physical_half_life_h
 from radot.meta import get_time_from_injection_h
 
@@ -90,7 +93,7 @@ def strategy_hanscheid2017(
             raise ValueError(
                 f"No effective half-life (teff) provided for ROI '{roi_name}' and {e}"
             )
-        print(
+        logger.warning(
             f"No Teff specified for '{roi_name}'. Using physical half-life of {isotope} ({teff:.2f} h) as fallback."
         )
 
@@ -102,33 +105,37 @@ def strategy_hanscheid2017(
         effective_time_h=teff,
     )
 
-    if verbose:
+    if verbose or logger.isEnabledFor(logging.DEBUG):
         voxels_in_roi = np.sum(mask)
         total_activity_bq = np.sum(image_arr[mask])
         total_activity_mbq = total_activity_bq / 1e6
         mean_activity_concentration_bq_ml = np.mean(image_arr[mask] / voxel_volume_ml)
         mean_activity_concentration_mbq_ml = mean_activity_concentration_bq_ml / 1e6
-        print(f"\nDosimetry calculation log for ROI '{roi_name}' using Hanscheid 2017:")
-        print(f"  - Radionuclide: {isotope}")
-        print(f"  - Scaling factor: 0.125")
-        print(f"  - ROI Volume: {roi_volume_ml:.3f} mL ({voxels_in_roi} voxels)")
-        print(f"  - ROI Mass: {roi_mass_g:.3f} g")
-        if ct_arr is not None:
-            mean_density = roi_mass_g / roi_volume_ml
-            print(
-                f"    (computed using companion CT, mean density: {mean_density:.3f} g/mL)"
-            )
-        else:
-            print(f"    (no companion CT, assuming water density 1.0 g/mL)")
-        print(f"  - Total Activity in ROI: {total_activity_mbq:.3e} MBq")
-        print(
-            f"  - Mean Activity Concentration: {mean_activity_concentration_mbq_ml:.3e} MBq/mL ({mean_activity_concentration_bq_ml:.3e} Bq/mL)"
+        density_str = (
+            f"computed using companion CT, mean density: {roi_mass_g / roi_volume_ml:.3f} g/mL"
+            if ct_arr is not None
+            else "no companion CT, assuming water density 1.0 g/mL"
         )
-        print(f"  - Time from injection: {time_from_injection_h:.3f} h")
-        print(f"  - Effective half-life (Teff): {teff:.3f} h")
         formula_str = f"0.125 * {mean_activity_concentration_mbq_ml:.3e} * 2^({time_from_injection_h:.2f} / {teff:.2f}) * {teff:.2f}"
-        print(f"  - Formula: {formula_str}")
-        print(f"  - Voxel-mean Absorbed Dose: {dose:.6f} Gy")
+        
+        log_msg = (
+            f"\nDosimetry calculation log for ROI '{roi_name}' using Hanscheid 2017:\n"
+            f"  - Radionuclide: {isotope}\n"
+            f"  - Scaling factor: 0.125\n"
+            f"  - ROI Volume: {roi_volume_ml:.3f} mL ({voxels_in_roi} voxels)\n"
+            f"  - ROI Mass: {roi_mass_g:.3f} g\n"
+            f"    ({density_str})\n"
+            f"  - Total Activity in ROI: {total_activity_mbq:.3e} MBq\n"
+            f"  - Mean Activity Concentration: {mean_activity_concentration_mbq_ml:.3e} MBq/mL ({mean_activity_concentration_bq_ml:.3e} Bq/mL)\n"
+            f"  - Time from injection: {time_from_injection_h:.3f} h\n"
+            f"  - Effective half-life (Teff): {teff:.3f} h\n"
+            f"  - Formula: {formula_str}\n"
+            f"  - Voxel-mean Absorbed Dose: {dose:.6f} Gy"
+        )
+        if verbose:
+            logger.info(log_msg)
+        else:
+            logger.debug(log_msg)
 
     return float(dose), float(teff)
 
@@ -169,32 +176,38 @@ def strategy_hanscheid2018(
     # Teff for Hanscheid 2018 is always assumed as 2 * t
     teff = 2.0 * time_from_injection_h
 
-    if verbose:
+    if verbose or logger.isEnabledFor(logging.DEBUG):
         voxels_in_roi = np.sum(mask)
         total_activity_bq = np.sum(image_arr[mask])
         total_activity_mbq = total_activity_bq / 1e6
-        print(f"\nDosimetry calculation log for ROI '{roi_name}' using Hanscheid 2018:")
-        print(f"  - Radionuclide: {isotope}")
-        print(f"  - Phantom model: {phantom}")
-        print(f"  - OpenDose Organ Name: {opendose_organ}")
-        print(f"  - Reference Organ Mass: {s_mass:.3f} g")
-        print(f"  - ROI Volume: {roi_volume_ml:.3f} mL ({voxels_in_roi} voxels)")
-        print(f"  - ROI Mass: {roi_mass_g:.3f} g")
-        if ct_arr is not None:
-            mean_density = roi_mass_g / roi_volume_ml
-            print(
-                f"    (computed using companion CT, mean density: {mean_density:.3f} g/mL)"
-            )
-        else:
-            print(f"    (no companion CT, assuming water density 1.0 g/mL)")
-        print(f"  - Mass scaling factor: {mass_scaling:.4f}")
-        print(f"  - S-value (self): {s_value:.3e} mGy/MBq.s")
-        print(f"  - Total Activity in ROI: {total_activity_mbq:.3e} MBq")
-        print(f"  - Time from injection: {time_from_injection_h:.3f} h")
-        print(f"  - Effective half-life (Teff = 2*t): {teff:.3f} h")
+        density_str = (
+            f"computed using companion CT, mean density: {roi_mass_g / roi_volume_ml:.3f} g/mL"
+            if ct_arr is not None
+            else "no companion CT, assuming water density 1.0 g/mL"
+        )
         formula_str = f"At * (2 * t * 3600) / ln(2) * S / mass_scaling / 1000"
-        print(f"  - Formula: {formula_str}")
-        print(f"  - Voxel-mean Absorbed Dose: {dose:.6f} Gy")
+        
+        log_msg = (
+            f"\nDosimetry calculation log for ROI '{roi_name}' using Hanscheid 2018:\n"
+            f"  - Radionuclide: {isotope}\n"
+            f"  - Phantom model: {phantom}\n"
+            f"  - OpenDose Organ Name: {opendose_organ}\n"
+            f"  - Reference Organ Mass: {s_mass:.3f} g\n"
+            f"  - ROI Volume: {roi_volume_ml:.3f} mL ({voxels_in_roi} voxels)\n"
+            f"  - ROI Mass: {roi_mass_g:.3f} g\n"
+            f"    ({density_str})\n"
+            f"  - Mass scaling factor: {mass_scaling:.4f}\n"
+            f"  - S-value (self): {s_value:.3e} mGy/MBq.s\n"
+            f"  - Total Activity in ROI: {total_activity_mbq:.3e} MBq\n"
+            f"  - Time from injection: {time_from_injection_h:.3f} h\n"
+            f"  - Effective half-life (Teff = 2*t): {teff:.3f} h\n"
+            f"  - Formula: {formula_str}\n"
+            f"  - Voxel-mean Absorbed Dose: {dose:.6f} Gy"
+        )
+        if verbose:
+            logger.info(log_msg)
+        else:
+            logger.debug(log_msg)
 
     return float(dose), float(teff)
 
@@ -277,11 +290,10 @@ def compute_dose_generic(
             if "not found in" in str(e) and (
                 "S-value matrix" in str(e) or "phantom" in str(e)
             ):
-                import click
                 if rois is None:
-                    click.echo(f"WARNING: {e} Skipping dosimetry for this ROI.", err=True)
+                    logger.warning(f"Skipping dosimetry for ROI '{roi_name}': {e}")
                 else:
-                    raise click.ClickException(
+                    raise ValueError(
                         f"Dosimetry Halt: {e}\n"
                         "Note: OpenDose lacks a single 'Skeleton' compartment and instead requires specific cortical/spongiosa targets.\n"
                         "To proceed, you must explicitly provide an external S-value override file via the CLI parameters (e.g., using --custom-s-values override.json) or adjust your input sidecar JSON mapping definitions to explicitly match target OpenDose bone/tissue definitions."
@@ -469,7 +481,7 @@ def compute_roi_dose(
         raise ValueError("Image unit is not specified and was not found in metadata.")
 
     if unit.lower() != "bq":
-        print(
+        logger.info(
             f"Converting image units on-the-fly from {unit} to bq for dose computation..."
         )
         image = convert_image_units(
@@ -483,7 +495,7 @@ def compute_roi_dose(
         current_total_bq = stat_filter.GetSum()
         if current_total_bq > 0:
             scale_factor = (total_activity_mbq * 1e6) / current_total_bq
-            print(
+            logger.info(
                 f"Normalizing total image activity to {total_activity_mbq} MBq (scale factor: {scale_factor:.6f})"
             )
             image = image * scale_factor
@@ -554,22 +566,22 @@ def compute_roi_dose_file(
     if not labels_path.exists():
         raise FileNotFoundError(f"Labels image not found: {labels_path}")
 
-    print(f"Reading activity image: {image_path}")
+    logger.info(f"Reading activity image: {image_path}")
     image = sitk.ReadImage(str(image_path))
 
-    print(f"Reading labels image: {labels_path}")
+    logger.info(f"Reading labels image: {labels_path}")
     labels = sitk.ReadImage(str(labels_path))
 
     ct_image = None
     if ct_path:
         if not ct_path.exists():
             raise FileNotFoundError(f"CT image not found: {ct_path}")
-        print(f"Reading companion CT image: {ct_path}")
+        logger.info(f"Reading companion CT image: {ct_path}")
         ct_image = sitk.ReadImage(str(ct_path))
 
     # Perform resampling if target is specified
     if resample_target:
-        print(f"Resampling images to align grids: target is {resample_target}")
+        logger.info(f"Resampling images to align grids: target is {resample_target}")
         from radot.resampling import resample_image
         from radot.meta import get_metadata_case_insensitive
 
@@ -635,7 +647,7 @@ def compute_roi_dose_file(
 
     # Print results to stdout
     if output_path:
-        print(f"Saving dose results to: {output_path}")
+        logger.info(f"Saving dose results to: {output_path}")
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with open(output_path, "w") as f:
             json.dump(results, f, indent=4)
@@ -646,6 +658,7 @@ def compute_roi_dose_file(
 
 def pretty_print_dose(results: dict) -> None:
     """Pretty print dosimetry results as a table."""
+    import sys
     headers = ["ROI", "Mean Dose (Gy)", "Mass (g)", "Volume (mL)", "Teff (h)"]
     rows = []
     for roi, data in results.items():
@@ -660,7 +673,7 @@ def pretty_print_dose(results: dict) -> None:
         )
 
     if not rows:
-        print("No dose computed.")
+        sys.stdout.write("No dose computed.\n")
         return
 
     # Compute column widths
@@ -682,8 +695,8 @@ def pretty_print_dose(results: dict) -> None:
     header_line = format_row(headers)
     separator = "-+-".join("-" * w for w in col_widths)
 
-    print("\n" + header_line)
-    print(separator)
+    sys.stdout.write("\n" + header_line + "\n")
+    sys.stdout.write(separator + "\n")
     for row in rows:
-        print(format_row(row))
-    print()
+        sys.stdout.write(format_row(row) + "\n")
+    sys.stdout.write("\n")

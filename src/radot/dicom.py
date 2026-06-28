@@ -1,6 +1,9 @@
 import json
 from pathlib import Path
 from typing import Optional
+import logging
+
+logger = logging.getLogger("radot")
 import SimpleITK as sitk
 
 def clean_tag(val: Optional[str]) -> Optional[str]:
@@ -67,14 +70,14 @@ def convert_dicom(
     is_dir = dicom_path.is_dir()
 
     if is_dir:
-        print(f"Scanning directory for DICOM series: {dicom_path}")
+        logger.info(f"Scanning directory for DICOM series: {dicom_path}")
         reader = sitk.ImageSeriesReader()
         dicom_names = reader.GetGDCMSeriesFileNames(str(dicom_path))
         if not dicom_names:
             raise ValueError(f"No DICOM series found in directory: {dicom_path}")
         header_file = dicom_names[0]
     else:
-        print(f"Reading single DICOM file: {dicom_path}")
+        logger.info(f"Reading single DICOM file: {dicom_path}")
         header_file = str(dicom_path)
 
     # Read DICOM tags using ImageFileReader to be robust and header-only
@@ -191,10 +194,11 @@ def convert_dicom(
     if output_path is None:
         if all_tags:
             keys = sorted(header_reader.GetMetaDataKeys())
+            import sys
             for key in keys:
                 val = clean_tag(header_reader.GetMetaData(key))
                 tag_display = f"({key.replace('|', ',')})"
-                print(f"{tag_display}: {val if val is not None else '(not set)'}")
+                sys.stdout.write(f"{tag_display}: {val if val is not None else '(not set)'}\n")
             return
 
         tags_to_print = [
@@ -220,18 +224,19 @@ def convert_dicom(
             ("0008|0032", "Acquisition Time"),
             ("0008|002a", "Acquisition DateTime"),
         ]
+        import sys
         for key, name in tags_to_print:
             val = get_tag(key)
             tag_display = f"({key.replace('|', ',')})"
-            print(f"{tag_display} {name}: {val if val is not None else '(not set)'}")
-        print(f"Is Sinogram: {'yes' if is_sinogram else 'no'}")
+            sys.stdout.write(f"{tag_display} {name}: {val if val is not None else '(not set)'}\n")
+        sys.stdout.write(f"Is Sinogram: {'yes' if is_sinogram else 'no'}\n")
         return
 
     # Load full image only if saving to path
     if is_dir:
         reader.SetFileNames(dicom_names)
         reader.MetaDataDictionaryArrayUpdateOn()
-        print(f"Reading DICOM series ({len(dicom_names)} slices)...")
+        logger.info(f"Reading DICOM series ({len(dicom_names)} slices)...")
         image = reader.Execute()
     else:
         image = sitk.ReadImage(str(dicom_path))
@@ -254,18 +259,18 @@ def convert_dicom(
         meta_dict["sinogram"] = True
 
     # Write output image
-    print(f"Saving converted image to: {output_path}")
+    logger.info(f"Saving converted image to: {output_path}")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     sitk.WriteImage(image, str(output_path))
 
     # Write output sidecar JSON
     from radot.meta import get_sidecar_path
     sidecar_path = get_sidecar_path(output_path)
-    print(f"Saving metadata sidecar to: {sidecar_path}")
+    logger.info(f"Saving metadata sidecar to: {sidecar_path}")
     with open(sidecar_path, "w") as f:
         json.dump(meta_dict, f, indent=4)
 
-    print("DICOM conversion completed successfully.")
+    logger.info("DICOM conversion completed successfully.")
 
 
 def list_dicom_series(folder_path: Path) -> list:
@@ -398,8 +403,8 @@ def list_dicom_series(folder_path: Path) -> list:
         sitk.ProcessObject.SetGlobalWarningDisplay(was_warning_on)
 
     if not series_list:
-        print("No DICOM series found.")
-        return
+        logger.warning("No DICOM series found.")
+        return []
 
     # Identify groups by (study_uid, frame_of_ref, date)
     from collections import defaultdict
@@ -450,8 +455,9 @@ def list_dicom_series(folder_path: Path) -> list:
 
 
 def print_dicom_series(series_list: list) -> None:
+    import sys
     if not series_list:
-        print("No DICOM series found.")
+        sys.stdout.write("No DICOM series found.\n")
         return
 
     headers = ["Date/Time", "Modality", "Patient ID", "Slices", "Description", "Folder"]
@@ -488,8 +494,8 @@ def print_dicom_series(series_list: list) -> None:
     header_line = format_row(headers)
     separator = "-+-".join("-" * w for w in col_widths)
 
-    print(header_line)
-    print(separator)
+    sys.stdout.write(header_line + "\n")
+    sys.stdout.write(separator + "\n")
     for row in rows:
-        print(format_row(row))
-    print()
+        sys.stdout.write(format_row(row) + "\n")
+    sys.stdout.write("\n")

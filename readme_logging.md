@@ -13,7 +13,10 @@ You can adjust the logging level directly via the package-level `set_log_level()
 ```python
 import radot
 
-# Silence all diagnostic logs (only show WARNING or ERROR)
+# Silence all diagnostic logs and standard warnings (only show CRITICAL/ERROR logs)
+radot.set_log_level("QUIET")
+
+# Alternatively, set standard python logging levels
 radot.set_log_level("WARNING")
 
 # Set to DEBUG to see detailed resampling and database downloads

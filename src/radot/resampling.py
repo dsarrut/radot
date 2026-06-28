@@ -1,5 +1,8 @@
 from pathlib import Path
 from typing import Tuple, Optional
+import logging
+
+logger = logging.getLogger("radot")
 import SimpleITK as sitk
 
 import math
@@ -116,7 +119,7 @@ def resample_image_file(
     if output_path is None:
         raise ValueError("output_path must be specified.")
 
-    print(f"Reading image from: {image_path}")
+    logger.info(f"Reading image from: {image_path}")
     image = sitk.ReadImage(str(image_path))
 
     from radot.meta import get_metadata_case_insensitive
@@ -157,7 +160,7 @@ def resample_image_file(
     d = 0
     if image_type == "ct":
         d = -1000
-    print(
+    logger.info(
         f"Resampling (type: {image_type}, unit: {unit}, preserve_total: {preserve_total}, gaussian: {gaussian}), default pixel {d}"
     )
     resampled = resample_image(
@@ -168,7 +171,7 @@ def resample_image_file(
         gaussian=gaussian,
     )
 
-    print(f"Saving resampled image to: {output_path}")
+    logger.info(f"Saving resampled image to: {output_path}")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     sitk.WriteImage(resampled, str(output_path))
 
@@ -180,7 +183,7 @@ def resample_image_file(
         out_sidecar = get_sidecar_path(output_path)
         shutil.copy2(in_sidecar, out_sidecar)
 
-    print("Resampling completed successfully.")
+    logger.info("Resampling completed successfully.")
 
 
 def resample_image_file_like(
@@ -205,10 +208,10 @@ def resample_image_file_like(
     if not like_image_path.exists():
         raise FileNotFoundError(f"Reference ('like') image not found: {like_image_path}")
 
-    print(f"Reading image from: {image_path}")
+    logger.info(f"Reading image from: {image_path}")
     image = sitk.ReadImage(str(image_path))
 
-    print(f"Reading reference image from: {like_image_path}")
+    logger.info(f"Reading reference image from: {like_image_path}")
     like_image = sitk.ReadImage(str(like_image_path))
 
     from radot.meta import get_metadata_case_insensitive
@@ -256,7 +259,7 @@ def resample_image_file_like(
     if unit == "bq":
         preserve_total = True
 
-    print(
+    logger.info(
         f"Resampling like-grid (type: {resolved_type}, unit: {unit}, preserve_total: {preserve_total}, gaussian: {gaussian})"
     )
 
@@ -268,7 +271,7 @@ def resample_image_file_like(
         reference_image=like_image,
     )
 
-    print(f"Saving resampled image to: {output_path}")
+    logger.info(f"Saving resampled image to: {output_path}")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     sitk.WriteImage(resampled, str(output_path))
 
@@ -280,4 +283,4 @@ def resample_image_file_like(
         out_sidecar = get_sidecar_path(output_path)
         shutil.copy2(in_sidecar, out_sidecar)
 
-    print("Resampling completed successfully.")
+    logger.info("Resampling completed successfully.")

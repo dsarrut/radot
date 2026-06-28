@@ -445,8 +445,8 @@ def test_dose_missing_organ_halt():
     # prostate is in male, but NOT in female
     labels_map = {1: "Prostate"}
     
-    # It should raise click.ClickException with instructions rather than skipping
-    with pytest.raises(click.ClickException, match="Dosimetry Halt:.*Prostate.*not found in S-value matrix"):
+    # It should raise ValueError with instructions rather than skipping
+    with pytest.raises(ValueError, match="Dosimetry Halt:.*Prostate.*not found in S-value matrix"):
         compute_roi_dose(
             image=image,
             labels=labels,

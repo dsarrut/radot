@@ -1,6 +1,9 @@
 import json
 from pathlib import Path
 from typing import List, Optional
+import logging
+
+logger = logging.getLogger("radot")
 import numpy as np
 import SimpleITK as sitk
 from radot.resampling import resample_image
@@ -61,7 +64,7 @@ def compute_stats(
         if stored_unit is not None and stored_unit.lower() != unit:
             if image_type in ("pet", "spect"):
                 from radot.convert import convert_image_units
-                print(f"Converting image units on-the-fly from {stored_unit} to {unit} for stats computation...")
+                logger.info(f"Converting image units on-the-fly from {stored_unit} to {unit} for stats computation...")
                 image = convert_image_units(
                     image=image,
                     to_unit=unit,
@@ -80,7 +83,7 @@ def compute_stats(
     # Check grid alignment and resample if necessary
     if labels_image is not None and not has_same_grid(labels_image, image):
         if resample_to == "labels":
-            print("Image grid does not match labels grid. Resampling image to labels grid...")
+            logger.info("Image grid does not match labels grid. Resampling image to labels grid...")
             preserve_total = (unit is not None and unit.lower() == "bq")
             image = resample_image(
                 image=image,
@@ -90,7 +93,7 @@ def compute_stats(
                 reference_image=labels_image
             )
         elif resample_to == "image":
-            print("Labels grid does not match image grid. Resampling labels to image grid...")
+            logger.info("Labels grid does not match image grid. Resampling labels to image grid...")
             labels_image = resample_image(
                 image=labels_image,
                 image_type="labels",
@@ -251,7 +254,7 @@ def compute_stats_file(
     labels_image = None
     labels_map = {}
     if labels_path is not None:
-        print(f"Reading labels from: {labels_path}")
+        logger.info(f"Reading labels from: {labels_path}")
         labels_image = sitk.ReadImage(str(labels_path))
         
         # Load mapping JSON if it exists in the same folder
@@ -267,11 +270,11 @@ def compute_stats_file(
                         except ValueError:
                             pass
                 if labels_map:
-                    print(f"Loaded label name mappings from: {json_path}")
+                    logger.info(f"Loaded label name mappings from: {json_path}")
             except Exception as e:
-                print(f"Warning: Could not read mapping JSON {json_path}: {e}")
+                logger.warning(f"Could not read mapping JSON {json_path}: {e}")
     
-    print(f"Reading image from: {image_path}")
+    logger.info(f"Reading image from: {image_path}")
     image = sitk.ReadImage(str(image_path))
 
     # Detect if arguments are swapped
@@ -279,9 +282,9 @@ def compute_stats_file(
         lbl_min_max = sitk.MinimumMaximumImageFilter()
         lbl_min_max.Execute(labels_image)
         if lbl_min_max.GetMinimum() < 0:
-            print("Warning: It appears that the label file and intensity image file are swapped. The labels file has negative values, which is typical of intensity images (like CT).")
+            logger.warning("It appears that the label file and intensity image file are swapped. The labels file has negative values, which is typical of intensity images (like CT).")
         elif labels_image.GetPixelID() in (sitk.sitkFloat32, sitk.sitkFloat64) and image.GetPixelID() not in (sitk.sitkFloat32, sitk.sitkFloat64):
-            print("Warning: It appears that the label file and intensity image file are swapped. The labels file has a floating-point type, while the intensity image has an integer type.")
+            logger.warning("It appears that the label file and intensity image file are swapped. The labels file has a floating-point type, while the intensity image has an integer type.")
 
     from radot.meta import read_metadata, get_metadata_case_insensitive
     meta = {}
@@ -315,7 +318,7 @@ def compute_stats_file(
 
     # Output results
     if output_path:
-        print(f"Saving statistics to: {output_path}")
+        logger.info(f"Saving statistics to: {output_path}")
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with open(output_path, "w") as f:
             json.dump(stats_dict, f, indent=4)
@@ -381,7 +384,8 @@ def pretty_print_stats(stats_dict: dict, image_type: str, unit: Optional[str] = 
         rows.append(row)
         
     if not rows:
-        print("No statistics computed.")
+        import sys
+        sys.stdout.write("No statistics computed.\n")
         return
 
     # Find max width for each column
@@ -404,8 +408,9 @@ def pretty_print_stats(stats_dict: dict, image_type: str, unit: Optional[str] = 
     header_line = format_row(headers)
     separator = "-+-".join("-" * w for w in col_widths)
     
-    print("\n" + header_line)
-    print(separator)
+    import sys
+    sys.stdout.write("\n" + header_line + "\n")
+    sys.stdout.write(separator + "\n")
     for row in rows:
-        print(format_row(row))
-    print()
+        sys.stdout.write(format_row(row) + "\n")
+    sys.stdout.write("\n")

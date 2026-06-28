@@ -1,5 +1,8 @@
 import os
 from pathlib import Path
+import logging
+
+logger = logging.getLogger("radot")
 import SimpleITK as sitk
 from totalsegmentator.python_api import totalsegmentator
 
@@ -50,7 +53,7 @@ def segment_ct(ct_path: Path, output_path: Path, mode: str = "total", fast: bool
         raise FileNotFoundError(f"Input CT file not found: {ct_path}")
 
     # Read native CT template
-    print(f"Reading CT image from: {ct_path}")
+    logger.info(f"Reading CT image from: {ct_path}")
     ct_image = sitk.ReadImage(str(ct_path))
 
     # Dictionary to map TotalSegmentator class IDs to names for this task
@@ -64,9 +67,9 @@ def segment_ct(ct_path: Path, output_path: Path, mode: str = "total", fast: bool
         ts_cli += f" --task {mode}"
     if fast:
         ts_cli += " --fast"
-    print(f"Equivalent TotalSegmentator command: {ts_cli}")
+    logger.info(f"Equivalent TotalSegmentator command: {ts_cli}")
 
-    print(f"Running TotalSegmentator (mode: {mode}, fast: {fast}) in multi-label mode...")
+    logger.info(f"Running TotalSegmentator (mode: {mode}, fast: {fast}) in multi-label mode...")
 
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_output = Path(temp_dir) / "temp_multilabel.nii.gz"
@@ -120,24 +123,24 @@ def segment_ct(ct_path: Path, output_path: Path, mode: str = "total", fast: bool
 
     # Verify size alignment with the original CT template image
     if merged_image.GetSize() != ct_image.GetSize():
-        print("Resampling label map to match native CT coordinates...")
+        logger.info("Resampling label map to match native CT coordinates...")
         resampler = sitk.ResampleImageFilter()
         resampler.SetReferenceImage(ct_image)
         resampler.SetInterpolator(sitk.sitkNearestNeighbor)
         merged_image = resampler.Execute(merged_image)
 
     # Write merged label map
-    print(f"Saving merged label map to: {output_path}")
+    logger.info(f"Saving merged label map to: {output_path}")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     sitk.WriteImage(merged_image, str(output_path))
 
     # Write JSON mapping file matching the output path name
     json_path = output_path.with_suffix("").with_suffix(".json")
-    print(f"Saving label mapping to: {json_path}")
+    logger.info(f"Saving label mapping to: {json_path}")
     # Sort JSON by ID key
     sorted_json_map = {str(k): json_map[k] for k in sorted(json_map.keys())}
     with open(json_path, "w") as f:
         json.dump(sorted_json_map, f, indent=4)
 
-    print("Segmentation and TG-263 mapping completed successfully.")
+    logger.info("Segmentation and TG-263 mapping completed successfully.")
 

@@ -2,6 +2,9 @@ import json
 import re
 import gzip
 import importlib.resources
+import logging
+
+logger = logging.getLogger("radot")
 import icrp107_database
 from typing import Dict, Any, Optional
 from pathlib import Path
@@ -126,7 +129,7 @@ def _ensure_file_downloaded(phantom: str, filename: str) -> Path:
     local_file = dest_dir / filename
     if not local_file.exists():
         url = f"{DEFAULT_DATABASE_URL}{phantom}/{filename}"
-        print(f"RADOT: On-demand download of {filename} for {phantom} from web registry...")
+        logger.info(f"On-demand download of {filename} for {phantom} from web registry...")
         try:
             req = urllib.request.Request(
                 url,
@@ -137,7 +140,7 @@ def _ensure_file_downloaded(phantom: str, filename: str) -> Path:
             with open(local_file, "wb") as f:
                 f.write(content)
         except Exception as e:
-            print(f"RADOT: Download of {filename} from central registry failed: {e}. Trying to download from OpenDose directly...")
+            logger.warning(f"Download of {filename} from central registry failed: {e}. Trying to download from OpenDose directly...")
             try:
                 if filename == "masses.json":
                     download_opendose_data(phantom, isotope="lu177", force=True)
@@ -390,7 +393,7 @@ def download_opendose_data(phantom: str, isotope: Optional[str] = None, force: b
                 break
                 
         if not isotope_opt_text:
-            print(f"RADOT Warning: Isotope '{iso_name}' not available on OpenDose website. Skipping.")
+            logger.warning(f"Isotope '{iso_name}' not available on OpenDose website. Skipping.")
             continue
             
         s_matrix = {}
@@ -414,7 +417,7 @@ def download_opendose_data(phantom: str, isotope: Optional[str] = None, force: b
                 
         # If the file is already complete (has all source organs) and not forcing, we can skip
         if target_file.exists() and not force and len(s_matrix) >= len(source_organs):
-            print(f"RADOT: S-value file for '{iso_name}' is already complete. Use --force to overwrite.")
+            logger.info(f"S-value file for '{iso_name}' is already complete. Use --force to overwrite.")
             continue
             
         for src_name in source_organs.values():
@@ -422,7 +425,7 @@ def download_opendose_data(phantom: str, isotope: Optional[str] = None, force: b
                 # Skip fetching if organ data already exists
                 continue
                 
-            print(f"RADOT: Fetching S-values for source organ: {src_name}...")
+            logger.info(f"Fetching S-values for source organ: {src_name}...")
             
             phantom_part = urllib.parse.quote(phantom_url_name)
             source_part = urllib.parse.quote(src_name).replace("/", "%252F")
@@ -441,14 +444,14 @@ def download_opendose_data(phantom: str, isotope: Optional[str] = None, force: b
                 with urllib.request.urlopen(req_get, timeout=15) as res:
                     res_html = res.read().decode('utf-8')
             except Exception as e:
-                print(f"RADOT Error: Failed to fetch S-values for {src_name} ({e}). Skipping organ.")
+                logger.error(f"Failed to fetch S-values for {src_name} ({e}). Skipping organ.")
                 continue
                 
             tbl_parser = TableParser()
             tbl_parser.feed(res_html)
             
             if not tbl_parser.rows:
-                print(f"RADOT: No S-value data parsed for source '{src_name}' (skipping).")
+                logger.warning(f"No S-value data parsed for source '{src_name}' (skipping).")
                 continue
                 
             s_matrix[src_name] = {}
@@ -471,5 +474,5 @@ def download_opendose_data(phantom: str, isotope: Optional[str] = None, force: b
                 with gzip.open(target_file, "wt", encoding="utf-8") as f:
                     json.dump(s_matrix, f, indent=4)
                     
-        print(f"RADOT: Successfully saved OpenDose S-values for '{iso_name}' to: {target_file}")
+        logger.info(f"Successfully saved OpenDose S-values for '{iso_name}' to: {target_file}")
 

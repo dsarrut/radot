@@ -5,10 +5,31 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
 
 @click.group(context_settings=CONTEXT_SETTINGS)
+@click.option("-v", "--verbose", is_flag=True, help="Show verbose debugging logs and Python stack trace on errors.")
+@click.option("-q", "--quiet", is_flag=True, help="Silence progress/status output, showing only errors.")
 @click.version_option(version="0.1.0")
-def main():
+@click.pass_context
+def main(ctx, verbose, quiet):
     """radot: Radiation Dosimetry for Therapy command-line tools."""
-    pass
+    ctx.ensure_object(dict)
+    ctx.obj["verbose"] = verbose
+    ctx.obj["quiet"] = quiet
+    from radot.log import configure_logging
+    configure_logging(verbose=verbose, quiet=quiet)
+
+
+def handle_cli_exception(e: Exception) -> None:
+    """Helper to handle exceptions in CLI commands, showing tracebacks in verbose mode."""
+    ctx = click.get_current_context(silent=True)
+    verbose = False
+    if ctx and ctx.obj:
+        verbose = ctx.obj.get("verbose", False)
+    if ctx and ctx.params and ctx.params.get("verbose"):
+        verbose = True
+    if verbose:
+        raise e
+    else:
+        raise click.ClickException(str(e))
 
 
 #### HELLO WORLD ####
@@ -56,7 +77,7 @@ def segment(ct_path, output_path, mode, fast):
         if "pytest" not in sys.modules and "_pytest" not in sys.modules:
             os._exit(0)
     except Exception as e:
-        raise click.ClickException(str(e))
+        handle_cli_exception(e)
 
 
 #### ROIS STATISTICS ####
@@ -138,7 +159,7 @@ def stats(labels_path, image_path, image_type, output_path, labels, rois, resamp
             unit=unit,
         )
     except Exception as e:
-        raise click.ClickException(str(e))
+        handle_cli_exception(e)
 
 
 #### RESAMPlING  ####
@@ -242,7 +263,7 @@ def resample(
                 gaussian=gaussian,
             )
     except Exception as e:
-        raise click.ClickException(str(e))
+        handle_cli_exception(e)
 
 
 #### CONVERT UNITS ####
@@ -292,7 +313,7 @@ def convert_units(image_path, from_unit, to_unit, output_path, weight, activity)
             activity=activity,
         )
     except Exception as e:
-        raise click.ClickException(str(e))
+        handle_cli_exception(e)
 
 
 #### IMAGE METADATA ####
@@ -413,7 +434,7 @@ def _run_meta_command(
             time_from_injection=time_from_injection,
         )
     except Exception as e:
-        raise click.ClickException(str(e))
+        handle_cli_exception(e)
 
 
 #### DICOM CONVERSION ####
@@ -439,7 +460,7 @@ def dicom(dicom_path, output_path, all_tags):
     try:
         convert_dicom(dicom_path, output_path, all_tags)
     except Exception as e:
-        raise click.ClickException(str(e))
+        handle_cli_exception(e)
 
 
 @main.command(name="dicom-list")
@@ -453,7 +474,7 @@ def dicom_list(folder_path):
         series_list = list_dicom_series(folder_path)
         print_dicom_series(series_list)
     except Exception as e:
-        raise click.ClickException(str(e))
+        handle_cli_exception(e)
 
 
 @main.command(name="dose")
@@ -518,6 +539,12 @@ def dicom_list(folder_path):
     help="Print detailed calculation log including all parameters and units.",
 )
 @click.option(
+    "-q",
+    "--quiet",
+    is_flag=True,
+    help="Silence progress/status output, showing only errors.",
+)
+@click.option(
     "--phantom",
     default="male",
     help="OpenDose phantom name (e.g. male, female).",
@@ -535,9 +562,21 @@ def dose(
     resample,
     verbose,
     phantom,
+    quiet,
 ):
     """Compute absorbed doses for specified regions of interest (ROI)."""
     from radot.dose import compute_roi_dose_file
+    from radot.log import configure_logging
+
+    ctx = click.get_current_context(silent=True)
+    cli_quiet = quiet
+    cli_verbose = verbose
+    if ctx and ctx.obj:
+        if not cli_quiet and ctx.obj.get("quiet"):
+            cli_quiet = True
+        if not cli_verbose and ctx.obj.get("verbose"):
+            cli_verbose = True
+    configure_logging(verbose=cli_verbose, quiet=cli_quiet)
 
     rois_list = []
     if rois:
@@ -589,7 +628,7 @@ def dose(
             verbose=verbose,
         )
     except Exception as e:
-        raise click.ClickException(str(e))
+        handle_cli_exception(e)
 
 
 #### OPENDOSE DATA MAINTENANCE ####
@@ -668,7 +707,7 @@ def opendose(ctx, model, radionuclide, force, upload, upload_dest):
             force=force,
         )
     except Exception as e:
-        raise click.ClickException(str(e))
+        handle_cli_exception(e)
 
 
 @opendose.command(name="status")
@@ -698,7 +737,7 @@ def opendose_status(model, radionuclide):
         try:
             norm_phantom = normalize_phantom(model)
         except ValueError as e:
-            raise click.ClickException(str(e))
+            handle_cli_exception(e)
 
         phantom_path = db_path / norm_phantom
         if not phantom_path.exists():

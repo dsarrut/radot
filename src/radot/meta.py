@@ -1,6 +1,9 @@
 import sys
 import json
 from pathlib import Path
+import logging
+
+logger = logging.getLogger("radot")
 from typing import Optional
 import SimpleITK as sitk
 from datetime import datetime, timedelta
@@ -71,8 +74,8 @@ def get_metadata_case_insensitive(
                     if k.lower() == lower_key:
                         return str(v) if v is not None else None
             except Exception as e:
-                print(
-                    f"Warning: Failed to read metadata from sidecar {sidecar_path}: {e}"
+                logger.warning(
+                    f"Failed to read metadata from sidecar {sidecar_path}: {e}"
                 )
 
     # 2. Try parsing headers using ImageFileReader (no pixel loading)
@@ -314,22 +317,23 @@ def write_metadata(
         meta_dict["acquisition_date"] = final_acquisition_date
 
     sidecar_path = get_sidecar_path(image_path)
-    print(f"Saving metadata to sidecar: {sidecar_path}")
+    logger.info(f"Saving metadata to sidecar: {sidecar_path}")
     with open(sidecar_path, "w") as f:
         json.dump(meta_dict, f, indent=4)
-    print("Metadata saved successfully.")
+    logger.info("Metadata saved successfully.")
 
 
 def print_metadata(info_dict: dict) -> None:
     """
     Print gathered metadata and image information to the console.
     """
+    import sys
     image_info = info_dict.get("image_info", {})
     if image_info:
         size = image_info.get("size")
-        print(f"Image Size: {size}")
-        print(f"Spacing: {image_info.get('spacing')}")
-        print(f"Origin: {image_info.get('origin')}")
+        sys.stdout.write(f"Image Size: {size}\n")
+        sys.stdout.write(f"Spacing: {image_info.get('spacing')}\n")
+        sys.stdout.write(f"Origin: {image_info.get('origin')}\n")
         
         dir_matrix = image_info.get("direction")
         if dir_matrix:
@@ -341,35 +345,35 @@ def print_metadata(info_dict: dict) -> None:
                 )
             else:
                 matrix_str = str(dir_matrix)
-            print(f"Orientation Matrix: {matrix_str}")
+            sys.stdout.write(f"Orientation Matrix: {matrix_str}\n")
             
-        print(f"Pixel Type: {image_info.get('pixel_type')}")
-        print(f"Number of Voxels: {image_info.get('num_voxels')}")
-        print(f"Memory Size: {image_info.get('memory_size')}")
+        sys.stdout.write(f"Pixel Type: {image_info.get('pixel_type')}\n")
+        sys.stdout.write(f"Number of Voxels: {image_info.get('num_voxels')}\n")
+        sys.stdout.write(f"Memory Size: {image_info.get('memory_size')}\n")
 
     metadata = info_dict.get("metadata", {})
     
     mod_val = metadata.get("modality")
-    print(f"Modality: {mod_val.upper() if mod_val else '(not set)'}")
+    sys.stdout.write(f"Modality: {mod_val.upper() if mod_val else '(not set)'}\n")
 
     unit_val = metadata.get("unit")
-    print(f"Unit: {unit_val.lower() if unit_val else '(not set)'}")
+    sys.stdout.write(f"Unit: {unit_val.lower() if unit_val else '(not set)'}\n")
 
     weight_val = metadata.get("weight")
-    print(f"Weight: {f'{weight_val} kg' if weight_val is not None else '(not set)'}")
+    sys.stdout.write(f"Weight: {f'{weight_val} kg' if weight_val is not None else '(not set)'}\n")
 
     activity_val = metadata.get("activity")
-    print(f"Activity: {f'{activity_val} MBq' if activity_val is not None else '(not set)'}")
+    sys.stdout.write(f"Activity: {f'{activity_val} MBq' if activity_val is not None else '(not set)'}\n")
 
     inj_val = metadata.get("injection_date")
-    print(f"Injection Date: {inj_val if inj_val else '(not set)'}")
+    sys.stdout.write(f"Injection Date: {inj_val if inj_val else '(not set)'}\n")
 
     acq_val = metadata.get("acquisition_date")
-    print(f"Acquisition Date: {acq_val if acq_val else '(not set)'}")
+    sys.stdout.write(f"Acquisition Date: {acq_val if acq_val else '(not set)'}\n")
 
     time_from_injection = metadata.get("time_from_injection")
     if time_from_injection is not None:
-        print(f"Time from injection: {time_from_injection:.2f} hours")
+        sys.stdout.write(f"Time from injection: {time_from_injection:.2f} hours\n")
 
 
 def manage_metadata(

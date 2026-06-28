@@ -607,4 +607,4 @@ def test_compute_stats_swapped_arguments(tmp_path):
     # Run with swapped parameters: stats <intensity_ct> -i <labels>
     # This should warn the user about negative values in the first argument
     result = runner.invoke(main, ["stats", str(ct_path), "-i", str(lbl_path), "-t", "ct"])
-    assert "Warning: It appears that the label file and intensity image file are swapped" in result.output
+    assert "It appears that the label file and intensity image file are swapped" in result.output

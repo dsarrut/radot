@@ -1,5 +1,8 @@
 from pathlib import Path
 from typing import Optional
+import logging
+
+logger = logging.getLogger("radot")
 import SimpleITK as sitk
 
 def convert_image_units(
@@ -121,7 +124,7 @@ def convert_image_units_file(
         base = image_path.name[:-len(suffix)] if suffix else image_path.name
         output_path = image_path.parent / f"{base}_{to_unit}{suffix}"
 
-    print(f"Reading image from: {image_path}")
+    logger.info(f"Reading image from: {image_path}")
     image = sitk.ReadImage(str(image_path))
 
     # Resolve from_unit if None for print info
@@ -132,7 +135,7 @@ def convert_image_units_file(
         if resolved_from_unit is None:
             raise ValueError("Source unit is not specified and was not found in the image metadata.")
     
-    print(f"Converting units from {resolved_from_unit} to {to_unit}...")
+    logger.info(f"Converting units from {resolved_from_unit} to {to_unit}...")
     converted_image = convert_image_units(
         image=image,
         from_unit=from_unit,
@@ -142,7 +145,7 @@ def convert_image_units_file(
         image_path=image_path
     )
 
-    print(f"Saving converted image to: {output_path}")
+    logger.info(f"Saving converted image to: {output_path}")
     output_path.parent.mkdir(parents=True, exist_ok=True)
     sitk.WriteImage(converted_image, str(output_path))
 
@@ -173,4 +176,4 @@ def convert_image_units_file(
     with open(out_sidecar, "w") as f:
         json.dump(new_meta, f, indent=4)
 
-    print("Unit conversion completed successfully.")
+    logger.info("Unit conversion completed successfully.")
