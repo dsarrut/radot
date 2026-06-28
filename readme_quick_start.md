@@ -70,9 +70,13 @@ radot dose spect.nii.gz -l labels_all.nii.gz -m hanscheid2018  --isotope lu177 -
 
 radot dose spect.nii.gz -m ldm  -l labels_all.nii.gz --isotope lu177 --resample like_activity --verbose --ct ct.nii.gz --rois Liver --rois Kidney_L
 
-radot dose spect.nii.gz -m ldm  --isotope lu177 --resample like_activity --verbose --ct ct.nii.gz --rois Liver --rois Kidney_L -o dose.nii.gz
+# LDM without labels to output a 3D dose NIfTI file
+radot dose spect.nii.gz -m ldm  --isotope lu177 --resample like_activity --verbose --ct ct.nii.gz -o dose.nii.gz
 
-radot stats labels_all.nii.gz -i dose.nii.gz --unit Gy --rois Liver, Kidney_L
+# LDM to compute dose rate (in Gy/h)
+radot dose spect.nii.gz -m ldm  --isotope lu177 --resample like_activity --verbose --ct ct.nii.gz --dose-rate -o dose_rate.nii.gz
+
+radot stats labels_all.nii.gz -i dose.nii.gz --unit Gy --rois Liver --rois Kidney_L
 
 radot dose-list
 
@@ -81,9 +85,11 @@ radot dose-list
 Or in a script with the equivalent Python function: 
 
 ```python
-results = compute_roi_dose_file(
-    "spect.nii.gz", 
-    "labels_all.nii.gz", 
+from radot.dose import compute_roi_dose_file
+
+compute_roi_dose_file(
+    image_path="spect.nii.gz", 
+    labels_path="labels_all.nii.gz", 
     method="hanscheid2017",
     rois=["Liver", "Kidney_L"],
     isotope="Lu177",

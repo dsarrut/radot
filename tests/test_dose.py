@@ -504,6 +504,7 @@ def test_dose_list_command():
     assert "ldm" in result.output
     assert "Local Deposition Model" in result.output
     assert "Equation: Dose = (TIA * Delta_local * " in result.output
+    assert "Equation: Dose Rate = (Activity * Delta_local * " in result.output
 
 
 

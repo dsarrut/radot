@@ -36,6 +36,34 @@ Time from injection: 1.00 hours
 
 ---
 
+### Listing Supported Keys: `radot meta-list`
+Lists all supported metadata keys, choices, formats, and descriptions.
+
+```bash
+radot meta-list
+```
+
+#### Example Output:
+```text
+Supported image metadata keys:
+  - modality: Image modality type.
+              Valid choices: ct, pet, spect, dose
+  - unit: Physical unit of voxel values.
+          Valid choices: hu, suv, bqml, bq, gy, gy/h
+  - weight: Patient weight (in kg).
+            Format: floating point number
+  - activity: Injected activity (in MBq).
+              Format: floating point number
+  - injection_date: Injection date and time.
+                    Format: YYYY-MM-DD HH:MM:SS
+  - acquisition_date: Acquisition date and time.
+                      Format: YYYY-MM-DD HH:MM:SS
+  - time_from_injection: Time elapsed from injection to acquisition (computed helper option, not stored directly).
+                         Format: day:hours:min (e.g. 1:12:30)
+```
+
+---
+
 ### Writing Metadata: `radot meta` with options
 Applies metadata edits to the image JSON sidecar file. Only the specified options are modified; unspecified fields are merged and preserved.
 
@@ -44,13 +72,18 @@ radot meta <image_path> [options]
 ```
 
 #### Options:
-* `--modality <ct|pet|spect>`: Modality of the image.
-* `--unit <hu|suv|bqml|bq>`: Physical unit of voxel values.
+* `--modality <ct|pet|spect|dose>`: Modality of the image.
+* `--unit <hu|suv|bqml|bq|gy|gy/h>`: Physical unit of voxel values (gy for dose map, gy/h for dose rate map).
 * `--weight <float>`: Patient weight in kg.
 * `--activity <float>`: Injected activity in MBq.
 * `--injection-date <YYYY-MM-DD HH:MM:SS>`: Injection timestamp.
 * `--acquisition-date <YYYY-MM-DD HH:MM:SS>`: Acquisition timestamp.
 * `--time-from-injection <day:hours:min>`: Time elapsed between injection and acquisition (e.g. 1:12:00 for 1 day and 12 hours).
+
+#### Default Unit Mapping:
+When saving metadata, if modality is specified but the unit is left empty, it defaults automatically:
+* modality ct defaults unit to hu
+* modality dose defaults unit to gy
 
 #### Automatic Time Calculations:
 The --time-from-injection option simplifies time calculations:

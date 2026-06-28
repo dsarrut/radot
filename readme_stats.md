@@ -15,20 +15,21 @@ radot stats <labels_path> -i <image_path> [options]
 ```
 
 #### Options:
-* -i, --image <image_path>: Path to the intensity image (CT, PET, or SPECT) to analyze.
-* -t, --type <ct|pet|spect>: Specifies the intensity image modality. If omitted, the module reads this from the image companion JSON sidecar.
+* -i, --image <image_path>: Path to the intensity image (CT, PET, SPECT, or Dose) to analyze.
+* -t, --type <ct|pet|spect|dose>: Specifies the intensity image modality. If omitted, the module reads this from the image companion JSON sidecar.
 * -o, --output <output_path>: Path to save the statistics as a JSON file. If omitted, a formatted table is printed directly to the console.
 * --labels <id1,id2,...>: Comma-separated list of numeric label IDs to include (filters out other labels).
-* --rois <name1,name2,...>: Comma-separated list of ROI names to include (filters out other ROIs).
+* --rois <name>: ROI name to include. Can be specified multiple times or comma-separated.
 * --resample-to <labels|image>: Specifies which grid layout to align to if the image grid does not match the labels grid. Defaults to labels.
-* --sigma <float>: Specifies the standard deviation in millimeters of the Gaussian smoothing kernel used for peak value computation. Defaults to 5.0 mm for SPECT and 3.0 mm for PET.
-* --unit <hu|suv|bqml|bq>: Specifies the image intensity units. Required for PET and SPECT if not present in the sidecar.
+* --sigma <float>: Specifies the standard deviation in millimeters of the Gaussian smoothing kernel used for peak value computation. Defaults to 5.0 mm for SPECT/PET and 3.0 mm for Dose.
+* --unit <hu|suv|bqml|bq|gy|gy/h>: Specifies the image intensity units. Required for PET, SPECT, and Dose if not present in the sidecar.
 
 #### Behavior:
 1. Grid Alignment: If the label mask and intensity image grids differ, the module automatically resamples one to match the other using the --resample-to strategy. Label maps use Nearest Neighbor interpolation; intensity images use Linear interpolation.
 2. Modality-Specific Calculations:
    - CT Modality: Estimates physical tissue density (g/cm3) using the formula density = 1.0 + (mean_hu / 1000.0) and computes the total mass of each ROI in grams or kilograms.
    - PET/SPECT Modality: Computes the total activity in Bq or MBq within each ROI if the units are specified as bq or bqml.
+   - Dose Modality: Computes absorbed dose (in Gy) or dose rate (in Gy/h) metrics (Mean, Min, Max, Peak, StdDev) for each ROI.
 3. Peak Value Estimation: Computes the maximum intensity value within each ROI after applying a Gaussian smoothing filter (using the specified --sigma).
 4. Sidecar Mapping: If a companion JSON mapping file exists next to the labels file (e.g., labels.json next to labels.nii.gz), the module automatically maps numeric IDs to clinical names in the output table.
 
