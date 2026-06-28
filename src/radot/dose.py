@@ -18,11 +18,12 @@ def dose_ldm(
     isotope: str,
     ct_arr: Optional[np.ndarray] = None,
     hu_threshold: Optional[float] = -800.0,
+    dose_rate: bool = False,
 ) -> np.ndarray:
     """
     Voxel-level physical Local Deposition Model (LDM).
     - image_arr is physical activity in Bq per voxel
-    - returns 3D float numpy array of absorbed dose in Gy per voxel
+    - returns 3D float numpy array of absorbed dose (in Gy) or dose rate (in Gy/h) per voxel
     """
     from radot.db import get_non_penetrating_energy_constant_mev
     
@@ -33,14 +34,6 @@ def dose_ldm(
     # Since mass will be in grams, we scale by 1000 to convert Joules/g to Gy (Joules/kg):
     # 1.60218e-13 * 1000 = 1.60218e-10
     mev_to_joules_per_g = 1.60218e-10
-    
-    # Physical decay constant lambda = ln(2) / T_p (in hours)
-    t_p_h = get_physical_half_life_h(isotope)
-    decay_constant_h = np.log(2) / t_p_h
-    
-    # Compute Time Integrated Activity (TIA) per voxel in Bq.s:
-    decay_constant_s = decay_constant_h / 3600.0
-    tia_arr = image_arr * np.exp(decay_constant_h * time_from_injection_h) / decay_constant_s
     
     # Compute density map (g/cm3 = g/mL) from Hounsfield Units (HU)
     if ct_arr is not None:
@@ -53,8 +46,21 @@ def dose_ldm(
     # Voxel mass in grams: Volume (mL) * Density (g/mL)
     voxel_mass_g = voxel_volume_ml * density_arr
     
-    # Absorbed Dose (Gy) per voxel: TIA (Bq.s) * Delta_local (MeV) * conversions / mass (g)
-    dose_arr = (tia_arr * delta_local_mev * mev_to_joules_per_g) / voxel_mass_g
+    if dose_rate:
+        # Instantaneous Dose Rate (Gy/h) at the time of acquisition:
+        # activity (Bq) * Delta_local (MeV) * conversions (J/g/MeV) * 3600 (s/h) / mass (g)
+        dose_arr = (image_arr * delta_local_mev * mev_to_joules_per_g * 3600.0) / voxel_mass_g
+    else:
+        # Physical decay constant lambda = ln(2) / T_p (in hours)
+        t_p_h = get_physical_half_life_h(isotope)
+        decay_constant_h = np.log(2) / t_p_h
+        
+        # Compute Time Integrated Activity (TIA) per voxel in Bq.s:
+        decay_constant_s = decay_constant_h / 3600.0
+        tia_arr = image_arr * np.exp(decay_constant_h * time_from_injection_h) / decay_constant_s
+        
+        # Absorbed Dose (Gy) per voxel: TIA (Bq.s) * Delta_local (MeV) * conversions / mass (g)
+        dose_arr = (tia_arr * delta_local_mev * mev_to_joules_per_g) / voxel_mass_g
     
     # Apply HU threshold if CT is present
     if ct_arr is not None and hu_threshold is not None:
@@ -470,6 +476,7 @@ def compute_roi_dose(
     ct_path: Optional[Any] = None,
     teff_params: Optional[Dict[str, float]] = None,
     hu_threshold: Optional[float] = -800.0,
+    dose_rate: bool = False,
 ) -> Any:
     """
     Computes average/voxel absorbed doses for specified regions of interest.
@@ -588,12 +595,13 @@ def compute_roi_dose(
             isotope=isotope,
             ct_arr=ct_arr,
             hu_threshold=hu_threshold,
+            dose_rate=dose_rate,
         )
 
         # Create SimpleITK image matching activity image space
         dose_image = sitk.GetImageFromArray(dose_arr.astype(np.float32))
         dose_image.CopyInformation(image)
-        dose_image.SetMetaData("unit", "gy")
+        dose_image.SetMetaData("unit", "gy/h" if dose_rate else "gy")
         dose_image.SetMetaData("modality", "dose")
 
         if labels is None:
@@ -620,12 +628,19 @@ def compute_roi_dose(
             mean_dose_gy = np.sum(dose_arr[mask] * voxel_mass_g[mask]) / roi_mass_g if roi_mass_g > 0 else 0.0
             roi_volume_ml = np.sum(mask) * voxel_volume_ml
 
-            results[roi_name] = {
-                "mean_dose_gy": float(mean_dose_gy),
-                "roi_mass_g": float(roi_mass_g),
-                "roi_volume_ml": float(roi_volume_ml),
-                "roi_teff_h": float(t_p_h),
-            }
+            if dose_rate:
+                results[roi_name] = {
+                    "mean_dose_rate_gyh": float(mean_dose_gy),
+                    "roi_mass_g": float(roi_mass_g),
+                    "roi_volume_ml": float(roi_volume_ml),
+                }
+            else:
+                results[roi_name] = {
+                    "mean_dose_gy": float(mean_dose_gy),
+                    "roi_mass_g": float(roi_mass_g),
+                    "roi_volume_ml": float(roi_volume_ml),
+                    "roi_teff_h": float(t_p_h),
+                }
         return results, dose_image
 
     labels_arr = sitk.GetArrayFromImage(labels)
@@ -660,6 +675,7 @@ def compute_roi_dose_file(
     resample_target: Optional[str] = None,
     verbose: bool = False,
     hu_threshold: Optional[float] = -800.0,
+    dose_rate: bool = False,
 ) -> None:
     image_path = Path(image_path)
     if labels_path is not None:
@@ -799,6 +815,7 @@ def compute_roi_dose_file(
         verbose=verbose,
         method_params=method_params,
         hu_threshold=hu_threshold,
+        dose_rate=dose_rate,
     )
 
     if method_key == "ldm":
@@ -817,7 +834,7 @@ def compute_roi_dose_file(
                     write_metadata(
                         image_path=output_path,
                         modality="dose",
-                        unit="gy",
+                        unit="gy/h" if dose_rate else "gy",
                         weight=orig_meta.get("weight"),
                         activity=orig_meta.get("activity"),
                         injection_date=orig_meta.get("injection_date"),
@@ -843,7 +860,7 @@ def compute_roi_dose_file(
             write_metadata(
                 image_path=output_path,
                 modality="dose",
-                unit="gy",
+                unit="gy/h" if dose_rate else "gy",
                 weight=orig_meta.get("weight"),
                 activity=orig_meta.get("activity"),
                 injection_date=orig_meta.get("injection_date"),
@@ -866,18 +883,34 @@ def pretty_print_dose(results: dict) -> None:
     """Pretty print dosimetry results as a table."""
     import sys
 
-    headers = ["ROI", "Mean Dose (Gy)", "Mass (g)", "Volume (mL)", "Teff (h)"]
+    is_rate = any("mean_dose_rate_gyh" in data for data in results.values())
+    if is_rate:
+        headers = ["ROI", "Mean Dose Rate (Gy/h)", "Mass (g)", "Volume (mL)"]
+    else:
+        headers = ["ROI", "Mean Dose (Gy)", "Mass (g)", "Volume (mL)", "Teff (h)"]
+
     rows = []
     for roi, data in results.items():
-        rows.append(
-            [
-                roi,
-                f"{data['mean_dose_gy']:.3f}",
-                f"{data['roi_mass_g']:.3f}",
-                f"{data['roi_volume_ml']:.3f}",
-                f"{data['roi_teff_h']:.1f}",
-            ]
-        )
+        if is_rate:
+            mean_val = data.get("mean_dose_rate_gyh", 0.0)
+            rows.append(
+                [
+                    roi,
+                    f"{mean_val:.3f}",
+                    f"{data['roi_mass_g']:.3f}",
+                    f"{data['roi_volume_ml']:.3f}",
+                ]
+            )
+        else:
+            rows.append(
+                [
+                    roi,
+                    f"{data['mean_dose_gy']:.3f}",
+                    f"{data['roi_mass_g']:.3f}",
+                    f"{data['roi_volume_ml']:.3f}",
+                    f"{data['roi_teff_h']:.1f}",
+                ]
+            )
 
     if not rows:
         sys.stdout.write("No dose computed.\n")

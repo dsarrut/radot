@@ -575,6 +575,11 @@ def dose_list():
     help="Voxels with CT HU below this value will have dose set to 0. Only used if CT is provided.",
 )
 @click.option(
+    "--dose-rate",
+    is_flag=True,
+    help="Compute instantaneous dose rate (in Gy/h) instead of absorbed dose (in Gy). Only available for LDM.",
+)
+@click.option(
     "-o",
     "--output",
     "output_path",
@@ -613,6 +618,7 @@ def dose(
     phantom,
     quiet,
     hu_threshold,
+    dose_rate,
 ):
     """Compute absorbed doses for specified regions of interest (ROI)."""
     from radot.dose import compute_roi_dose_file
@@ -629,6 +635,8 @@ def dose(
     configure_logging(verbose=cli_verbose, quiet=cli_quiet)
 
     method_key = method.lower()
+    if dose_rate and method_key != "ldm":
+        raise click.UsageError("Option '--dose-rate' is only supported with the 'ldm' method.")
     if method_key != "ldm" and not labels_path:
         raise click.UsageError("Missing option '-l' / '--labels'.")
     if method_key == "ldm" and not labels_path and not output_path:
@@ -683,6 +691,7 @@ def dose(
             resample_target=resample,
             verbose=verbose,
             hu_threshold=hu_threshold,
+            dose_rate=dose_rate,
         )
     except Exception as e:
         handle_cli_exception(e)

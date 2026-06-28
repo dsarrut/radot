@@ -223,3 +223,51 @@ def test_ldm_hu_threshold():
     assert dose_arr[1, 1, 1] > 0.0
 
 
+def test_ldm_dose_rate(tmp_path):
+    runner = CliRunner()
+
+    image_path = tmp_path / "spect.nii.gz"
+    labels_path = tmp_path / "labels.nii.gz"
+    output_path = tmp_path / "dose_rate.nii.gz"
+
+    # Save SPECT image
+    img = sitk.Image([3, 3, 3], sitk.sitkFloat32)
+    img.SetSpacing([2.0, 2.0, 2.0])
+    sitk.WriteImage(img, str(image_path))
+
+    with open(tmp_path / "spect.json", "w") as f:
+        json.dump({"unit": "Bq", "time_from_injection": "24.0"}, f)
+
+    # Save labels image
+    labels = sitk.Image([3, 3, 3], sitk.sitkUInt16)
+    labels.SetSpacing([2.0, 2.0, 2.0])
+    labels[1, 1, 1] = 1
+    sitk.WriteImage(labels, str(labels_path))
+
+    with open(tmp_path / "labels.json", "w") as f:
+        json.dump({"1": "Liver"}, f)
+
+    # Run LDM CLI command with --dose-rate
+    result = runner.invoke(main, [
+        "dose",
+        str(image_path),
+        "-l", str(labels_path),
+        "-m", "ldm",
+        "--isotope", "Lu177",
+        "-o", str(output_path),
+        "--dose-rate"
+    ])
+
+    assert result.exit_code == 0
+    assert "Mean Dose Rate (Gy/h)" in result.output
+    assert output_path.exists()
+
+    json_path = output_path.with_suffix("").with_suffix(".json")
+    assert json_path.exists()
+    with open(json_path, "r") as f:
+        meta_data = json.load(f)
+    assert meta_data["unit"] == "gy/h"
+    assert meta_data["modality"] == "dose"
+
+
+
