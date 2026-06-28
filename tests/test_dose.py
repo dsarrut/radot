@@ -487,5 +487,25 @@ def test_dose_missing_organ_loop_warning():
     assert "Prostate" not in res
 
 
+def test_dose_list_command():
+    from click.testing import CliRunner
+    from radot.cli import main
+
+    runner = CliRunner()
+    
+    result = runner.invoke(main, ["dose-list"])
+    assert result.exit_code == 0
+    assert "hanscheid2017" in result.output
+    assert "Hanscheid 2017 method" in result.output
+    assert "Equation: Dose = 0.125 * " in result.output
+    assert "hanscheid2018" in result.output
+    assert "uses OpenDose S-value database" in result.output
+    assert "Equation: Dose = TIA * S * " in result.output
+    assert "ldm" in result.output
+    assert "Local Deposition Model" in result.output
+    assert "Equation: Dose = (TIA * Delta_local * " in result.output
+
+
+
 
 

@@ -71,7 +71,7 @@ radot dose spect.nii.gz -m ldm  --isotope lu177 --resample like_activity --verbo
 
 radot stats labels_all.nii.gz -i dose.nii.gz --unit Gy --rois Liver, Kidney_L
 
-
+radot dose-list
 
 ```
 

@@ -485,6 +485,19 @@ def dicom_list(folder_path):
         handle_cli_exception(e)
 
 
+@main.command(name="dose-list")
+def dose_list():
+    """List available dosimetry methods."""
+    import sys
+    sys.stdout.write("Available dosimetry methods:\n")
+    sys.stdout.write("  - hanscheid2017: Hanscheid 2017 method (0.125 scaling factor, specific to Lu177)\n")
+    sys.stdout.write("                   Equation: Dose = 0.125 * C_mean * 2^(t/T_eff) * T_eff\n")
+    sys.stdout.write("  - hanscheid2018: Hanscheid 2018 method (uses OpenDose S-value database for phantom-specific regional dosimetry)\n")
+    sys.stdout.write("                   Equation: Dose = TIA * S * mass_scaling\n")
+    sys.stdout.write("  - ldm: Local Deposition Model (3D voxel-level physical deposition dosimetry using non-penetrating decay emissions)\n")
+    sys.stdout.write("                   Equation: Dose = (TIA * Delta_local * 1.60218e-10) / mass\n")
+
+
 @main.command(name="dose")
 @click.argument("image_path", type=click.Path(exists=True, path_type=Path))
 @click.option(
