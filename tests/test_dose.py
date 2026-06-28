@@ -342,7 +342,8 @@ def test_dose_cli_multiple_and_case_insensitive(tmp_path):
         "--teff", "kiney:32",
     ])
     assert result_typo.exit_code != 0
-    assert "Teff ROI 'kiney' not found. Did you mean 'Kidney_L'?" in result_typo.output
+    assert "Teff ROI 'kiney' not found. Did you mean" in result_typo.output
+    assert "'Kidney_L'" in result_typo.output
 
 
 def test_compute_roi_dose_string_inputs(tmp_path):
@@ -453,8 +454,37 @@ def test_dose_missing_organ_halt():
             isotope="Lu177",
             labels_map=labels_map,
             method_params={"phantom": "female"},
-            rois=None
+            rois=["Prostate"]
         )
+
+
+def test_dose_missing_organ_loop_warning():
+    import numpy as np
+    from radot.dose import compute_roi_dose
+    
+    image = sitk.Image([3, 3, 3], sitk.sitkFloat32)
+    image.SetMetaData("time_from_injection", "24.0")
+    image.SetMetaData("unit", "Bq")
+    
+    labels = sitk.Image([3, 3, 3], sitk.sitkUInt16)
+    labels[1, 1, 1] = 1
+    
+    # prostate is in male, but NOT in female
+    labels_map = {1: "Prostate"}
+    
+    res = compute_roi_dose(
+        image=image,
+        labels=labels,
+        method="hanscheid2018",
+        isotope="Lu177",
+        labels_map=labels_map,
+        method_params={"phantom": "female"},
+        rois=None
+    )
+    
+    # It should skip "Prostate" since it does not exist in the female S-value database,
+    # rather than crashing. The results dict for Prostate will be empty/omitted.
+    assert "Prostate" not in res
 
 
 

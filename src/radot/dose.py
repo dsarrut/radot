@@ -274,13 +274,18 @@ def compute_dose_generic(
                 "roi_teff_h": float(teff),
             }
         except ValueError as e:
-            if "not found in" in str(e) and ("S-value matrix" in str(e) or "phantom" in str(e)):
+            if "not found in" in str(e) and (
+                "S-value matrix" in str(e) or "phantom" in str(e)
+            ):
                 import click
-                raise click.ClickException(
-                    f"Dosimetry Halt: {e}\n"
-                    "Note: OpenDose lacks a single 'Skeleton' compartment and instead requires specific cortical/spongiosa targets.\n"
-                    "To proceed, you must explicitly provide an external S-value override file via the CLI parameters (e.g., using --custom-s-values override.json) or adjust your input sidecar JSON mapping definitions to explicitly match target OpenDose bone/tissue definitions."
-                )
+                if rois is None:
+                    click.echo(f"WARNING: {e} Skipping dosimetry for this ROI.", err=True)
+                else:
+                    raise click.ClickException(
+                        f"Dosimetry Halt: {e}\n"
+                        "Note: OpenDose lacks a single 'Skeleton' compartment and instead requires specific cortical/spongiosa targets.\n"
+                        "To proceed, you must explicitly provide an external S-value override file via the CLI parameters (e.g., using --custom-s-values override.json) or adjust your input sidecar JSON mapping definitions to explicitly match target OpenDose bone/tissue definitions."
+                    )
             else:
                 raise e
 
@@ -340,7 +345,7 @@ def check_dosimetry_inputs(
                     import difflib
 
                     close_matches = difflib.get_close_matches(
-                        r, known_rois, n=3, cutoff=0.5
+                        r, known_rois, n=5, cutoff=0.4
                     )
                     if close_matches:
                         suggestions = " or ".join(f"'{m}'" for m in close_matches)
@@ -368,7 +373,7 @@ def check_dosimetry_inputs(
                     import difflib
 
                     close_matches = difflib.get_close_matches(
-                        r, known_rois, n=3, cutoff=0.5
+                        r, known_rois, n=5, cutoff=0.4
                     )
                     if close_matches:
                         suggestions = " or ".join(f"'{m}'" for m in close_matches)
