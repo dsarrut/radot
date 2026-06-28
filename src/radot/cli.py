@@ -335,8 +335,8 @@ def common_meta_options(f):
     )(f)
     f = click.option(
         "--unit",
-        type=click.Choice(["hu", "suv", "bqml", "bq", "gy"], case_sensitive=False),
-        help="Physical unit of voxel values (hu, suv, bqml, bq, gy).",
+        type=click.Choice(["hu", "suv", "bqml", "bq", "gy", "gy/h"], case_sensitive=False),
+        help="Physical unit of voxel values (hu, suv, bqml, bq, gy, gy/h).",
     )(f)
     f = click.option(
         "--weight",
@@ -366,6 +366,27 @@ def common_meta_options(f):
         help="Time elapsed from injection to acquisition (day:hours:min).",
     )(f)
     return f
+
+
+@main.command(name="meta-list")
+def meta_list():
+    """List all possible metadata keys, valid choices, formats, and descriptions."""
+    import sys
+    sys.stdout.write("Supported image metadata keys:\n")
+    sys.stdout.write("  - modality: Image modality type.\n")
+    sys.stdout.write("              Valid choices: ct, pet, spect, dose\n")
+    sys.stdout.write("  - unit: Physical unit of voxel values.\n")
+    sys.stdout.write("          Valid choices: hu, suv, bqml, bq, gy, gy/h\n")
+    sys.stdout.write("  - weight: Patient weight (in kg).\n")
+    sys.stdout.write("            Format: floating point number\n")
+    sys.stdout.write("  - activity: Injected activity (in MBq).\n")
+    sys.stdout.write("              Format: floating point number\n")
+    sys.stdout.write("  - injection_date: Injection date and time.\n")
+    sys.stdout.write("                    Format: YYYY-MM-DD HH:MM:SS\n")
+    sys.stdout.write("  - acquisition_date: Acquisition date and time.\n")
+    sys.stdout.write("                      Format: YYYY-MM-DD HH:MM:SS\n")
+    sys.stdout.write("  - time_from_injection: Time elapsed from injection to acquisition (computed helper option, not stored directly).\n")
+    sys.stdout.write("                         Format: day:hours:min (e.g. 1:12:30)\n")
 
 
 @main.command(name="meta")

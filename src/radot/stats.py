@@ -53,7 +53,7 @@ def compute_stats(
             image_type = get_metadata_case_insensitive(image, "modality", image_path)
         if image_type is None:
             temp_unit = unit.lower() if unit is not None else (stored_unit.lower() if stored_unit is not None else None)
-            if temp_unit == "gy":
+            if temp_unit in ("gy", "gy/h"):
                 image_type = "dose"
             else:
                 raise ValueError("Image modality type is not specified and was not found in the image metadata.")

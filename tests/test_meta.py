@@ -203,3 +203,35 @@ def test_read_write_metadata_api(tmp_path):
     assert res["metadata"]["time_from_injection"] == 2.25
 
 
+def test_meta_list_command():
+    from click.testing import CliRunner
+    from radot.cli import main
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["meta-list"])
+    assert result.exit_code == 0
+    assert "Supported image metadata keys:" in result.output
+    assert "modality:" in result.output
+    assert "ct, pet, spect, dose" in result.output
+    assert "unit:" in result.output
+    assert "hu, suv, bqml, bq, gy, gy/h" in result.output
+    assert "weight:" in result.output
+    assert "activity:" in result.output
+    assert "injection_date:" in result.output
+    assert "acquisition_date:" in result.output
+    assert "time_from_injection:" in result.output
+
+
+def test_metadata_dose_default_unit(tmp_path):
+    image_path = tmp_path / "test_dose_unit.nii"
+    image = sitk.Image([5, 5, 5], sitk.sitkFloat32)
+    sitk.WriteImage(image, str(image_path))
+
+    # Write metadata with modality dose and no unit specified
+    manage_metadata(image_path, modality="dose")
+    img = sitk.ReadImage(str(image_path))
+    assert get_metadata_case_insensitive(img, "modality", image_path) == "dose"
+    assert get_metadata_case_insensitive(img, "unit", image_path) == "gy"
+
+
+

@@ -263,6 +263,8 @@ def write_metadata(
     final_unit = unit.lower() if unit is not None else existing_unit
     if final_modality == "ct" and final_unit is None:
         final_unit = "hu"
+    if final_modality == "dose" and final_unit is None:
+        final_unit = "gy"
     final_weight = (
         weight
         if weight is not None

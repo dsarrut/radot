@@ -640,3 +640,36 @@ def test_compute_stats_dose_map(tmp_path):
     # check that mean dose value 1.250 is in the output table
     assert "1.250" in result.output
 
+
+def test_compute_stats_dose_rate_map(tmp_path):
+    from click.testing import CliRunner
+    from radot.cli import main
+    runner = CliRunner()
+
+    labels_arr = np.zeros((5, 5, 5), dtype=np.uint8)
+    labels_arr[2, 2, 2] = 1
+    labels_image = sitk.GetImageFromArray(labels_arr)
+    labels_path = tmp_path / "labels.nii.gz"
+    sitk.WriteImage(labels_image, str(labels_path))
+
+    with open(tmp_path / "labels.json", "w") as f:
+        json.dump({"1": "Liver"}, f)
+
+    dose_arr = np.zeros((5, 5, 5), dtype=np.float32)
+    dose_arr[2, 2, 2] = 0.75  # 0.75 Gy/h
+    dose_image = sitk.GetImageFromArray(dose_arr)
+    dose_path = tmp_path / "dose_rate.nii.gz"
+    sitk.WriteImage(dose_image, str(dose_path))
+
+    # Add companion json sidecar for dose rate
+    with open(tmp_path / "dose_rate.json", "w") as f:
+        json.dump({"unit": "gy/h", "modality": "dose"}, f)
+
+    result = runner.invoke(main, ["stats", str(labels_path), "-i", str(dose_path)])
+    assert result.exit_code == 0
+    assert "Liver" in result.output
+    # check that mean dose rate value 0.750 is in the output table and unit gy/h is correct
+    assert "0.750" in result.output
+    assert "gy/h" in result.output.lower()
+
+
