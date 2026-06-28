@@ -30,8 +30,10 @@ If a structure exists in both TotalSegmentator and OpenDose phantoms but lacks a
 ### Stage 3: Absolute Raw Retain Fallback & Safeguard
 If no explicit mapping exists anywhere in the cross-walk dictionaries, the initial name is preserved exactly as it appears in the user sidecar (e.g., custom manual segmentations like `Tumor_Lesion_1`). 
 
-Crucial Safety Rule (Strict Dosimetry Halt):
-`radot` will never execute a dose calculation if names are unmapped or missing S-value entries. There is no automatic fallback to "remainder of body" or background approximations. If an unmapped name or an organ without S-values (such as sex-specific organs like `Prostate` when using a female phantom, or unmapped bone targets) is encountered during calculation, execution halts immediately by raising a `click.ClickException`. Users must explicitly resolve the discrepancy by supplying a custom S-value override file via CLI parameters (e.g., `--custom-s-values override.json`) or by adjusting sidecar mapping definitions.
+Crucial Safety Rule (Strict Dosimetry Halt vs Loop Warning):
+If a segmented label lacks S-value mappings in the active phantom (such as sex-specific organs like Prostate when using a female model, or unmapped bone targets):
+- Generic Label Loop: When looping over all labels present in the image (no explicit --rois option specified), `radot` prints a warning to stderr and skips calculation for that specific ROI, allowing the other organs to compute successfully.
+- Explicit ROI Request: When the user explicitly requests a specific ROI via the --rois parameter, `radot` halts execution immediately by raising a `click.ClickException`. To proceed, the user must supply a custom S-value override file (e.g., --custom-s-values override.json) or adjust their input sidecar mappings.
 
 ---
 
