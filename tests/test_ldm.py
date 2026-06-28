@@ -111,3 +111,73 @@ def test_ldm_cli_execution(tmp_path):
 
     assert result.exit_code == 0
     assert output_path.exists()
+
+
+def test_ldm_core_calculation_with_labels_no_output():
+    # Setup test SPECT image (2x2x2) with voxel values of 1e6 Bq
+    image = sitk.Image([2, 2, 2], sitk.sitkFloat32)
+    image.SetSpacing([2.0, 2.0, 2.0])
+    image_arr = np.ones((2, 2, 2), dtype=np.float32) * 1e6
+    sitk_image = sitk.GetImageFromArray(image_arr)
+    sitk_image.SetSpacing([2.0, 2.0, 2.0])
+    sitk_image.SetMetaData("time_from_injection", "24.0")
+    sitk_image.SetMetaData("unit", "Bq")
+
+    # Setup labels image
+    labels = sitk.Image([2, 2, 2], sitk.sitkUInt16)
+    labels.SetSpacing([2.0, 2.0, 2.0])
+    labels[1, 1, 1] = 1
+
+    # Run LDM with labels
+    results = compute_roi_dose(
+        image=sitk_image,
+        labels=labels,
+        method="ldm",
+        isotope="Lu177",
+        labels_map={1: "Liver"},
+        verbose=True
+    )
+
+    assert isinstance(results, tuple)
+    results_dict, dose_img = results
+    assert "Liver" in results_dict
+    assert results_dict["Liver"]["mean_dose_gy"] > 0.0
+    assert results_dict["Liver"]["roi_volume_ml"] > 0.0
+    assert isinstance(dose_img, sitk.Image)
+
+
+def test_ldm_cli_with_labels_no_output(tmp_path):
+    runner = CliRunner()
+
+    image_path = tmp_path / "spect.nii.gz"
+    labels_path = tmp_path / "labels.nii.gz"
+
+    # Save SPECT image
+    img = sitk.Image([3, 3, 3], sitk.sitkFloat32)
+    img.SetSpacing([2.0, 2.0, 2.0])
+    sitk.WriteImage(img, str(image_path))
+
+    with open(tmp_path / "spect.json", "w") as f:
+        json.dump({"unit": "Bq", "time_from_injection": "24.0"}, f)
+
+    # Save labels image
+    labels = sitk.Image([3, 3, 3], sitk.sitkUInt16)
+    labels.SetSpacing([2.0, 2.0, 2.0])
+    labels[1, 1, 1] = 1
+    sitk.WriteImage(labels, str(labels_path))
+
+    with open(tmp_path / "labels.json", "w") as f:
+        json.dump({"1": "Liver"}, f)
+
+    # Run LDM CLI command without output path option -o
+    result = runner.invoke(main, [
+        "dose",
+        str(image_path),
+        "-l", str(labels_path),
+        "-m", "ldm",
+        "--isotope", "Lu177"
+    ])
+
+    assert result.exit_code == 0
+    assert "Liver" in result.output
+

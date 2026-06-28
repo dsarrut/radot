@@ -453,10 +453,19 @@ def compute_roi_dose(
 
     # 1. Fast-Fail Boundary Checks
     method_key = method.lower()
-    if method_key == "ldm":
-        labels_map = {}
-    else:
-        if labels_map is None:
+    if labels_map is None:
+        if method_key == "ldm":
+            if labels_path is not None:
+                labels_map = check_dosimetry_inputs(
+                    method=method,
+                    isotope=isotope,
+                    labels_path=labels_path,
+                    rois=rois,
+                    method_params=method_params,
+                )
+            else:
+                labels_map = {}
+        else:
             labels_map = check_dosimetry_inputs(
                 method=method,
                 isotope=isotope,
@@ -551,7 +560,30 @@ def compute_roi_dose(
         # Create SimpleITK image matching activity image space
         dose_image = sitk.GetImageFromArray(dose_arr.astype(np.float32))
         dose_image.CopyInformation(image)
-        return dose_image
+        
+        if labels is None:
+            return dose_image
+
+        labels_arr = sitk.GetArrayFromImage(labels)
+        results = {}
+        for label_val, roi_name in labels_map.items():
+            if rois and roi_name not in rois:
+                continue
+            mask = (labels_arr == label_val)
+            if not np.any(mask):
+                continue
+
+            roi_mass_g = np.sum(voxel_mass_g[mask])
+            mean_dose_gy = np.sum(dose_arr[mask] * voxel_mass_g[mask]) / roi_mass_g if roi_mass_g > 0 else 0.0
+            roi_volume_ml = np.sum(mask) * voxel_volume_ml
+
+            results[roi_name] = {
+                "mean_dose_gy": float(mean_dose_gy),
+                "roi_mass_g": float(roi_mass_g),
+                "roi_volume_ml": float(roi_volume_ml),
+                "roi_teff_h": float(t_p_h),
+            }
+        return results, dose_image
 
     labels_arr = sitk.GetArrayFromImage(labels)
     ct_arr = sitk.GetArrayFromImage(ct_image) if ct_image is not None else None
@@ -610,13 +642,22 @@ def compute_roi_dose_file(
             method_params=method_params,
         )
     else:
-        check_dosimetry_inputs(
-            method=method,
-            isotope=isotope,
-            labels_path=None,
-            rois=None,
-            method_params=None,
-        )
+        if labels_path is not None:
+            labels_map = check_dosimetry_inputs(
+                method=method,
+                isotope=isotope,
+                labels_path=labels_path,
+                rois=rois,
+                method_params=method_params,
+            )
+        else:
+            check_dosimetry_inputs(
+                method=method,
+                isotope=isotope,
+                labels_path=None,
+                rois=None,
+                method_params=None,
+            )
 
     if resample_target == "like_ct" and not ct_path:
         raise ValueError(
@@ -716,11 +757,26 @@ def compute_roi_dose_file(
     )
 
     if method_key == "ldm":
-        if not output_path:
-            output_path = Path("dose.nii.gz")
-        logger.info(f"Saving dose results to: {output_path}")
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        sitk.WriteImage(results, str(output_path))
+        if labels_path is not None:
+            results_dict, dose_image = results
+            if output_path:
+                if output_path.name.endswith((".nii", ".nii.gz", ".nrrd", ".mhd")):
+                    logger.info(f"Saving dose image to: {output_path}")
+                    output_path.parent.mkdir(parents=True, exist_ok=True)
+                    sitk.WriteImage(dose_image, str(output_path))
+                else:
+                    logger.info(f"Saving dose results to: {output_path}")
+                    output_path.parent.mkdir(parents=True, exist_ok=True)
+                    with open(output_path, "w") as f:
+                        json.dump(results_dict, f, indent=4)
+            if not output_path or output_path.name.endswith((".nii", ".nii.gz", ".nrrd", ".mhd")):
+                pretty_print_dose(results_dict)
+        else:
+            if not output_path:
+                output_path = Path("dose.nii.gz")
+            logger.info(f"Saving dose image to: {output_path}")
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            sitk.WriteImage(results, str(output_path))
         return
 
     # Print results to stdout

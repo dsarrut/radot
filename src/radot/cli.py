@@ -581,8 +581,8 @@ def dose(
     method_key = method.lower()
     if method_key != "ldm" and not labels_path:
         raise click.UsageError("Missing option '-l' / '--labels'.")
-    if method_key == "ldm" and not output_path:
-        raise click.UsageError("Option '-o' / '--output' is required when using the LDM method.")
+    if method_key == "ldm" and not labels_path and not output_path:
+        raise click.UsageError("Option '-o' / '--output' is required when using the LDM method without labels.")
 
     rois_list = []
     if rois:
