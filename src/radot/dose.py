@@ -560,6 +560,8 @@ def compute_roi_dose(
         # Create SimpleITK image matching activity image space
         dose_image = sitk.GetImageFromArray(dose_arr.astype(np.float32))
         dose_image.CopyInformation(image)
+        dose_image.SetMetaData("unit", "gy")
+        dose_image.SetMetaData("modality", "dose")
         
         if labels is None:
             return dose_image
@@ -757,6 +759,7 @@ def compute_roi_dose_file(
     )
 
     if method_key == "ldm":
+        from radot.meta import read_metadata, write_metadata
         if labels_path is not None:
             results_dict, dose_image = results
             if output_path:
@@ -764,6 +767,19 @@ def compute_roi_dose_file(
                     logger.info(f"Saving dose image to: {output_path}")
                     output_path.parent.mkdir(parents=True, exist_ok=True)
                     sitk.WriteImage(dose_image, str(output_path))
+                    try:
+                        orig_meta = read_metadata(image_path).get("metadata", {})
+                    except Exception:
+                        orig_meta = {}
+                    write_metadata(
+                        image_path=output_path,
+                        modality="dose",
+                        unit="gy",
+                        weight=orig_meta.get("weight"),
+                        activity=orig_meta.get("activity"),
+                        injection_date=orig_meta.get("injection_date"),
+                        acquisition_date=orig_meta.get("acquisition_date"),
+                    )
                 else:
                     logger.info(f"Saving dose results to: {output_path}")
                     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -777,6 +793,19 @@ def compute_roi_dose_file(
             logger.info(f"Saving dose image to: {output_path}")
             output_path.parent.mkdir(parents=True, exist_ok=True)
             sitk.WriteImage(results, str(output_path))
+            try:
+                orig_meta = read_metadata(image_path).get("metadata", {})
+            except Exception:
+                orig_meta = {}
+            write_metadata(
+                image_path=output_path,
+                modality="dose",
+                unit="gy",
+                weight=orig_meta.get("weight"),
+                activity=orig_meta.get("activity"),
+                injection_date=orig_meta.get("injection_date"),
+                acquisition_date=orig_meta.get("acquisition_date"),
+            )
         return
 
     # Print results to stdout

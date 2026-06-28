@@ -608,3 +608,35 @@ def test_compute_stats_swapped_arguments(tmp_path):
     # This should warn the user about negative values in the first argument
     result = runner.invoke(main, ["stats", str(ct_path), "-i", str(lbl_path), "-t", "ct"])
     assert "It appears that the label file and intensity image file are swapped" in result.output
+
+
+def test_compute_stats_dose_map(tmp_path):
+    from click.testing import CliRunner
+    from radot.cli import main
+    runner = CliRunner()
+
+    labels_arr = np.zeros((5, 5, 5), dtype=np.uint8)
+    labels_arr[2, 2, 2] = 1
+    labels_image = sitk.GetImageFromArray(labels_arr)
+    labels_path = tmp_path / "labels.nii.gz"
+    sitk.WriteImage(labels_image, str(labels_path))
+
+    with open(tmp_path / "labels.json", "w") as f:
+        json.dump({"1": "Liver"}, f)
+
+    dose_arr = np.zeros((5, 5, 5), dtype=np.float32)
+    dose_arr[2, 2, 2] = 1.25  # 1.25 Gy
+    dose_image = sitk.GetImageFromArray(dose_arr)
+    dose_path = tmp_path / "dose.nii.gz"
+    sitk.WriteImage(dose_image, str(dose_path))
+
+    # Add companion json sidecar for dose
+    with open(tmp_path / "dose.json", "w") as f:
+        json.dump({"unit": "gy", "modality": "dose"}, f)
+
+    result = runner.invoke(main, ["stats", str(labels_path), "-i", str(dose_path), "--rois", "Liver", "--rois", "Spleen"])
+    assert result.exit_code == 0
+    assert "Liver" in result.output
+    # check that mean dose value 1.250 is in the output table
+    assert "1.250" in result.output
+

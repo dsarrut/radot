@@ -52,7 +52,11 @@ def compute_stats(
         if image_type is None:
             image_type = get_metadata_case_insensitive(image, "modality", image_path)
         if image_type is None:
-            raise ValueError("Image modality type is not specified and was not found in the image metadata.")
+            temp_unit = unit.lower() if unit is not None else (stored_unit.lower() if stored_unit is not None else None)
+            if temp_unit == "gy":
+                image_type = "dose"
+            else:
+                raise ValueError("Image modality type is not specified and was not found in the image metadata.")
     image_type = image_type.lower()
 
     # 2. Resolve unit
@@ -79,6 +83,8 @@ def compute_stats(
             unit = "hu"
         elif image_type in ("pet", "spect"):
             raise ValueError("The unit option is required for PET and SPECT modalities (not found in image metadata).")
+        elif image_type == "dose":
+            unit = "gy"
 
     # Check grid alignment and resample if necessary
     if labels_image is not None and not has_same_grid(labels_image, image):

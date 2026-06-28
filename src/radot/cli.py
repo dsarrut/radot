@@ -95,7 +95,7 @@ def segment(ct_path, output_path, mode, fast):
     "-t",
     "--type",
     "image_type",
-    type=click.Choice(["ct", "pet", "spect"], case_sensitive=False),
+    type=click.Choice(["ct", "pet", "spect", "dose"], case_sensitive=False),
     help="Image modality type.",
 )
 @click.option(
@@ -109,7 +109,9 @@ def segment(ct_path, output_path, mode, fast):
     "--labels", help="Comma-separated list of label IDs to filter (e.g. 5,12)."
 )
 @click.option(
-    "--rois", help="Comma-separated list of ROI names to filter (e.g. Kidney_L,Spleen)."
+    "--rois",
+    multiple=True,
+    help="Comma-separated list of ROI names to filter (e.g. Kidney_L,Spleen). Can be specified multiple times.",
 )
 @click.option(
     "--resample-to",
@@ -124,7 +126,7 @@ def segment(ct_path, output_path, mode, fast):
 )
 @click.option(
     "--unit",
-    type=click.Choice(["hu", "suv", "bqml", "bq"], case_sensitive=False),
+    type=click.Choice(["hu", "suv", "bqml", "bq", "gy"], case_sensitive=False),
     help="Current unit of the image. Required to determine if activity should be preserved (e.g. bq) during resampling.",
 )
 def stats(labels_path, image_path, image_type, output_path, labels, rois, resample_to, sigma, unit):
@@ -142,9 +144,15 @@ def stats(labels_path, image_path, image_type, output_path, labels, rois, resamp
             )
 
     # Parse rois list
-    rois_list = None
+    rois_list = []
     if rois:
-        rois_list = [x.strip() for x in rois.split(",") if x.strip()]
+        for r in rois:
+            for item in r.split(","):
+                item_stripped = item.strip()
+                if item_stripped:
+                    rois_list.append(item_stripped)
+    if not rois_list:
+        rois_list = None
 
     try:
         compute_stats_file(
@@ -183,8 +191,8 @@ def stats(labels_path, image_path, image_type, output_path, labels, rois, resamp
     "-t",
     "--type",
     "image_type",
-    type=click.Choice(["ct", "labels", "pet", "spect"], case_sensitive=False),
-    help="Image modality type.",
+    type=click.Choice(["ct", "labels", "pet", "spect", "dose"], case_sensitive=False),
+    help="Image type to resample (ct, labels, pet, spect, dose).",
 )
 @click.option(
     "-o",
@@ -195,7 +203,7 @@ def stats(labels_path, image_path, image_type, output_path, labels, rois, resamp
 )
 @click.option(
     "--unit",
-    type=click.Choice(["hu", "suv", "bqml", "bq"], case_sensitive=False),
+    type=click.Choice(["hu", "suv", "bqml", "bq", "gy"], case_sensitive=False),
     help="Units for images. Defaults to HU for CT, and SUV for PET/SPECT.",
 )
 @click.option(
@@ -322,13 +330,13 @@ def common_meta_options(f):
     f = click.argument("image_path", type=click.Path(exists=True, path_type=Path))(f)
     f = click.option(
         "--modality",
-        type=click.Choice(["ct", "pet", "spect"], case_sensitive=False),
-        help="Modality type to store (ct, pet, spect).",
+        type=click.Choice(["ct", "pet", "spect", "dose"], case_sensitive=False),
+        help="Modality type to store (ct, pet, spect, dose).",
     )(f)
     f = click.option(
         "--unit",
-        type=click.Choice(["hu", "suv", "bqml", "bq"], case_sensitive=False),
-        help="Physical unit of voxel values (hu, suv, bqml, bq).",
+        type=click.Choice(["hu", "suv", "bqml", "bq", "gy"], case_sensitive=False),
+        help="Physical unit of voxel values (hu, suv, bqml, bq, gy).",
     )(f)
     f = click.option(
         "--weight",

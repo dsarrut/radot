@@ -112,6 +112,13 @@ def test_ldm_cli_execution(tmp_path):
     assert result.exit_code == 0
     assert output_path.exists()
 
+    json_path = output_path.with_suffix("").with_suffix(".json")
+    assert json_path.exists()
+    with open(json_path, "r") as f:
+        meta_data = json.load(f)
+    assert meta_data["unit"] == "gy"
+    assert meta_data["modality"] == "dose"
+
 
 def test_ldm_core_calculation_with_labels_no_output():
     # Setup test SPECT image (2x2x2) with voxel values of 1e6 Bq
