@@ -19,9 +19,9 @@ radot resample <image_path> [options]
 * -l, --like <reference_image_path>: Resample the input image to match the spatial grid (size, spacing, origin, and direction) of the reference image.
 
 #### Other Options:
-* -t, --type <ct|labels|pet|spect>: Modality type of the input image. If omitted, it is automatically resolved from the image's companion JSON sidecar.
+* -t, --type <ct|labels|pet|spect|dose>: Modality type of the input image. If omitted, it is automatically resolved from the image's companion JSON sidecar.
 * -o, --output <output_path>: Path for the resampled output file. If omitted, a name is automatically generated (e.g., image_4mm.nii.gz or image_like_reference.nii.gz).
-* --unit <hu|suv|bqml|bq>: Units of the image voxels. If omitted, it is resolved from the companion JSON sidecar. Specifying bq automatically enables total activity preservation.
+* --unit <hu|suv|bqml|bq|gy>: Units of the image voxels. If omitted, it is resolved from the companion JSON sidecar. Specifying bq automatically enables total activity preservation.
 * --preserve-total: Scales voxel values by the volume change ratio (new voxel volume / old voxel volume). This is critical when working with absolute activity (e.g., Bq) to ensure the total activity in an organ remains constant.
 * --gaussian / --no-gaussian: Applies a Gaussian anti-aliasing filter along axes being downsampled. Enabled by default for continuous images to prevent aliasing artifacts. Disabled automatically for discrete label maps.
 
@@ -93,3 +93,35 @@ resample_image_file(
     output_path=Path("ct_2mm.nii.gz")
 )
 ```
+
+---
+
+## 3. Unit Conversion Command
+
+### Converting Units: `radot convert-units`
+
+Converts voxel values of radioactive images (SPECT/PET) between different units: `bq`, `bqml`, and `suv`.
+
+```bash
+radot convert-units <image_path> -t <to_unit> [options]
+```
+
+#### Options:
+* `-f, --from-unit <bq|bqml|suv>`: Source unit of the image. If omitted, resolved from the image companion JSON sidecar.
+* `-t, --to-unit <bq|bqml|suv>`: Target unit to convert to (Required).
+* `-o, --output <output_path>`: Optional path for the converted output file. If omitted, defaults to a modified filename like `<base>_<to-unit>.<ext>`.
+* `--weight <float>`: Patient weight in kg (Required for SUV conversions, if not present in the sidecar).
+* `--activity <float>`: Injected activity in MBq (Required for SUV conversions, if not present in the sidecar).
+
+#### Examples:
+
+1. Convert a SPECT image from Bq/mL to Bq:
+```bash
+radot convert-units spect.nii.gz -t bq
+```
+
+2. Convert a PET image from Bq to SUV, specifying patient weight and injected activity explicitly:
+```bash
+radot convert-units pet.nii.gz -t suv --weight 75.0 --activity 250.0
+```
+

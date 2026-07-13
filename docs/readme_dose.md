@@ -34,6 +34,7 @@ radot dose <image_path> [options]
 * --dose-rate: If set, computes instantaneous dose rate (in Gy/h) at the time of acquisition rather than integrated absorbed dose (in Gy). Only available for LDM.
 * -o, --output <output_path>: Path to output NIfTI dose map or JSON summary results. Required for LDM if running without labels.
 * --resample <like_activity|like_labels|like_ct>: Specifies the grid alignment strategy if input image spaces differ.
+* --phantom <male|female>: Reference phantom model used for S-value calculations. Defaults to male.
 
 #### Examples:
 

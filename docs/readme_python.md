@@ -10,7 +10,8 @@ Functions to list and convert DICOM datasets to dosimetry-ready formats:
 
 ```python
 from pathlib import Path
-from radot import list_dicom_series, print_dicom_series, convert_dicom
+from radot import list_dicom_series, print_dicom_series
+from radot.dicom import convert_dicom
 
 folder_path = Path("dicom_directory")
 
@@ -174,7 +175,37 @@ print(f"Lu-177 Half-Life: {tp_hours:.2f} hours")
 
 ---
 
-## 8. Logger Level Control
+## 8. Unit Conversion
+
+Functions to convert image voxel values between different units (`bq`, `bqml`, `suv`):
+
+```python
+from pathlib import Path
+from radot.convert import convert_image_units, convert_image_units_file
+import SimpleITK as sitk
+
+# Convert an in-memory SimpleITK image from Bq to SUV
+image = sitk.ReadImage("pet.nii.gz")
+converted_image = convert_image_units(
+    image=image,
+    to_unit="suv",
+    from_unit="bq",
+    weight=70.0,      # Patient weight in kg
+    activity=185.0    # Injected activity in MBq
+)
+
+# Convert a file on disk directly
+convert_image_units_file(
+    image_path=Path("spect.nii.gz"),
+    to_unit="bq",
+    from_unit="bqml",
+    output_path=Path("spect_bq.nii.gz")
+)
+```
+
+---
+
+## 9. Logger Level Control
 
 Configures package-level verbosity to silence progress output or show debugging logs:
 

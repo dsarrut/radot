@@ -11,7 +11,7 @@ The radot stats module calculates volume, intensity, mass, and peak statistics f
 Calculates statistics for each label present in a segmentation mask mapped onto an intensity image.
 
 ```bash
-radot stats <labels_path> -i <image_path> [options]
+radot stats [labels_path] -i <image_path> [options]
 ```
 
 #### Options:
@@ -22,7 +22,7 @@ radot stats <labels_path> -i <image_path> [options]
 * --rois <name>: ROI name to include. Can be specified multiple times or comma-separated.
 * --resample-to <labels|image>: Specifies which grid layout to align to if the image grid does not match the labels grid. Defaults to labels.
 * --sigma <float>: Specifies the standard deviation in millimeters of the Gaussian smoothing kernel used for peak value computation. Defaults to 5.0 mm for SPECT/PET and 3.0 mm for Dose.
-* --unit <hu|suv|bqml|bq|gy|gy/h>: Specifies the image intensity units. Required for PET, SPECT, and Dose if not present in the sidecar.
+* --unit <hu|suv|bqml|bq|gy>: Specifies the image intensity units. Required for PET, SPECT, and Dose if not present in the sidecar.
 
 #### Behavior:
 1. Grid Alignment: If the label mask and intensity image grids differ, the module automatically resamples one to match the other using the --resample-to strategy. Label maps use Nearest Neighbor interpolation; intensity images use Linear interpolation.

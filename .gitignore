@@ -15,3 +15,4 @@ src/radot/data/opendose/**/*gz
 src/radot/data/opendose.save/
 src/radot/data/source_temp/
 *dev_readme*md
+*-workspace
