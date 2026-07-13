@@ -16,6 +16,8 @@ This document provides a high-level overview of the `radot` library architecture
 *   **`radot/stats.py`**: Computes volumes, masses (density-calibrated from CT HU), and intensity/peak metrics (e.g. SUVpeak via Gaussian smoothing).
 *   **`radot/db.py`**: Coordinates radionuclide physical data (using `icrp107-database`) and local caching/lazy-loading of OpenDose reference masses and S-values.
 *   **`radot/nomenclature.py`**: Encapsulates the 3-stage cascading mapping dictionary logic between segmentations (TotalSegmentator), clinical naming standards (AAPM TG-263), and reference phantoms (OpenDose).
+*   **`radot/convert.py`**: Handles conversion of image voxel values and files between radioactivity units (`bq`, `bqml`, `suv`), using patient weight and activity when necessary.
+*   **`radot/log.py`**: Configures package-level logging levels (`QUIET`, `INFO`, `DEBUG`) and formats standard outputs.
 *   **`radot/dose.py`**: Implements voxel-level (Local Deposition Model / LDM) and organ-level (Hänscheid 2017/2018) dosimetry models using a Strategy registry pattern.
 
 ---
@@ -32,6 +34,7 @@ This document provides a high-level overview of the `radot` library architecture
 *   **Preserve Total Activity**: When resampling images in absolute activity units (e.g., `bq`), you must scale voxel values by the volume change ratio (new voxel volume / old voxel volume) to keep the total activity constant.
 *   **Interpolation Strategy**: Use Linear interpolation for continuous modalities (CT, PET, SPECT, Dose) and Nearest Neighbor interpolation for discrete labels.
 *   **Anti-Aliasing**: Apply a Gaussian anti-aliasing filter during downsampling for continuous images (enabled by default); disable it for discrete label maps.
+*   **Unit Conversions**: Convert image values between `bq`, `bqml`, and `suv` in `convert.py`. Patient weight (in kg) and activity (in MBq) are required when converting to or from `suv` (resolved from sidecar JSON or explicit options).
 
 ### ROI Nomenclature & OpenDose Mapping
 *   **Master Anchor**: AAPM TG-263 is the primary hub standard.
@@ -56,9 +59,9 @@ This document provides a high-level overview of the `radot` library architecture
 ## 3. Reference Documentation Map
 
 Refer to these Markdown documents in the `docs/` directory for detailed requirements:
-*   [quickstart.md](file:///Users/dsarrut/src/py/radot/docs/quickstart.md): End-to-end CLI usage and python API workflows.
-*   [dev_readme_checklist.md](file:///Users/dsarrut/src/py/radot/docs/dev_readme_checklist.md): Core checklist for parameter and metadata handling.
-*   [readme_roi_names.md](file:///Users/dsarrut/src/py/radot/docs/readme_roi_names.md): Comprehensive ROI mapping policy and cascade stages.
-*   [dev_readme_db_api.md](file:///Users/dsarrut/src/py/radot/docs/dev_readme_db_api.md): Guidelines for database, isotope layers, and phantoms.
-*   [readme_peak.md](file:///Users/dsarrut/src/py/radot/docs/readme_peak.md): Rationale and equations for SUVpeak and Gaussian sigma.
-*   [readme_logging.md](file:///Users/dsarrut/src/py/radot/docs/readme_logging.md): Configuration and levels of the package logging system.
+*   [quickstart.md](docs/quickstart.md): End-to-end CLI usage and python API workflows.
+*   [dev_readme_checklist.md](docs/dev_readme_checklist.md): Core checklist for parameter and metadata handling.
+*   [readme_roi_names.md](docs/readme_roi_names.md): Comprehensive ROI mapping policy and cascade stages.
+*   [dev_readme_db_api.md](docs/dev_readme_db_api.md): Guidelines for database, isotope layers, and phantoms.
+*   [readme_peak.md](docs/readme_peak.md): Rationale and equations for SUVpeak and Gaussian sigma.
+*   [readme_logging.md](docs/readme_logging.md): Configuration and levels of the package logging system.
