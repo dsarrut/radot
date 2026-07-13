@@ -4,26 +4,29 @@ The radot library provides a unified Python API and command-line interface to ma
 
 ## Core Modules
 
-1. DICOM Conversion:
+1. DICOM Conversion
    - Scans and converts patient DICOM series (CT, SPECT, PET) to dosimetry-ready formats (NIfTI, NRRD).
    - Generates companion JSON sidecars to store key acquisition and therapy metadata.
 
-2. CT Segmentation:
+2. CT Segmentation
    - Automates anatomical segmentation using TotalSegmentator.
    - Remaps label indices and names dynamically to standardized AAPM TG-263 nomenclature.
 
-**TODO LATER -> PET/SPECT Segmentation**
+3. PET (basic) Segmentation **TODO**
+   - PET normalisation with Gafita's method (SUL / Liver)
+   - TTV ? etc
 
-3. Image Resampling:
+4. Image Resampling
    - Resamples multi-modality grids to target isotropic spacings or reference image grids.
    - Preserves total activity concentration metrics during spatial scaling.
 
-4. Dose Computation:
-   - Implements voxel-mean absorbed dose computation models (e.g. Madsen 2018, Hanscheid 2017/2018).
-   - Integrates lazy on-demand downloads of OpenDose reference masses and S-values.
-
-5. Radionuclide Database:
+5. Radionuclide Database
    - Queries physical half-lives and decay emission yields/energies from the reference ICRP-107 database.
+   - Query/store Opendose S-values, mass data etc. for each nuclide
+
+6. Dose Computation
+   - Implements voxel-mean absorbed dose computation models (e.g. Madsen 2018, Hanscheid 2017/2018).
+   - Local Deposition Model (LDM) voxel-level modeling
 
 ## Installation
 
