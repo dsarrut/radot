@@ -11,7 +11,9 @@ The standard clinical definition of SUVpeak is:
 ## Approximation via Gaussian Smoothing
 Instead of calculating a sliding spherical average, a common and computationally efficient approximation is to smooth the image using a **3D Gaussian filter** and then find the maximum value of the smoothed image within the mask:
 
-$$\text{Peak} = \max_{x \in \text{ROI}} (I * G_{\sigma})(x)$$
+$$
+\text{Peak} = \max_{x \in \text{ROI}} (I * G_{\sigma})(x)
+$$
 
 where $I$ is the input image, $G_{\sigma}$ is the Gaussian kernel, and $*$ is the convolution operator.
 
@@ -19,9 +21,13 @@ where $I$ is the input image, $G_{\sigma}$ is the Gaussian kernel, and $*$ is th
 To align the Gaussian filter with the standard $1\text{ cm}^3$ sphere of diameter $12\text{ mm}$:
 1. We define the **FWHM (Full Width at Half Maximum)** of the Gaussian filter to match the sphere's diameter ($12\text{ mm}$).
 2. The mathematical relationship between FWHM and the standard deviation ($\sigma$) of a Gaussian distribution is:
-   $$\text{FWHM} = 2.355 \times \sigma$$
+   $$
+   \text{FWHM} = 2.355 \times \sigma
+   $$
 3. Solving for $\sigma$ yields:
-   $$\sigma = \frac{\text{FWHM}}{2.355} = \frac{12\text{ mm}}{2.355} \approx 5.1\text{ mm}$$
+   $$
+   \sigma = \frac{\text{FWHM}}{2.355} = \frac{12\text{ mm}}{2.355} \approx 5.1\text{ mm}
+   $$
 
 Currently, `radot` uses a default physical $\sigma = 3.0\text{ mm}$ (corresponding to a $\text{FWHM} \approx 7\text{ mm}$), which is a common clinical smoothing filter size.
 

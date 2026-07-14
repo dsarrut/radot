@@ -18,7 +18,7 @@ eval "$(_RADOT_COMPLETE=zsh_source radot)"
 
 ## Quick start
 
-Rad the file docs/quickstart.md and start from there. 
+Read the [quickstart](docs/quickstart.md) and start from there.
 
 ## Core Modules
 
