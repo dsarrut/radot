@@ -64,7 +64,8 @@ Compute the dose with the command line:
 ```bash
 radot dose spect.nii.gz -l labels_all.nii.gz -m hanscheid2017  --isotope lu177 --resample like_activity --verbose --ct ct.nii.gz --teff Liver:45 --teff kidney_l:32 --rois Liver --rois Kidney_L
 
-radot dose spect.nii.gz -l labels_all.nii.gz -m hanscheid2018  --isotope lu177 --resample like_activity --verbose --ct ct.nii.gz --rois Liver --rois Kidney_L
+radot dose spect.nii.gz -l labels_all.nii.gz -m hanscheid2018  --isotope lu177 --resample like_activity --ct ct.nii.gz --rois Liver --rois Kidney_L
+radot dose spect.nii.gz -l labels_all.nii.gz -m madsen2018  --isotope lu177 --resample like_activity --ct ct.nii.gz --rois Liver --rois Kidney_L --teff Liver:45 --teff kidney_l:32
 
 radot dose spect.nii.gz -m ldm  -l labels_all.nii.gz --isotope lu177 --resample like_activity --verbose --ct ct.nii.gz --rois Liver --rois Kidney_L
 
@@ -78,8 +79,10 @@ radot stats labels_all.nii.gz -i dose.nii.gz --unit Gy --rois Liver --rois Kidne
 
 # list available methods
 radot dose-list
-
 ```
+
+Note there are 3 verbose levels : none (default), --verbose (long terminal output) and --quiet (no terminal output except final results and errors)
+
 
 Or in a script with the equivalent Python function: 
 

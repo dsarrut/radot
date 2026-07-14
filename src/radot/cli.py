@@ -11,11 +11,14 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 @click.pass_context
 def main(ctx, verbose, quiet):
     """radot: Radiation Dosimetry for Therapy command-line tools."""
+    if verbose and quiet:
+        raise click.UsageError("Options --verbose and --quiet are mutually exclusive.")
     ctx.ensure_object(dict)
     ctx.obj["verbose"] = verbose
     ctx.obj["quiet"] = quiet
     from radot.log import configure_logging
     configure_logging(verbose=verbose, quiet=quiet)
+
 
 
 def handle_cli_exception(e: Exception) -> None:
@@ -637,7 +640,10 @@ def dose(
             cli_quiet = True
         if not cli_verbose and ctx.obj.get("verbose"):
             cli_verbose = True
+    if cli_verbose and cli_quiet:
+        raise click.UsageError("Options --verbose and --quiet are mutually exclusive.")
     configure_logging(verbose=cli_verbose, quiet=cli_quiet)
+
 
     method_key = method.lower()
     if dose_rate and method_key != "ldm":

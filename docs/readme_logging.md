@@ -46,12 +46,17 @@ When running the `radot` command-line utility, all progress logs and status upda
 
 ### CLI Verbosity Controls
 
-You can control verbosity using the global flags:
+You can control verbosity using the following options:
 
-```bash
-# Run silently (only output error reports)
-radot dose spect.nii.gz -l labels.nii.gz -m hanscheid2018 --isotope lu177 --quiet
+*   **Default (`INFO` level):** Shows standard operational logs (like reading images, conversion stages, and database downloads) printed to `sys.stderr`, followed by the final dosimetry table on `sys.stdout`.
+*   **`-q` / `--quiet` (`ERROR` level):** Silences all progress/status outputs, printing only critical errors to `sys.stderr` (and output files if `-o` is used).
+*   **`-v` / `--verbose` (`DEBUG` level):** Shows detailed debugging information (e.g. detailed pixel grid resampling details, API downloads) and prints full Python tracebacks in case of exceptions.
 
-# Run with verbose debugging details (forces logger to DEBUG level and shows full python tracebacks on failures)
-radot dose spect.nii.gz -l labels.nii.gz -m hanscheid2018 --isotope lu177 --verbose
-```
+> [!WARNING]
+> The `--verbose` and `--quiet` options are mutually exclusive. Passing both flags simultaneously will raise a `UsageError`.
+
+### Streams Separation
+To facilitate scripting and piping:
+*   **`stdout`:** Receives only programmatic outputs (like the final pretty-printed dosimetry summary table or JSON results if redirection is not used).
+*   **`stderr`:** Receives all logging entries formatted as `[LEVEL] radot: message` (e.g. `[INFO]`, `[DEBUG]`, `[WARNING]`).
+

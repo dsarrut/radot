@@ -548,6 +548,31 @@ def test_dose_list_command():
     assert "Equation: Dose Rate = (Activity * Delta_local * " in result.output
 
 
+def test_mutually_exclusive_verbose_quiet(tmp_path):
+    from click.testing import CliRunner
+    from radot.cli import main
+
+    runner = CliRunner()
+    
+    # Test global options
+    result = runner.invoke(main, ["--verbose", "--quiet", "dose-list"])
+    assert result.exit_code != 0
+    assert "mutually exclusive" in result.output
+
+    # Create dummy file so exists=True check passes
+    dummy_file = tmp_path / "dummy.nii.gz"
+    dummy_file.touch()
+
+    # Test command-level options
+    result_cmd = runner.invoke(main, ["dose", str(dummy_file), "-m", "madsen2018", "--isotope", "Lu177", "--verbose", "--quiet"])
+    assert result_cmd.exit_code != 0
+    assert "mutually exclusive" in result_cmd.output
+
+
+
+
+
+
 
 
 
