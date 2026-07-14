@@ -150,7 +150,7 @@ The Hänscheid 2018 method is an organ-level dosimetry method that uses the Open
 
 **Equation:**
 $$
-D = \frac{\tilde{A} \cdot S}{\text{mass\_scaling}} \cdot 10^{-3}
+D = \frac{\tilde{A} \cdot S}{\text{mass-scaling}} \cdot 10^{-3}
 $$
 
 Where:
@@ -161,9 +161,9 @@ Where:
     $$
     with $A(t)$ being the total activity in the ROI (in MBq) at the time of acquisition, and $t$ being the time from injection (in hours).
 *   $S$ is the self S-value of the organ from the OpenDose database (in $\text{mGy}/(\text{MBq}\cdot\text{s})$).
-*   $\text{mass\_scaling}$ is the mass scaling factor:
+*   $\text{mass-scaling}$ is the mass scaling factor:
     $$
-    \text{mass\_scaling} = \frac{m_{\text{patient}}}{m_{\text{reference}}}
+    \text{mass-scaling} = \frac{m_{\text{patient}}}{m_{\text{reference}}}
     $$
     where $m_{\text{patient}}$ is the patient's organ mass and $m_{\text{reference}}$ is the reference phantom's organ mass.
 *   $10^{-3}$ converts the resulting dose from mGy to Gy.
@@ -186,7 +186,7 @@ The Madsen 2018 method is an organ-level dosimetry method that uses the OpenDose
 
 **Equation:**
 $$
-D = \frac{\tilde{A} \cdot S}{\text{mass\_scaling}} \cdot 10^{-3}
+D = \frac{\tilde{A} \cdot S}{\text{mass-scaling}} \cdot 10^{-3}
 $$
 
 Where:
@@ -201,12 +201,13 @@ Where:
     $$
     where $T_{\text{eff}}$ is the effective half-life in the ROI (in hours).
 *   $S$ is the self S-value of the organ from the OpenDose database (in $\text{mGy}/(\text{MBq}\cdot\text{s})$).
-*   $\text{mass\_scaling}$ is the mass scaling factor:
+*   $\text{mass-scaling}$ is the mass scaling factor:
     $$
-    \text{mass\_scaling} = \frac{m_{\text{patient}}}{m_{\text{reference}}}
+    \text{mass-scaling} = \frac{m_{\text{patient}}}{m_{\text{reference}}}
     $$
     where $m_{\text{patient}}$ is the patient's organ mass and $m_{\text{reference}}$ is the reference phantom's organ mass.
 *   $10^{-3}$ converts the resulting dose from mGy to Gy.
+
 
 ---
 
