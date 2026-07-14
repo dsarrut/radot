@@ -173,6 +173,27 @@ Where:
 
 ---
 
+### Madsen 2018 (`madsen2018`)
+The Madsen 2018 method is an organ-level dosimetry method that uses the OpenDose S-value database for phantom-specific regional dosimetry, similar to `hanscheid2018`, but allows/requires a user-specified effective half-life $T_{\text{eff}}$ per ROI instead of assuming $T_{\text{eff}} = 2 \cdot t$. S-values are scaled by the ratio of reference organ mass to patient organ mass.
+
+**Equation:**
+$$D = \frac{\tilde{A} \cdot S}{\text{mass\_scaling}} \cdot 10^{-3}$$
+
+Where:
+*   $D$ is the mean absorbed dose in the ROI (in Gy).
+*   $\tilde{A}$ is the Time Integrated Activity (TIA) in the ROI (in $\text{MBq}\cdot\text{s}$), calculated assuming mono-exponential clearance with the specified effective half-life $T_{\text{eff}}$:
+    $$\tilde{A} = A(t) \cdot \frac{e^{k \cdot t \cdot 3600}}{k}$$
+    with $A(t)$ being the total activity in the ROI (in MBq) at the time of acquisition, $t$ being the time from injection (in hours), and $k$ being the effective clearance rate:
+    $$k = \frac{\ln(2)}{T_{\text{eff}} \cdot 3600}$$
+    where $T_{\text{eff}}$ is the effective half-life in the ROI (in hours).
+*   $S$ is the self S-value of the organ from the OpenDose database (in $\text{mGy}/(\text{MBq}\cdot\text{s})$).
+*   $\text{mass\_scaling}$ is the mass scaling factor:
+    $$\text{mass\_scaling} = \frac{m_{\text{patient}}}{m_{\text{reference}}}$$
+    where $m_{\text{patient}}$ is the patient's organ mass and $m_{\text{reference}}$ is the reference phantom's organ mass.
+*   $10^{-3}$ converts the resulting dose from mGy to Gy.
+
+---
+
 ### Local Deposition Model (`ldm`)
 The Local Deposition Model (LDM) is a voxel-level dosimetry method based on the physical deposition of non-penetrating radiations. It calculates the energy absorbed locally in each voxel.
 

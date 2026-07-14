@@ -125,6 +125,36 @@ def dose_hanscheid2018(
     return float(dose)
 
 
+def dose_madsen2018(
+    spect_bq_a: np.ndarray,
+    roi_a: np.ndarray,
+    time_from_injection_h: float,
+    s_value: float,
+    mass_scaling: float,
+    effective_time_h: float,
+) -> float:
+    """
+    Input image and ROI must be numpy arrays
+    - spect must be in Bq (not concentration)
+    - output is in Gray
+    """
+    # compute mean activity in the ROI, in MBq
+    v = spect_bq_a[roi_a == 1]
+    At = np.sum(v) / 1e6
+
+    # effective clearance rate in s^-1
+    k = np.log(2) / (effective_time_h * 3600.0)
+
+    # Integrated activity in MBq.s
+    integrated_activity = At * np.exp(k * time_from_injection_h * 3600.0) / k
+
+    # S is in (mGy/MBq/s), so we get dose in mGy. Scale and convert to Gy.
+    dose = integrated_activity * s_value / mass_scaling / 1000.0
+
+    return float(dose)
+
+
+
 def strategy_hanscheid2017(
     image_arr: np.ndarray,
     mask: np.ndarray,
@@ -270,10 +300,91 @@ def strategy_hanscheid2018(
     return float(dose), float(teff)
 
 
+def strategy_madsen2018(
+    image_arr: np.ndarray,
+    mask: np.ndarray,
+    voxel_volume_ml: float,
+    roi_name: str,
+    time_from_injection_h: float,
+    isotope: str,
+    roi_mass_g: float,
+    roi_volume_ml: float,
+    method_params: Optional[Dict[str, Any]],
+    verbose: bool,
+    ct_arr: Optional[np.ndarray] = None,
+) -> tuple[float, float]:
+    """Strategy implementation for Madsen 2018 method."""
+    from radot.db import resolve_organ_name, get_s_value, get_reference_mass
+
+    phantom = "male"
+    teff = None
+    if method_params:
+        phantom = method_params.get("phantom", "male")
+        if roi_name in method_params:
+            teff = method_params[roi_name].get("teff")
+
+    if teff is None:
+        raise ValueError(
+            f"Effective half-life (teff) must be provided for ROI '{roi_name}' when using the madsen2018 method."
+        )
+
+    # Standardize phantom/organ/rad
+    opendose_organ = resolve_organ_name(roi_name, phantom)
+    s_value = get_s_value(phantom, isotope, opendose_organ, opendose_organ)
+    s_mass = get_reference_mass(phantom, opendose_organ)
+    mass_scaling = roi_mass_g / s_mass
+
+    dose = dose_madsen2018(
+        spect_bq_a=image_arr,
+        roi_a=mask.astype(np.uint8),
+        time_from_injection_h=time_from_injection_h,
+        s_value=s_value,
+        mass_scaling=mass_scaling,
+        effective_time_h=teff,
+    )
+
+    if verbose or logger.isEnabledFor(logging.DEBUG):
+        voxels_in_roi = np.sum(mask)
+        total_activity_bq = np.sum(image_arr[mask])
+        total_activity_mbq = total_activity_bq / 1e6
+        density_str = (
+            f"computed using companion CT, mean density: {roi_mass_g / roi_volume_ml:.3f} g/mL"
+            if ct_arr is not None
+            else "no companion CT, assuming water density 1.0 g/mL"
+        )
+        formula_str = f"At * exp(k * t * 3600) / k * S / mass_scaling / 1000"
+
+        log_msg = (
+            f"\nDosimetry calculation log for ROI '{roi_name}' using Madsen 2018:\n"
+            f"  - Radionuclide: {isotope}\n"
+            f"  - Phantom model: {phantom}\n"
+            f"  - OpenDose Organ Name: {opendose_organ}\n"
+            f"  - Reference Organ Mass: {s_mass:.3f} g\n"
+            f"  - ROI Volume: {roi_volume_ml:.3f} mL ({voxels_in_roi} voxels)\n"
+            f"  - ROI Mass: {roi_mass_g:.3f} g\n"
+            f"    ({density_str})\n"
+            f"  - Mass scaling factor: {mass_scaling:.4f}\n"
+            f"  - S-value (self): {s_value:.3e} mGy/MBq.s\n"
+            f"  - Total Activity in ROI: {total_activity_mbq:.3e} MBq\n"
+            f"  - Time from injection: {time_from_injection_h:.3f} h\n"
+            f"  - Effective half-life (Teff): {teff:.3f} h\n"
+            f"  - Formula: {formula_str}\n"
+            f"  - Voxel-mean Absorbed Dose: {dose:.6f} Gy"
+        )
+        if verbose:
+            logger.info(log_msg)
+        else:
+            logger.debug(log_msg)
+
+    return float(dose), float(teff)
+
+
 DOSIMETRY_STRATEGIES = {
     "hanscheid2017": strategy_hanscheid2017,
     "hanscheid2018": strategy_hanscheid2018,
+    "madsen2018": strategy_madsen2018,
 }
+
 
 
 def compute_dose_generic(

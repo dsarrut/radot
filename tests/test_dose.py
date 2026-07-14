@@ -53,7 +53,48 @@ def test_physical_half_life_fallback():
     # Physical half life of Lu177 is 159.528 hours
     assert res["unknown_1"]["roi_teff_h"] == pytest.approx(159.528)
 
+
+def test_madsen2018():
+    image = sitk.Image([5, 5, 5], sitk.sitkFloat32)
+    image.SetSpacing((10.0, 10.0, 10.0))
+    image.SetMetaData("time_from_injection", "24.0")
+    image.SetMetaData("unit", "Bq")
+    image[2, 2, 2] = 100.0
+    
+    labels = sitk.Image([5, 5, 5], sitk.sitkUInt16)
+    labels.SetSpacing((10.0, 10.0, 10.0))
+    labels[2, 2, 2] = 1
+    
+    labels_map = {1: "Left kidney"}
+    
+    # Check that it raises an error if teff is missing
+    with pytest.raises(ValueError, match="Effective half-life .* must be provided"):
+        compute_roi_dose(
+            image=image,
+            labels=labels,
+            method="madsen2018",
+            isotope="Lu177",
+            labels_map=labels_map,
+            rois=None,
+        )
+        
+    res = compute_roi_dose(
+        image=image,
+        labels=labels,
+        method="madsen2018",
+        isotope="Lu177",
+        labels_map=labels_map,
+        rois=None,
+        method_params={"phantom": "male", "Left kidney": {"teff": 45.2}}
+    )
+    assert "Left kidney" in res
+    assert res["Left kidney"]["mean_dose_gy"] > 0.0
+    assert res["Left kidney"]["roi_teff_h"] == 45.2
+
+
+
 def test_invalid_isotope_error():
+
     image = sitk.Image([10, 10, 10], sitk.sitkFloat32)
     image.SetMetaData("time_from_injection", "24.0")
     image.SetMetaData("unit", "Bq")

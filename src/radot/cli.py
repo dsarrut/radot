@@ -515,10 +515,13 @@ def dose_list():
     sys.stdout.write("                   Equation: Dose = 0.125 * C_mean * 2^(t/T_eff) * T_eff\n")
     sys.stdout.write("  - hanscheid2018: Hanscheid 2018 method (uses OpenDose S-value database for phantom-specific regional dosimetry)\n")
     sys.stdout.write("                   Equation: Dose = TIA * S * mass_scaling\n")
+    sys.stdout.write("  - madsen2018: Madsen 2018 method (uses OpenDose S-value database for phantom-specific regional dosimetry and effective half-life)\n")
+    sys.stdout.write("                Equation: Dose = TIA * S * mass_scaling\n")
     sys.stdout.write("  - ldm: Local Deposition Model (3D voxel-level physical deposition dosimetry using non-penetrating decay emissions)\n")
     sys.stdout.write("         Equation: Dose = (TIA * Delta_local * 1.60218e-10) / mass\n")
     sys.stdout.write("         Supports computing instantaneous dose rate (in Gy/h) when --dose-rate is set:\n")
     sys.stdout.write("         Equation: Dose Rate = (Activity * Delta_local * 1.60218e-10 * 3600) / mass\n")
+
 
 
 @main.command(name="dose")
