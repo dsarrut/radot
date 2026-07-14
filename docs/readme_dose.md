@@ -124,3 +124,84 @@ dose_array = dose_ldm(
     dose_rate=False
 )
 ```
+
+---
+
+## 3. Dosimetry Methods Summary
+
+### Hanscheid 2017 (`hanscheid2017`)
+The Hänscheid 2017 method is an organ-level dosimetry approach specific to Lutetium-177 ($\text{}^{177}\text{Lu}$) that scales the mean activity concentration by a scaling factor of $0.125$ and the effective half-life.
+
+**Equation:**
+$$D = 0.125 \cdot C_{\text{mean}} \cdot 2^{\frac{t}{T_{\text{eff}}}} \cdot T_{\text{eff}}$$
+
+Where:
+*   $D$ is the mean absorbed dose in the ROI (in Gy).
+*   $C_{\text{mean}}$ is the mean activity concentration in the ROI at the time of acquisition (in $\text{MBq}/\text{mL}$).
+*   $t$ is the time from injection to acquisition (in hours).
+*   $T_{\text{eff}}$ is the effective half-life in the ROI (in hours). If not specified, falls back to the physical half-life of the isotope.
+
+---
+
+### Hanscheid 2018 (`hanscheid2018`)
+The Hänscheid 2018 method is an organ-level dosimetry method that uses the OpenDose S-value database for phantom-specific regional dosimetry. It assumes that the effective half-life is $2 \cdot t$ ($T_{\text{eff}} = 2 \cdot t$), meaning that the time integrated activity (TIA) is computed from a single SPECT scan. S-values are scaled by the ratio of reference organ mass to patient organ mass.
+
+**Equation:**
+$$D = \frac{\tilde{A} \cdot S}{\text{mass\_scaling}} \cdot 10^{-3}$$
+
+Where:
+*   $D$ is the mean absorbed dose in the ROI (in Gy).
+*   $\tilde{A}$ is the Time Integrated Activity (TIA) in the ROI (in $\text{MBq}\cdot\text{s}$), calculated as:
+    $$\tilde{A} = A(t) \cdot \frac{2 \cdot t \cdot 3600}{\ln(2)}$$
+    with $A(t)$ being the total activity in the ROI (in MBq) at the time of acquisition, and $t$ being the time from injection (in hours).
+*   $S$ is the self S-value of the organ from the OpenDose database (in $\text{mGy}/(\text{MBq}\cdot\text{s})$).
+*   $\text{mass\_scaling}$ is the mass scaling factor:
+    $$\text{mass\_scaling} = \frac{m_{\text{patient}}}{m_{\text{reference}}}$$
+    where $m_{\text{patient}}$ is the patient's organ mass and $m_{\text{reference}}$ is the reference phantom's organ mass.
+*   $10^{-3}$ converts the resulting dose from mGy to Gy.
+
+#### S-Value Database Lookup & Missing Organs (e.g. Lesions)
+1. **S-Value Resolution & Cache:**
+   * S-value matrices (organized by phantom and isotope) are lazy-loaded from local JSON files under `radot/data/opendose/<phantom>/<isotope>.json`. If not present locally, they are automatically downloaded on-demand from the online Creatis registry.
+   * Input ROI names are mapped to standard OpenDose reference organ names using `resolve_organ_name()` (which employs a multi-stage cascade matching against TG-263 standards).
+   * Key matching in the database is flexible (case-insensitive and ignores minor suffixes like "contents", "wall", "lobe", etc.).
+
+2. **Handling Missing Organs (e.g. Lesions):**
+   * If an organ name cannot be mapped to the S-value database (e.g., custom regions like `lesion_1` or unmapped structures), the system raises a `ValueError`.
+   * **In standard (generic) runs** (when looping over all label IDs in the volume): The system catches this error, logs a warning, and skips dosimetry calculations for that specific ROI.
+   * **In explicit requests** (when specific `--rois` are requested via the CLI or parameters): The system raises a `ValueError` immediately, halting execution to inform you that a requested ROI does not exist in the reference database (suggesting adjusting sidecar mappings or using custom S-value overrides).
+
+---
+
+### Local Deposition Model (`ldm`)
+The Local Deposition Model (LDM) is a voxel-level dosimetry method based on the physical deposition of non-penetrating radiations. It calculates the energy absorbed locally in each voxel.
+
+#### Integrated Absorbed Dose (Gy)
+**Equation:**
+$$D(x,y,z) = \frac{\tilde{A}(x,y,z) \cdot \Delta_{\text{local}} \cdot 1.60218 \times 10^{-10}}{m(x,y,z)}$$
+
+Where:
+*   $D(x,y,z)$ is the absorbed dose in voxel $(x,y,z)$ (in Gy).
+*   $\tilde{A}(x,y,z)$ is the Time Integrated Activity (TIA) in the voxel (in $\text{Bq}\cdot\text{s}$), calculated assuming physical decay:
+    $$\tilde{A}(x,y,z) = A(t, x,y,z) \cdot \frac{e^{\lambda \cdot t}}{\lambda_{\text{seconds}}}$$
+    where $A(t, x,y,z)$ is the activity in the voxel at acquisition time (in Bq), $t$ is the time from injection (in hours), and $\lambda$ is the physical decay constant ($\lambda = \ln(2)/T_p$ in $\text{hours}^{-1}$, $\lambda_{\text{seconds}} = \lambda / 3600$ in $\text{s}^{-1}$).
+*   $\Delta_{\text{local}}$ is the non-penetrating energy constant for the isotope (in $\text{MeV}/\text{decay}$).
+*   $m(x,y,z)$ is the voxel mass (in grams), computed from voxel volume ($V_{\text{voxel}}$ in mL) and density ($\rho$ in $\text{g}/\text{mL}$):
+    $$m(x,y,z) = V_{\text{voxel}} \cdot \rho(x,y,z)$$
+    where density $\rho(x,y,z)$ is estimated from the companion CT image in Hounsfield Units (HU):
+    $$\rho(x,y,z) = 1.0 + \frac{\text{HU}(x,y,z)}{1000}$$
+    (capped at a minimum of $0.001\text{ g/mL}$).
+*   $1.60218 \times 10^{-10}$ is the conversion factor from $\text{MeV}/\text{g}$ to $\text{Gy}$ ($\text{J}/\text{kg}$):
+    $$1\text{ MeV} = 1.60218 \times 10^{-13}\text{ J} \implies 1\text{ MeV/g} = 1.60218 \times 10^{-10}\text{ J/kg}$$
+
+#### Instantaneous Dose Rate (Gy/h)
+When `--dose-rate` is active, it computes the instantaneous dose rate at the acquisition time.
+
+**Equation:**
+$$\dot{D}(x,y,z) = \frac{A(t, x,y,z) \cdot \Delta_{\text{local}} \cdot 1.60218 \times 10^{-10} \cdot 3600}{m(x,y,z)}$$
+
+Where:
+*   $\dot{D}(x,y,z)$ is the dose rate in voxel $(x,y,z)$ (in $\text{Gy}/\text{h}$).
+*   $A(t, x,y,z)$ is the activity in voxel $(x,y,z)$ at acquisition time (in Bq).
+*   $3600$ converts seconds to hours.
+
