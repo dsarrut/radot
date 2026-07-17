@@ -62,6 +62,7 @@ def segment_ct(ct_path: Path, output_path: Path, mode: str = "total", fast: bool
         ts_id_to_name = class_map[mode]
 
     # Construct equivalent CLI command
+
     ts_cli = f"totalsegmentator -i {ct_path} -o {output_path} --ml"
     if mode != "total":
         ts_cli += f" --task {mode}"
