@@ -1,4 +1,4 @@
-# radot (Radiation Dosimetry for Therapy)
+# RADOT (Radiation Dosimetry for Therapy)
 
 The radot library provides a unified Python API and command-line interface to manage dosimetry calculations, image resampling, and metadata workflows in radionuclide therapy.
 

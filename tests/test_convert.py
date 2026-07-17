@@ -128,3 +128,108 @@ def test_convert_missing_metadata_errors(tmp_path):
     result = runner.invoke(main, ["convert-units", str(image_path), "-t", "suv"])
     assert result.exit_code != 0
     assert "Source unit is not specified" in result.output
+
+
+def test_calculate_lbm():
+    from radot.convert import calculate_lbm
+
+    # James 1976 formula
+    # Male: weight = 70.0, height = 175.0
+    # LBM = 1.10 * 70 - 128 * (70 / 175)^2 = 77.0 - 128 * 0.16 = 77.0 - 20.48 = 56.52
+    lbm_m = calculate_lbm(weight=70.0, height=175.0, sex="male", method="james")
+    assert lbm_m == pytest.approx(56.52)
+
+    # Female: weight = 60.0, height = 160.0
+    # LBM = 1.07 * 60 - 148 * (60 / 160)^2 = 64.2 - 148 * 0.140625 = 64.2 - 20.8125 = 43.3875
+    lbm_f = calculate_lbm(weight=60.0, height=160.0, sex="female", method="james")
+    assert lbm_f == pytest.approx(43.3875)
+
+    # Janmahasatian 2005 formula
+    # Male: weight = 70.0, height = 175.0
+    # BMI = 70 / (1.75)^2 = 22.857
+    # LBM = (9270 * 70) / (6680 + 216 * 22.857) = 648900 / (6680 + 4937.11) = 648900 / 11617.11 = 55.857
+    lbm_jan_m = calculate_lbm(weight=70.0, height=175.0, sex="male", method="janmahasatian")
+    assert lbm_jan_m == pytest.approx(55.857, rel=1e-3)
+
+
+def test_calculate_lbm_segmentation():
+    from radot.convert import calculate_lbm
+
+    # Generate a dummy label map image
+    # Size 5x5x5 = 125 voxels. Spacing 2.0 mm, voxel volume = 0.008 mL
+    labels = sitk.Image(5, 5, 5, sitk.sitkUInt8)
+    labels.SetSpacing((2.0, 2.0, 2.0))
+    # Let's say label ID 1 is subcutaneous_fat, fill it in half the image (60 voxels)
+    arr = np.zeros((5, 5, 5), dtype=np.uint8)
+    arr[:3, :, :] = 1  # 3 * 5 * 5 = 75 voxels
+    labels = sitk.GetImageFromArray(arr)
+    labels.SetSpacing((2.0, 2.0, 2.0))
+
+    labels_map = {1: "VAT_tissue", 2: "liver"}
+    # VAT stands for Visceral Adipose Tissue, should be matched as fat
+    # Fat voxels = 75. Fat volume = 75 * 0.008 mL = 0.6 mL
+    # Fat mass = 0.6 * 0.92 g/mL * 1e-3 kg/g = 0.000552 kg
+    # LBM = weight - fat_mass = 70.0 - 0.000552 = 69.999448 kg
+    lbm = calculate_lbm(weight=70.0, method="segmentation", labels=labels, labels_map=labels_map)
+    assert lbm == pytest.approx(69.999448)
+
+
+
+def test_convert_bqml_to_sul_james():
+    # Voxel volume is not relevant for bqml <-> sul
+    image = sitk.Image(5, 5, 5, sitk.sitkFloat32)
+    arr = np.full((5, 5, 5), 1000.0, dtype=np.float32) # 1000 Bq/mL
+    image = sitk.GetImageFromArray(arr)
+    image.SetSpacing((1.0, 1.0, 1.0))
+
+    # Weight = 70.0 kg, height = 175.0 cm, sex = male => LBM = 56.52 kg
+    # Expected SUL = bqml / (activity_bq / lbm_g)
+    # activity_bq = 250 MBq = 250,000,000 Bq
+    # lbm_g = 56.52 * 1000 = 56,520 g
+    # Expected SUL = 1000 / (250,000,000 / 56,520) = 1000 / 4423.213 = 0.22608
+    converted = convert_image_units(
+        image,
+        from_unit="bqml",
+        to_unit="sul",
+        weight=70.0,
+        activity=250.0,
+        height=175.0,
+        sex="male",
+        lbm_method="james"
+    )
+    res_arr = sitk.GetArrayFromImage(converted)
+    assert res_arr[0, 0, 0] == pytest.approx(0.22608, rel=1e-3)
+
+
+def test_convert_units_cli_sul(tmp_path):
+    from click.testing import CliRunner
+    from radot.cli import main
+    from radot.meta import manage_metadata
+
+    image_path = tmp_path / "pet_convert_sul.nii.gz"
+    image = sitk.Image([5, 5, 5], sitk.sitkFloat32)
+    arr = np.full((5, 5, 5), 1000.0, dtype=np.float32)
+    image = sitk.GetImageFromArray(arr)
+    image.SetSpacing((1.0, 1.0, 1.0))
+    sitk.WriteImage(image, str(image_path))
+
+    # Write metadata first
+    manage_metadata(image_path, modality="pet", unit="bqml", weight=70.0, activity=250.0, height=175.0, sex="male")
+
+    runner = CliRunner()
+    output_path = tmp_path / "out_sul.nii.gz"
+    result = runner.invoke(main, [
+        "convert-units",
+        str(image_path),
+        "-t", "sul",
+        "-o", str(output_path),
+        "--lbm-method", "james"
+    ])
+    assert result.exit_code == 0
+    assert output_path.exists()
+
+    res_img = sitk.ReadImage(str(output_path))
+    res_arr = sitk.GetArrayFromImage(res_img)
+    # LBM = 56.52 kg. SUL = 1000 / (250,000,000 / 56,520) = 0.22608
+    assert res_arr[0, 0, 0] == pytest.approx(0.22608, rel=1e-3)
+

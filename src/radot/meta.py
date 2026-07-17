@@ -15,7 +15,10 @@ METADATA_KEYS = {
     "activity": "activity",
     "injection_date": "injection_date",
     "acquisition_date": "acquisition_date",
+    "height": "height",
+    "sex": "sex",
 }
+
 
 
 def validate_date(date_str: str) -> bool:
@@ -185,6 +188,8 @@ def read_metadata(image_path: Path) -> dict:
     activity = get_metadata_case_insensitive(None, "activity", image_path)
     injection_date = get_metadata_case_insensitive(None, "injection_date", image_path)
     acquisition_date = get_metadata_case_insensitive(None, "acquisition_date", image_path)
+    height = get_metadata_case_insensitive(None, "height", image_path)
+    sex = get_metadata_case_insensitive(None, "sex", image_path)
 
     # Convert numeric metadata types back if possible
     if weight is not None:
@@ -197,6 +202,13 @@ def read_metadata(image_path: Path) -> dict:
             activity = float(activity)
         except ValueError:
             pass
+    if height is not None:
+        try:
+            height = float(height)
+        except ValueError:
+            pass
+    if sex is not None:
+        sex = sex.lower().strip()
 
     metadata = {
         "modality": modality,
@@ -205,6 +217,8 @@ def read_metadata(image_path: Path) -> dict:
         "activity": activity,
         "injection_date": injection_date,
         "acquisition_date": acquisition_date,
+        "height": height,
+        "sex": sex,
     }
 
     # Compute time from injection if dates are set
@@ -223,6 +237,7 @@ def read_metadata(image_path: Path) -> dict:
     }
 
 
+
 def write_metadata(
     image_path: Path,
     modality: Optional[str] = None,
@@ -232,6 +247,8 @@ def write_metadata(
     injection_date: Optional[str] = None,
     acquisition_date: Optional[str] = None,
     time_from_injection: Optional[str] = None,
+    height: Optional[float] = None,
+    sex: Optional[str] = None,
 ) -> None:
     """
     Write or merge metadata fields in the JSON sidecar file.
@@ -250,6 +267,13 @@ def write_metadata(
             f"Invalid acquisition_date format: {acquisition_date}. Expected 'YYYY-MM-DD HH:MM:SS'"
         )
 
+    # Validate sex if provided
+    if sex is not None:
+        norm_sex = sex.lower().strip()
+        if norm_sex not in ("male", "female"):
+            raise ValueError(f"Invalid sex value: {sex}. Expected 'male' or 'female'.")
+        sex = norm_sex
+
     # Read existing metadata to merge
     existing_modality = get_metadata_case_insensitive(None, "modality", image_path)
     existing_unit = get_metadata_case_insensitive(None, "unit", image_path)
@@ -257,6 +281,8 @@ def write_metadata(
     existing_activity = get_metadata_case_insensitive(None, "activity", image_path)
     existing_injection_date = get_metadata_case_insensitive(None, "injection_date", image_path)
     existing_acquisition_date = get_metadata_case_insensitive(None, "acquisition_date", image_path)
+    existing_height = get_metadata_case_insensitive(None, "height", image_path)
+    existing_sex = get_metadata_case_insensitive(None, "sex", image_path)
 
     # Merge with new values
     final_modality = modality.lower() if modality is not None else existing_modality
@@ -282,6 +308,16 @@ def write_metadata(
         acquisition_date
         if acquisition_date is not None
         else existing_acquisition_date
+    )
+    final_height = (
+        height
+        if height is not None
+        else (float(existing_height) if existing_height else None)
+    )
+    final_sex = (
+        sex.lower().strip()
+        if sex is not None
+        else (existing_sex.lower().strip() if existing_sex else None)
     )
 
     # Apply time_from_injection logic
@@ -317,6 +353,11 @@ def write_metadata(
         meta_dict["injection_date"] = final_injection_date
     if final_acquisition_date is not None:
         meta_dict["acquisition_date"] = final_acquisition_date
+    if final_height is not None:
+        meta_dict["height"] = final_height
+    if final_sex is not None:
+        meta_dict["sex"] = final_sex
+
 
     sidecar_path = get_sidecar_path(image_path)
     logger.info(f"Saving metadata to sidecar: {sidecar_path}")
@@ -377,6 +418,12 @@ def print_metadata(info_dict: dict) -> None:
     if time_from_injection is not None:
         sys.stdout.write(f"Time from injection: {time_from_injection:.2f} hours\n")
 
+    height_val = metadata.get("height")
+    sys.stdout.write(f"Height: {f'{height_val} cm' if height_val is not None else '(not set)'}\n")
+
+    sex_val = metadata.get("sex")
+    sys.stdout.write(f"Sex: {sex_val if sex_val else '(not set)'}\n")
+
 
 def manage_metadata(
     image_path: Path,
@@ -387,13 +434,15 @@ def manage_metadata(
     injection_date: Optional[str] = None,
     acquisition_date: Optional[str] = None,
     time_from_injection: Optional[str] = None,
+    height: Optional[float] = None,
+    sex: Optional[str] = None,
 ) -> None:
     """
     Read or write metadata fields in the JSON sidecar file (wrapper for backward compatibility).
     """
     is_writing = any(
         v is not None
-        for v in (modality, unit, weight, activity, injection_date, acquisition_date, time_from_injection)
+        for v in (modality, unit, weight, activity, injection_date, acquisition_date, time_from_injection, height, sex)
     )
     if is_writing:
         write_metadata(
@@ -405,10 +454,13 @@ def manage_metadata(
             injection_date=injection_date,
             acquisition_date=acquisition_date,
             time_from_injection=time_from_injection,
+            height=height,
+            sex=sex,
         )
     else:
         info_dict = read_metadata(image_path)
         print_metadata(info_dict)
+
 
 
 def get_time_from_injection_h(

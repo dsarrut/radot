@@ -283,14 +283,14 @@ def resample(
 @click.option(
     "-f",
     "--from-unit",
-    type=click.Choice(["bq", "bqml", "suv"], case_sensitive=False),
+    type=click.Choice(["bq", "bqml", "suv", "sul"], case_sensitive=False),
     help="Current unit of the image.",
 )
 @click.option(
     "-t",
     "--to-unit",
     required=True,
-    type=click.Choice(["bq", "bqml", "suv"], case_sensitive=False),
+    type=click.Choice(["bq", "bqml", "suv", "sul"], case_sensitive=False),
     help="Target unit of the image.",
 )
 @click.option(
@@ -303,14 +303,38 @@ def resample(
 @click.option(
     "--weight",
     type=float,
-    help="Patient weight in kg (required for SUV conversions).",
+    help="Patient weight in kg (required for SUV/SUL conversions).",
 )
 @click.option(
     "--activity",
     type=float,
-    help="Injected activity in MBq (required for SUV conversions).",
+    help="Injected activity in MBq (required for SUV/SUL conversions).",
 )
-def convert_units(image_path, from_unit, to_unit, output_path, weight, activity):
+@click.option(
+    "--height",
+    type=float,
+    help="Patient height in cm (required for SUL conversions).",
+)
+@click.option(
+    "--sex",
+    type=click.Choice(["male", "female"], case_sensitive=False),
+    help="Patient sex (required for SUL conversions).",
+)
+@click.option(
+    "--lbm-method",
+    type=click.Choice(["james", "janmahasatian", "segmentation"], case_sensitive=False),
+    default="james",
+    show_default=True,
+    help="Method to compute Lean Body Mass (LBM) for SUL.",
+)
+@click.option(
+    "-l",
+    "--labels",
+    "labels_path",
+    type=click.Path(exists=True, path_type=Path),
+    help="Optional labels image path (required for segmentation-based LBM).",
+)
+def convert_units(image_path, from_unit, to_unit, output_path, weight, activity, height, sex, lbm_method, labels_path):
     """Convert units of a radioactive image (PET/SPECT)."""
     from radot.convert import convert_image_units_file
 
@@ -322,9 +346,14 @@ def convert_units(image_path, from_unit, to_unit, output_path, weight, activity)
             output_path=output_path,
             weight=weight,
             activity=activity,
+            height=height,
+            sex=sex,
+            lbm_method=lbm_method,
+            labels_path=labels_path,
         )
     except Exception as e:
         handle_cli_exception(e)
+
 
 
 #### IMAGE METADATA ####
@@ -338,8 +367,8 @@ def common_meta_options(f):
     )(f)
     f = click.option(
         "--unit",
-        type=click.Choice(["hu", "suv", "bqml", "bq", "gy", "gy/h"], case_sensitive=False),
-        help="Physical unit of voxel values (hu, suv, bqml, bq, gy, gy/h).",
+        type=click.Choice(["hu", "suv", "bqml", "bq", "gy", "gy/h", "sul"], case_sensitive=False),
+        help="Physical unit of voxel values (hu, suv, bqml, bq, gy, gy/h, sul).",
     )(f)
     f = click.option(
         "--weight",
@@ -368,6 +397,16 @@ def common_meta_options(f):
         "time_from_injection",
         help="Time elapsed from injection to acquisition (day:hours:min).",
     )(f)
+    f = click.option(
+        "--height",
+        type=float,
+        help="Patient height in cm.",
+    )(f)
+    f = click.option(
+        "--sex",
+        type=click.Choice(["male", "female"], case_sensitive=False),
+        help="Patient sex.",
+    )(f)
     return f
 
 
@@ -379,7 +418,7 @@ def meta_list():
     sys.stdout.write("  - modality: Image modality type.\n")
     sys.stdout.write("              Valid choices: ct, pet, spect, dose\n")
     sys.stdout.write("  - unit: Physical unit of voxel values.\n")
-    sys.stdout.write("          Valid choices: hu, suv, bqml, bq, gy, gy/h\n")
+    sys.stdout.write("          Valid choices: hu, suv, bqml, bq, gy, gy/h, sul\n")
     sys.stdout.write("  - weight: Patient weight (in kg).\n")
     sys.stdout.write("            Format: floating point number\n")
     sys.stdout.write("  - activity: Injected activity (in MBq).\n")
@@ -390,6 +429,10 @@ def meta_list():
     sys.stdout.write("                      Format: YYYY-MM-DD HH:MM:SS\n")
     sys.stdout.write("  - time_from_injection: Time elapsed from injection to acquisition (computed helper option, not stored directly).\n")
     sys.stdout.write("                         Format: day:hours:min (e.g. 1:12:30)\n")
+    sys.stdout.write("  - height: Patient height (in cm).\n")
+    sys.stdout.write("            Format: floating point number\n")
+    sys.stdout.write("  - sex: Patient sex.\n")
+    sys.stdout.write("         Valid choices: male, female\n")
 
 
 @main.command(name="meta")
@@ -403,6 +446,8 @@ def meta(
     injection_date,
     acquisition_date,
     time_from_injection,
+    height,
+    sex,
 ):
     """Read or write image metadata fields."""
     _run_meta_command(
@@ -414,6 +459,8 @@ def meta(
         injection_date,
         acquisition_date,
         time_from_injection,
+        height,
+        sex,
     )
 
 
@@ -428,6 +475,8 @@ def info(
     injection_date,
     acquisition_date,
     time_from_injection,
+    height,
+    sex,
 ):
     """Alias for 'meta' command to read or write image metadata fields."""
     _run_meta_command(
@@ -439,6 +488,8 @@ def info(
         injection_date,
         acquisition_date,
         time_from_injection,
+        height,
+        sex,
     )
 
 
@@ -451,6 +502,8 @@ def _run_meta_command(
     injection_date,
     acquisition_date,
     time_from_injection,
+    height,
+    sex,
 ):
     from radot.meta import manage_metadata
 
@@ -464,9 +517,12 @@ def _run_meta_command(
             injection_date=injection_date,
             acquisition_date=acquisition_date,
             time_from_injection=time_from_injection,
+            height=height,
+            sex=sex,
         )
     except Exception as e:
         handle_cli_exception(e)
+
 
 
 #### DICOM CONVERSION ####

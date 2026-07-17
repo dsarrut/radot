@@ -93,35 +93,3 @@ resample_image_file(
     output_path=Path("ct_2mm.nii.gz")
 )
 ```
-
----
-
-## 3. Unit Conversion Command
-
-### Converting Units: `radot convert-units`
-
-Converts voxel values of radioactive images (SPECT/PET) between different units: `bq`, `bqml`, and `suv`.
-
-```bash
-radot convert-units <image_path> -t <to_unit> [options]
-```
-
-#### Options:
-* `-f, --from-unit <bq|bqml|suv>`: Source unit of the image. If omitted, resolved from the image companion JSON sidecar.
-* `-t, --to-unit <bq|bqml|suv>`: Target unit to convert to (Required).
-* `-o, --output <output_path>`: Optional path for the converted output file. If omitted, defaults to a modified filename like `<base>_<to-unit>.<ext>`.
-* `--weight <float>`: Patient weight in kg (Required for SUV conversions, if not present in the sidecar).
-* `--activity <float>`: Injected activity in MBq (Required for SUV conversions, if not present in the sidecar).
-
-#### Examples:
-
-1. Convert a SPECT image from Bq/mL to Bq:
-```bash
-radot convert-units spect.nii.gz -t bq
-```
-
-2. Convert a PET image from Bq to SUV, specifying patient weight and injected activity explicitly:
-```bash
-radot convert-units pet.nii.gz -t suv --weight 75.0 --activity 250.0
-```
-
