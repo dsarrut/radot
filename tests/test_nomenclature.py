@@ -7,6 +7,10 @@ from radot.nomenclature import (
     get_all_mappings,
     find_closest_matches,
     verify_sidecar_mappings,
+    assert_no_id_range_overlap,
+    PRIMARY_ORGAN_ID_RANGE,
+    DISCRETE_TISSUE_IDS,
+    FALLBACK_UNMAPPED_ID_RANGE,
 )
 
 def test_resolve_roi_name_to_opendose():
@@ -97,6 +101,27 @@ def test_cli_roi_match():
     assert result_fuzzy.exit_code == 0
     assert "is not explicitly registered" in result_fuzzy.output
     assert "Kidney_L" in result_fuzzy.output or "kidney_left" in result_fuzzy.output
+
+
+def test_assert_no_id_range_overlap_passes_on_current_definitions():
+    # Should not raise on the module's real, currently-defined ranges.
+    assert_no_id_range_overlap()
+
+
+def test_assert_no_id_range_overlap_detects_overlap(monkeypatch):
+    import radot.nomenclature as nomenclature
+
+    # Deliberately overlap PRIMARY_ORGAN_ID_RANGE with DISCRETE_TISSUE_IDS.
+    monkeypatch.setattr(nomenclature, "PRIMARY_ORGAN_ID_RANGE", (1, 1003))
+    with pytest.raises(AssertionError):
+        nomenclature.assert_no_id_range_overlap()
+
+    monkeypatch.setattr(nomenclature, "PRIMARY_ORGAN_ID_RANGE", PRIMARY_ORGAN_ID_RANGE)
+
+    # Deliberately overlap DISCRETE_TISSUE_IDS with FALLBACK_UNMAPPED_ID_RANGE.
+    monkeypatch.setattr(nomenclature, "DISCRETE_TISSUE_IDS", {9000, 9001})
+    with pytest.raises(AssertionError):
+        nomenclature.assert_no_id_range_overlap()
 
 
 def test_cli_roi_verify(tmp_path):

@@ -6,7 +6,7 @@ logger = logging.getLogger("radot")
 import SimpleITK as sitk
 from totalsegmentator.python_api import totalsegmentator
 
-from radot.nomenclature import TS_TO_TG263
+from radot.nomenclature import TS_TO_TG263, FALLBACK_UNMAPPED_ID_RANGE
 
 def get_tg263_name(filename):
     p = Path(filename)
@@ -101,7 +101,9 @@ def segment_ct(ct_path: Path, output_path: Path, mode: str = "total", fast: bool
     # Remap the labels to the AAPM TG-263 system
     remapped_arr = np.zeros_like(seg_arr, dtype=np.uint16)
     json_map = {}
-    fallback_id_counter = 1000
+    fallback_lo, fallback_hi = FALLBACK_UNMAPPED_ID_RANGE
+    fallback_id_counter = fallback_lo
+    unmapped_class_names = []
 
     for old_id in unique_ids:
         class_name = ts_id_to_name.get(old_id)
@@ -109,14 +111,30 @@ def segment_ct(ct_path: Path, output_path: Path, mode: str = "total", fast: bool
             tg263_id = get_tg263_id(class_name)
             tg263_name = get_tg263_name(class_name)
             if tg263_id is None:
+                # Not yet present in TS_TO_TG263: assign an ID from the reserved
+                # fallback range instead of colliding with DISCRETE_TISSUE_IDS.
+                if fallback_id_counter > fallback_hi:
+                    raise RuntimeError(
+                        f"Exhausted FALLBACK_UNMAPPED_ID_RANGE {FALLBACK_UNMAPPED_ID_RANGE} "
+                        f"while assigning an ID for unmapped TS class '{class_name}'."
+                    )
                 tg263_id = fallback_id_counter
+                tg263_name = class_name
                 fallback_id_counter += 1
+                unmapped_class_names.append(class_name)
         else:
             tg263_id = old_id
             tg263_name = f"unknown_{old_id}"
 
         remapped_arr[seg_arr == old_id] = tg263_id
         json_map[int(tg263_id)] = tg263_name
+
+    if unmapped_class_names:
+        logger.warning(
+            "TS_TO_TG263 coverage gap: the following TotalSegmentator classes "
+            "are not yet mapped and were assigned fallback IDs from "
+            f"{FALLBACK_UNMAPPED_ID_RANGE}: {unmapped_class_names}"
+        )
 
     # Convert back to SimpleITK Image
     merged_image = sitk.GetImageFromArray(remapped_arr)

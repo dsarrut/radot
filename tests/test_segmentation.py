@@ -2,6 +2,11 @@ import pytest
 from pathlib import Path
 import SimpleITK as sitk
 from radot.segmentation import get_tg263_name, get_tg263_id, segment_ct
+from radot.nomenclature import (
+    PRIMARY_ORGAN_ID_RANGE,
+    DISCRETE_TISSUE_IDS,
+    FALLBACK_UNMAPPED_ID_RANGE,
+)
 
 def test_get_tg263_name():
     # Standard organs
@@ -94,4 +99,89 @@ def test_segment_ct(tmp_path):
     output_image = sitk.ReadImage(str(output_path))
     assert output_image.GetSize() == ct_image.GetSize()
     assert output_image.GetSpacing() == ct_image.GetSpacing()
+
+
+def test_segment_ct_unmapped_class_uses_fallback_range(tmp_path, caplog):
+    from unittest.mock import patch
+    import json
+    import logging
+
+    ct_image = sitk.Image([10, 10, 10], sitk.sitkInt16)
+    ct_path = tmp_path / "dummy_ct.nii.gz"
+    sitk.WriteImage(ct_image, str(ct_path))
+
+    output_path = tmp_path / "output_labels.nii.gz"
+
+    def mock_totalsegmentator(input, output, task, quiet, ml=False, fast=False):
+        # "body" task mixes one mapped class (body_trunc) with one class not
+        # yet present in TS_TO_TG263 (body_extremities).
+        from totalsegmentator.map_to_binary import class_map
+        ml_image = sitk.Image([10, 10, 10], sitk.sitkUInt16)
+
+        trunc_id = [k for k, v in class_map[task].items() if v == "body_trunc"][0]
+        extremities_id = [k for k, v in class_map[task].items() if v == "body_extremities"][0]
+
+        ml_image.SetPixel((5, 5, 5), trunc_id)
+        ml_image.SetPixel((6, 6, 6), extremities_id)
+
+        sitk.WriteImage(ml_image, str(output))
+
+    with caplog.at_level(logging.WARNING, logger="radot"):
+        with patch("radot.segmentation.totalsegmentator", side_effect=mock_totalsegmentator):
+            segment_ct(ct_path, output_path, mode="body", fast=True)
+
+    json_path = output_path.with_suffix("").with_suffix(".json")
+    with open(json_path, "r") as f:
+        mapping = json.load(f)
+
+    # The mapped class keeps its registered TG-263 id, from PRIMARY_ORGAN_ID_RANGE.
+    mapped_ids = {int(k) for k, v in mapping.items() if v == "External"}
+    assert mapped_ids
+    primary_lo, primary_hi = PRIMARY_ORGAN_ID_RANGE
+    assert all(primary_lo <= i <= primary_hi for i in mapped_ids)
+
+    # The unmapped class gets an id from the fallback range, never from
+    # DISCRETE_TISSUE_IDS or PRIMARY_ORGAN_ID_RANGE.
+    fallback_ids = {int(k) for k, v in mapping.items() if v == "body_extremities"}
+    assert fallback_ids
+    fallback_lo, fallback_hi = FALLBACK_UNMAPPED_ID_RANGE
+    for fid in fallback_ids:
+        assert fallback_lo <= fid <= fallback_hi
+        assert fid not in DISCRETE_TISSUE_IDS
+        assert not (primary_lo <= fid <= primary_hi)
+
+    # A warning is emitted flagging the coverage gap.
+    assert any(
+        "TS_TO_TG263 coverage gap" in record.message and "body_extremities" in record.message
+        for record in caplog.records
+    )
+
+
+def test_segment_ct_fallback_range_exhausted_raises(tmp_path):
+    from unittest.mock import patch
+
+    ct_image = sitk.Image([5, 5, 5], sitk.sitkInt16)
+    ct_path = tmp_path / "dummy_ct.nii.gz"
+    sitk.WriteImage(ct_image, str(ct_path))
+
+    output_path = tmp_path / "output_labels.nii.gz"
+
+    def mock_totalsegmentator(input, output, task, quiet, ml=False, fast=False):
+        # "body" has two classes; force both through the unmapped branch below.
+        from totalsegmentator.map_to_binary import class_map
+        ml_image = sitk.Image([5, 5, 5], sitk.sitkUInt16)
+        ids = [k for k, v in class_map[task].items() if v in ("body_trunc", "body_extremities")]
+        ml_image.SetPixel((1, 1, 1), ids[0])
+        ml_image.SetPixel((2, 2, 2), ids[1])
+        sitk.WriteImage(ml_image, str(output))
+
+    fallback_lo, _fallback_hi = FALLBACK_UNMAPPED_ID_RANGE
+
+    # Shrink the fallback range to a single slot so the second unmapped class
+    # overflows it, and force both classes through the unmapped branch.
+    with patch("radot.segmentation.FALLBACK_UNMAPPED_ID_RANGE", (fallback_lo, fallback_lo)), \
+         patch("radot.segmentation.totalsegmentator", side_effect=mock_totalsegmentator), \
+         patch("radot.segmentation.get_tg263_id", return_value=None):
+        with pytest.raises(RuntimeError, match="Exhausted FALLBACK_UNMAPPED_ID_RANGE"):
+            segment_ct(ct_path, output_path, mode="body", fast=True)
 

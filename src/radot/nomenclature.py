@@ -22,6 +22,51 @@ TG263_TO_OD: Dict[str, str] = _load_json_data("tg263_to_od.json")
 OD_TO_TG263: Dict[str, str] = {v: k for k, v in TG263_TO_OD.items()}
 
 
+# Reserved label-ID ranges shared across radot and downstream consumers (e.g. pet_segment).
+# These must stay non-overlapping so merged label volumes never collide.
+PRIMARY_ORGAN_ID_RANGE: Tuple[int, int] = (1, 999)
+"""IDs assigned to organs/vessels/muscles/bones registered in TS_TO_TG263."""
+
+DISCRETE_TISSUE_IDS: set = {1000, 1001, 1002, 1003}
+"""Fixed IDs produced by the 'tissue_4_types' task: subcutaneous_fat, torso_fat,
+skeletal_muscle, intermuscular_fat (in that order)."""
+
+FALLBACK_UNMAPPED_ID_RANGE: Tuple[int, int] = (9000, 9999)
+"""Reserved for auto-assigned IDs given to TotalSegmentator classes not yet
+present in TS_TO_TG263. Never reuse this range for a permanent mapping."""
+
+
+def assert_no_id_range_overlap() -> None:
+    """
+    Validate that the reserved ID ranges/sets above do not overlap each other,
+    and that no ID currently registered in TS_TO_TG263 falls outside its
+    designated range. Raises AssertionError on any collision.
+    """
+    primary_lo, primary_hi = PRIMARY_ORGAN_ID_RANGE
+    fallback_lo, fallback_hi = FALLBACK_UNMAPPED_ID_RANGE
+    primary_range = set(range(primary_lo, primary_hi + 1))
+    fallback_range = set(range(fallback_lo, fallback_hi + 1))
+
+    assert primary_range.isdisjoint(DISCRETE_TISSUE_IDS), (
+        "PRIMARY_ORGAN_ID_RANGE overlaps DISCRETE_TISSUE_IDS"
+    )
+    assert primary_range.isdisjoint(fallback_range), (
+        "PRIMARY_ORGAN_ID_RANGE overlaps FALLBACK_UNMAPPED_ID_RANGE"
+    )
+    assert DISCRETE_TISSUE_IDS.isdisjoint(fallback_range), (
+        "DISCRETE_TISSUE_IDS overlaps FALLBACK_UNMAPPED_ID_RANGE"
+    )
+
+    registered_ids = {val[0] for val in TS_TO_TG263.values()}
+    offending = registered_ids - primary_range
+    assert not offending, (
+        f"TS_TO_TG263 contains ID(s) outside PRIMARY_ORGAN_ID_RANGE: {sorted(offending)}"
+    )
+
+
+assert_no_id_range_overlap()
+
+
 def resolve_roi_name_to_opendose(name: str) -> str:
     """
     Resolve user-supplied ROI names (TotalSegmentator, TG-263, or custom names)
