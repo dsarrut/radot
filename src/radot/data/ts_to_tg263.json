@@ -754,5 +754,69 @@
     "vertebrae_S1": [
         118,
         "Bone_V_S01"
+    ],
+    "eyeball_left": [
+        140,
+        "Eye_L"
+    ],
+    "eyeball_right": [
+        141,
+        "Eye_R"
+    ],
+    "lateral_rectus_muscle_left": [
+        142,
+        "Muscle_LateralRectus_L"
+    ],
+    "lateral_rectus_muscle_right": [
+        143,
+        "Muscle_LateralRectus_R"
+    ],
+    "medial_rectus_muscle_left": [
+        144,
+        "Muscle_MedialRectus_L"
+    ],
+    "medial_rectus_muscle_right": [
+        145,
+        "Muscle_MedialRectus_R"
+    ],
+    "superior_rectus_muscle_left": [
+        146,
+        "Muscle_SuperiorRectus_L"
+    ],
+    "superior_rectus_muscle_right": [
+        147,
+        "Muscle_SuperiorRectus_R"
+    ],
+    "inferior_rectus_muscle_left": [
+        148,
+        "Muscle_InferiorRectus_L"
+    ],
+    "inferior_rectus_muscle_right": [
+        149,
+        "Muscle_InferiorRectus_R"
+    ],
+    "superior_oblique_muscle_left": [
+        150,
+        "Muscle_SuperiorOblique_L"
+    ],
+    "superior_oblique_muscle_right": [
+        151,
+        "Muscle_SuperiorOblique_R"
+    ],
+    "inferior_oblique_muscle_left": [
+        152,
+        "Muscle_InferiorOblique_L"
+    ],
+    "inferior_oblique_muscle_right": [
+        153,
+        "Muscle_InferiorOblique_R"
+    ],
+    "levator_palpebrae_superioris_left": [
+        154,
+        "Muscle_LevatorPalpebrae_L"
+    ],
+    "levator_palpebrae_superioris_right": [
+        155,
+        "Muscle_LevatorPalpebrae_R"
     ]
 }

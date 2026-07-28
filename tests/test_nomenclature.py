@@ -103,6 +103,18 @@ def test_cli_roi_match():
     assert "Kidney_L" in result_fuzzy.output or "kidney_left" in result_fuzzy.output
 
 
+def test_ts_to_tg263_covers_oculomotor_muscles_task():
+    # Regression guard: oculomotor_muscles classes were previously entirely
+    # absent from TS_TO_TG263, silently routing every one of them through
+    # the fallback-ID path. All 19 classes must resolve to a real mapping.
+    from totalsegmentator.map_to_binary import class_map
+    from radot.nomenclature import TS_TO_TG263
+
+    task_classes = class_map["oculomotor_muscles"]
+    unmapped = [name for name in task_classes.values() if name not in TS_TO_TG263]
+    assert not unmapped, f"oculomotor_muscles classes missing from TS_TO_TG263: {unmapped}"
+
+
 def test_assert_no_id_range_overlap_passes_on_current_definitions():
     # Should not raise on the module's real, currently-defined ranges.
     assert_no_id_range_overlap()
