@@ -818,5 +818,29 @@
     "levator_palpebrae_superioris_right": [
         155,
         "Muscle_LevatorPalpebrae_R"
+    ],
+    "mandible": [
+        156,
+        "Bone_Mandible"
+    ],
+    "teeth_upper": [
+        157,
+        "Teeth_Upper"
+    ],
+    "teeth_lower": [
+        158,
+        "Teeth_Lower"
+    ],
+    "sinus_maxillary": [
+        159,
+        "Sinus_Maxillary"
+    ],
+    "sinus_frontal": [
+        160,
+        "Sinus_Frontal"
+    ],
+    "head": [
+        161,
+        "Head"
     ]
 }
