@@ -4,7 +4,7 @@ The radot library provides a unified Python API and command-line interface to ma
 
 ## Installation
 
-The package requires Python 3.10 or higher
+The package requires Python 3.11 or higher
 
 To install the package in editable mode for local development:
 ```bash

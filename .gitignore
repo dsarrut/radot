@@ -8,11 +8,16 @@ venv_*
 
 .python-version
 activate_*
-/data/
+
 .DS_Store
 .vscode
+
+*dev_readme*md
+*-workspace
+uv.lock
+
 src/radot/data/opendose/**/*gz
 src/radot/data/opendose.save/
 src/radot/data/source_temp/
-*dev_readme*md
-*-workspace
+
+/data

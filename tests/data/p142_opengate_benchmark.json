@@ -1,0 +1,26 @@
+{
+  "description": "Patient 142 cropped liver Lu-177 OpenGate VRT simulation benchmark vs Madsen 2018 (OpenDose S-values)",
+  "patient": "p142",
+  "roi_name": "Liver",
+  "radionuclide": "Lu177",
+  "phantom": "male",
+  "total_activity_bq": 2000000.0,
+  "teff_h": 45.0,
+  "time_from_injection_h": 0.0,
+  "num_voxels": 20572,
+  "roi_volume_ml": 1316.608,
+  "roi_mass_g": 1423.515625,
+  "opengate": {
+    "mean_dose_rate_gy_s": 3.3469861955977114e-08,
+    "integrated_dose_gy": 0.007822462225826471,
+    "simulation_mode": "vrt"
+  },
+  "madsen2018": {
+    "mean_dose_gy": 0.008103401021152671
+  },
+  "comparison": {
+    "relative_difference_percent": 3.59,
+    "agreement_threshold_percent": 5.0,
+    "passed": true
+  }
+}
