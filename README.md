@@ -1,48 +1,42 @@
 # RADOT (Radiation Dosimetry for Therapy)
 
-The radot library provides a unified Python API and command-line interface to manage dosimetry calculations, image resampling, and metadata workflows in radionuclide therapy.
+`radot` is a Python library and command-line tool suite for radiation dosimetry, image processing, and metadata workflows in targeted radionuclide therapy.
 
 ## Installation
 
-The package requires Python 3.11 or higher
-
-To install the package in editable mode for local development:
 ```bash
 pip install -e .
 ```
 
-To enable command autocompletion for the radot CLI in zsh, append the following line to your shell configuration profile (e.g., ~/.zshrc) or at the end of your "activate" script from the venv:
+To enable shell autocompletion for the CLI (zsh):
 ```bash
 eval "$(_RADOT_COMPLETE=zsh_source radot)"
 ```
 
-## Quick start
+## Quick Start
 
-Read the [quickstart](docs/quickstart.md) and start from there.
+See the [Quickstart Guide](docs/quickstart.md) to get started with CLI commands and Python workflows.
 
-## Core Modules
+## Core Features
 
-1. DICOM Conversion
-   - Scans and converts patient DICOM series (CT, SPECT, PET) to dosimetry-ready formats (NIfTI, NRRD).
-   - Generates companion JSON sidecars to store key acquisition and therapy metadata such as injected activity or date of injection/acquisition. 
+1. **DICOM Conversion**: Converts CT, SPECT, and PET series to NIfTI/NRRD with structured JSON metadata sidecars.
+2. **Segmentation**: Automates CT segmentation via TotalSegmentator and remaps labels to standard AAPM TG-263 nomenclature.
+3. **Unit Conversion**: Converts image voxel values between `bq`, `bqml`, `suv`, and `sul` (using James, Janmahasatian, or CT fat segmentation).
+4. **Image Resampling**: Isotropic and grid-matching resampling while strictly preserving total radioactivity.
+5. **Radionuclide Physics & Decay Chains**: Queries ICRP Publication 107 emissions spectra, IAEA LiveChart decay cascades (for alpha emitters like $^{225}\text{Ac}$), and OpenDose S-values.
+6. **Dosimetry Models**: Implements Local Deposition Model (LDM, voxel-level with daughter cascade support), Hänscheid (2017/2018), and Madsen (2018) models.
 
-2. CT Segmentation
-   - Automates anatomical segmentation using TotalSegmentator.
-   - Remaps label indices and names dynamically to standardized AAPM TG-263 nomenclature.
+## Documentation
 
-3. PET (basic) Segmentation **TODO LATER**
-   - PET normalisation with Gafita's method (SUL / Liver)
-   - TTV ? etc
+- [Quickstart](docs/quickstart.md)
+- [Dosimetry Models](docs/readme_dose.md)
+- [Units & SUL Normalization](docs/readme_images_units.md) | [SUL CT Integration](docs/readme_sul.md)
+- [Radionuclides & Decay Chains](docs/readme_radionuclide.md)
+- [DICOM Conversion](docs/readme_dicom.md) & [Metadata Sidecars](docs/readme_meta.md)
+- [CT Segmentation & TG-263](docs/readme_segmentation.md) | [ROI Names Policy](docs/readme_roi_names.md)
+- [Image Resampling](docs/readme_images_resample.md)
+- [OpenDose Database](docs/readme_opendose.md)
+- [Statistics & Reporting](docs/readme_stats.md) | [SUVpeak](docs/readme_peak.md)
+- [Python API Reference](docs/readme_python.md)
 
-4. Image Resampling
-   - Resamples multi-modality grids to target isotropic spacings or reference image grids.
-   - Preserves total activity concentration metrics during spatial scaling.
-
-5. Radionuclide Database
-   - Queries physical half-lives and decay emission yields/energies from the reference ICRP-107 database.
-   - Query/store Opendose S-values, mass data etc. for each nuclide
-
-6. Dose Computation
-   - Implements voxel-mean absorbed dose computation models (e.g. Madsen 2018, Hanscheid 2017/2018).
-   - Local Deposition Model (LDM) voxel-level modeling
 
