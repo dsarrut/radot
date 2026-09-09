@@ -279,31 +279,48 @@ Where:
 
 ## 4. Tests
 
-### Validation with OpenGate Monte Carlo: `test_madsen2018_opengate_p142_comparison`
+### Validation with OpenGate Monte Carlo: Self-Dose (`test_madsen2018_self_dose`)
 
 Located in [`tests/test_dose.py`](../tests/test_dose.py), this test compares the organ-level S-value calculation of `madsen2018` against a ground-truth Monte Carlo dose rate simulation performed with OpenGate (`opengate_dose_rate`) on the `p142` patient dataset:
 
 1. **Simulation Input (`data/p142/`):**
    * Companion cropped CT: `ct_4mm_cropped.nii.gz`
    * Cropped liver activity: `liver_4mm_cropped.nii.gz` with uniform $^{177}\text{Lu}$ activity defined in `p142_dose_rate_test1.json` ($A_0 = 10^6\text{ Bq}$).
-   * OpenGate simulated output: Instantaneous dose rate map `output_vrt/output_dose.mhd` (in $\text{Gy/s}$).
+   * OpenGate simulated output: Instantaneous dose rate map `output_vrt/output_dose.mhd` (in $\text{Gy/s}$) and voxel uncertainty map `output_vrt/output_dose_uncertainty.mhd`.
 
 2. **Integration & Comparison:**
    * The mean dose rate in the liver from OpenGate ($\dot{D}_{\text{Gate}}$) is time-integrated assuming mono-exponential clearance with effective half-life $T_{\text{eff}} = 45.0\text{ h}$:
      $$D_{\text{Gate}} = \dot{D}_{\text{Gate}} \cdot \frac{T_{\text{eff}} \cdot 3600}{\ln(2)}$$
    * This is compared against the absorbed dose computed by `compute_roi_dose(..., method="madsen2018")` using OpenDose S-values and CT-based patient organ mass scaling.
-   * The test asserts that the relative difference is within $5\%$ (actual agreement is $\approx 3.4\%$).
-   * Automatically skipped if local simulation files under `data/p142/` are absent.
+   * Self-dose is predominantly driven by $\beta^-$ particles ($\sim 95\%$), leading to very local deposition; the test asserts relative difference $< 5\%$ (actual agreement is $\approx 3.6\%$).
+   * Also computes and prints the Monte Carlo ROI uncertainty estimate and bounds via `roi_dose_uncertainty_bounds` and `roi_dose_uncertainty_estimate`.
+   * Falls back automatically to `tests/data/p142_opengate_benchmark.json` if raw large 3D images under `data/p142/` are absent.
 
-**Create the test:**
+### Validation with OpenGate Monte Carlo: Cross-Dose (`test_madsen2018_cross_dose`)
+
+Located in [`tests/test_dose.py`](../tests/test_dose.py), this test validates the cross-irradiation from source organ `Liver` to target organ `Kidney_R` ($S(\text{Kidney\_R} \leftarrow \text{Liver})$):
+
+1. **Physical Context:**
+   * Cross-dose is $\sim 100\times$ lower than self-dose ($\sim 36\ \mu\text{Gy}$ vs $\sim 3.9\text{ mGy}$) and is $100\%$ deposited by penetrating photon emissions (gammas and bremsstrahlung).
+   * Cross-dose S-values depend heavily on inter-organ distance and anatomy geometry ($1/r^2$). Due to morphological differences between the stylized reference phantom and the actual patient CT anatomy, differences around $\approx 40\%$ are expected.
+   * The test verifies that the relative difference is $< 50\%$ (actual agreement $\approx 43\%$) and reports the kidney ROI uncertainty (lower bound, upper bound, and particle-range cluster estimate).
+
+**Create / update the benchmark:**
 ```bash
-    # in folder data/p142 (not in git)
-    opengate_dose_rate p142_dose_rate_test1.json
-    ./create_benchmark_json.py
-
+# in folder data/p142 (not in git)
+opengate_dose_rate p142_dose_rate_test1.json
+./create_benchmark_json.py
 ```
 
-**Run the test:**
+**Run the validation tests:**
 ```bash
-pytest -s tests/test_dose.py -k "test_madsen2018_opengate_p142_comparison"
+# Run both OpenGate validation tests
+pytest -s tests/test_dose.py -k "madsen2018_self_dose or madsen2018_cross_dose"
+
+# Run only the self-dose test
+pytest -s tests/test_dose.py -k "madsen2018_self_dose"
+
+# Run only the cross-dose test
+pytest -s tests/test_dose.py -k "madsen2018_cross_dose"
 ```
+

@@ -138,14 +138,19 @@ def dose_madsen2018(
     s_value: float,
     mass_scaling: float,
     effective_time_h: float,
+    source_roi_a: Optional[np.ndarray] = None,
 ) -> float:
     """
     Input image and ROI must be numpy arrays
     - spect must be in Bq (not concentration)
     - output is in Gray
+    - if source_roi_a is provided, activity is integrated in source_roi_a (source organ),
+      computing cross-dose to target organ roi_a using s_value S(target <- source)
+      and target mass_scaling.
     """
-    # compute mean activity in the ROI, in MBq
-    v = spect_bq_a[roi_a == 1]
+    # compute activity in the source ROI, in MBq
+    source_mask = source_roi_a if source_roi_a is not None else roi_a
+    v = spect_bq_a[source_mask == 1]
     At = np.sum(v) / 1e6
 
     # effective clearance rate in s^-1

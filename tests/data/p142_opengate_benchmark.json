@@ -4,18 +4,31 @@
   "roi_name": "Liver",
   "radionuclide": "Lu177",
   "phantom": "male",
-  "total_activity_bq": 4000000.0,
+  "total_activity_bq": 1000000.0,
   "teff_h": 45.0,
   "time_from_injection_h": 0.0,
   "num_voxels": 20572,
   "roi_volume_ml": 1316.608,
   "roi_mass_g": 1423.515625,
   "opengate": {
-    "mean_dose_rate_gy_s": 6.689787696918065e-08,
+    "mean_dose_rate_gy_s": 6.68528725538451e-08,
     "simulation_mode": "vrt",
-    "uncertainty_min_fraction": 0.0005765595930352954,
-    "uncertainty_max_fraction": 0.08252696449530357,
-    "uncertainty_estimate_fraction": 0.0010066910461274533,
-    "mean_voxel_uncertainty_fraction": 0.08252696449530357
+    "uncertainty_min_fraction": 0.0005768521050262276,
+    "uncertainty_max_fraction": 0.08257542590138756,
+    "uncertainty_estimate_fraction": 0.001007201781194068,
+    "mean_voxel_uncertainty_fraction": 0.08257542590138756
+  },
+  "cross_dose": {
+    "target_roi_name": "Kidney_R",
+    "source_roi_name": "Liver",
+    "target_num_voxels": 2270,
+    "target_volume_ml": 145.28,
+    "target_mass_g": 161.4965362548828,
+    "opengate": {
+      "mean_dose_rate_gy_s": 6.154161887238474e-10,
+      "uncertainty_min_fraction": 0.0016649558171059713,
+      "uncertainty_max_fraction": 0.07761408720552795,
+      "uncertainty_estimate_fraction": 0.002907064826472834
+    }
   }
 }
