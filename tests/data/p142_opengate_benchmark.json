@@ -11,12 +11,12 @@
   "roi_volume_ml": 1316.608,
   "roi_mass_g": 1423.515625,
   "opengate": {
-    "mean_dose_rate_gy_s": 6.68528725538451e-08,
+    "mean_dose_rate_gy_s": 1.669695175020054e-08,
     "simulation_mode": "vrt",
-    "uncertainty_min_fraction": 0.0005768521050262276,
-    "uncertainty_max_fraction": 0.08257542590138756,
-    "uncertainty_estimate_fraction": 0.001007201781194068,
-    "mean_voxel_uncertainty_fraction": 0.08257542590138756
+    "uncertainty_min_fraction": 0.0011541897746534596,
+    "uncertainty_max_fraction": 0.1643497999229447,
+    "uncertainty_estimate_fraction": 0.0020152513733378667,
+    "mean_voxel_uncertainty_fraction": 0.1643497999229447
   },
   "cross_dose": {
     "target_roi_name": "Kidney_R",
@@ -25,10 +25,10 @@
     "target_volume_ml": 145.28,
     "target_mass_g": 161.4965362548828,
     "opengate": {
-      "mean_dose_rate_gy_s": 6.154161887238474e-10,
-      "uncertainty_min_fraction": 0.0016649558171059713,
-      "uncertainty_max_fraction": 0.07761408720552795,
-      "uncertainty_estimate_fraction": 0.002907064826472834
+      "mean_dose_rate_gy_s": 1.5400472550592715e-10,
+      "uncertainty_min_fraction": 0.003329933757148314,
+      "uncertainty_max_fraction": 0.1546543198217099,
+      "uncertainty_estimate_fraction": 0.005814168280283116
     }
   }
 }

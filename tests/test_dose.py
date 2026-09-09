@@ -202,11 +202,112 @@ def test_madsen2018_self_dose():
         print(
             f"OpenGate MC uncertainty (liver): {unc_est * 100:.2f}% (bounds: [{unc_min * 100:.3f}%, {unc_max * 100:.2f}%])"
         )
-    print(f"Relative difference: {rel_diff * 100:.2f}%")
+    print(f"Relative difference: {rel_diff * 100:.2f}%  (<5% expected)")
 
     assert (
         rel_diff < 0.05
-    ), f"Madsen vs OpenGate difference too large: {rel_diff * 100:.2f}% (<5% expected)"
+    ), f"Madsen vs OpenGate difference too large: {rel_diff * 100:.2f}%"
+
+
+def test_hanscheid2017_self_dose():
+    # pytest -s tests/test_dose.py -k "test_hanscheid2017_self_dose" -v
+    bench_path = (
+        Path(__file__).resolve().parent / "data" / "p142_opengate_benchmark.json"
+    )
+    if not bench_path.exists():
+        pytest.skip("p142 OpenGate benchmark JSON not found.")
+
+    with open(bench_path) as f:
+        bench = json.load(f)
+
+    p142_raw_dir = Path(__file__).resolve().parent.parent / "data" / "p142"
+    gate_dose_path = p142_raw_dir / "output_vrt" / "output_dose.mhd"
+    liver_path = p142_raw_dir / "liver_4mm_cropped.nii.gz"
+
+    total_activity_bq = float(bench["total_activity_bq"])
+    isotope = bench.get("radionuclide", "Lu177")
+    teff_h = float(bench["teff_h"])
+    time_from_injection_h = float(bench.get("time_from_injection_h", 0.0))
+    roi_name = bench["roi_name"]
+
+    # If full patient 3D images exist locally in data/p142, test with actual images
+    if gate_dose_path.exists() and liver_path.exists():
+        liver_img = sitk.ReadImage(str(liver_path))
+        mask = sitk.GetArrayViewFromImage(liver_img) > 0
+        num_voxels = int(mask.sum())
+
+        activity_img = sitk.Cast(liver_img, sitk.sitkFloat32) * (
+            total_activity_bq / num_voxels
+        )
+        activity_img.SetMetaData("unit", "Bq")
+        activity_img.SetMetaData("time_from_injection", str(time_from_injection_h))
+        labels_img = sitk.Cast(liver_img > 0, sitk.sitkUInt16)
+
+        gate_img = sitk.ReadImage(str(gate_dose_path))
+        gate_arr = sitk.GetArrayViewFromImage(gate_img)
+        gate_mean_dose_rate_gy_s = float(gate_arr[mask].mean())
+
+        gate_unc_path = p142_raw_dir / "output_vrt" / "output_dose_uncertainty.mhd"
+        if gate_unc_path.exists():
+            gate_unc_img = sitk.ReadImage(str(gate_unc_path))
+            unc_min, unc_max = roi_dose_uncertainty_bounds(gate_img, gate_unc_img, mask)
+            unc_est = roi_dose_uncertainty_estimate(
+                gate_img, gate_unc_img, mask, isotope=isotope
+            )
+        else:
+            unc_min, unc_max, unc_est = None, None, None
+    else:
+        # Otherwise, test using the benchmark parameters without needing heavy image binaries
+        roi_volume_ml = float(bench["roi_volume_ml"])
+        gate_mean_dose_rate_gy_s = float(bench["opengate"]["mean_dose_rate_gy_s"])
+        op_data = bench.get("opengate", {})
+        unc_min = op_data.get("uncertainty_min_fraction")
+        unc_max = op_data.get(
+            "uncertainty_max_fraction", op_data.get("mean_voxel_uncertainty_fraction")
+        )
+        unc_est = op_data.get("uncertainty_estimate_fraction")
+
+        s = (roi_volume_ml * 1000.0) ** (1.0 / 3.0)
+        activity_img = sitk.Image([1, 1, 1], sitk.sitkFloat32)
+        activity_img.SetSpacing((s, s, s))
+        activity_img.SetMetaData("unit", "Bq")
+        activity_img.SetMetaData("time_from_injection", str(time_from_injection_h))
+        activity_img[0, 0, 0] = total_activity_bq
+
+        labels_img = sitk.Image([1, 1, 1], sitk.sitkUInt16)
+        labels_img.SetSpacing((s, s, s))
+        labels_img[0, 0, 0] = 1
+
+    results = compute_roi_dose(
+        image=activity_img,
+        labels=labels_img,
+        method="hanscheid2017",
+        isotope=isotope,
+        labels_map={1: roi_name},
+        teff_params={roi_name: teff_h},
+    )
+    dose_hanscheid_gy = results[roi_name]["mean_dose_gy"]
+
+    # Time-integrate OpenGate dose rate with mono-exponential clearance
+    k = np.log(2) / (teff_h * 3600.0)
+    gate_integrated_dose_gy = gate_mean_dose_rate_gy_s / k
+
+    rel_diff = (
+        abs(dose_hanscheid_gy - gate_integrated_dose_gy) / gate_integrated_dose_gy
+    )
+    print(f"\nH\u00e4nscheid 2017 mean dose: {dose_hanscheid_gy:.6e} Gy")
+    print(f"OpenGate integrated dose: {gate_integrated_dose_gy:.6e} Gy")
+    if unc_est is not None and unc_min is not None and unc_max is not None:
+        print(
+            f"OpenGate MC uncertainty (liver): {unc_est * 100:.2f}% (bounds: [{unc_min * 100:.3f}%, {unc_max * 100:.2f}%])"
+        )
+    print(f"Relative difference: {rel_diff * 100:.2f}%  (<15% expected)")
+
+    # Hanscheid 2017 assumes tissue density ~1.0 g/mL (patient liver CT density is ~1.08 g/mL)
+    # and an empirical factor of 0.125, leading to expected ~9.5% relative difference
+    assert (
+        rel_diff < 0.15
+    ), f"Hanscheid vs OpenGate difference too large: {rel_diff * 100:.2f}%"
 
 
 def test_madsen2018_cross_dose():
@@ -322,19 +423,19 @@ def test_madsen2018_cross_dose():
         f"\nMadsen 2018 cross dose ({target_roi} <- {source_roi}): {dose_madsen_cross_gy:.6e} Gy"
     )
     print(
-        f"OpenGate integrated cross dose ({target_roi}):   {gate_integrated_cross_dose_gy:.6e} Gy"
+        f"OpenGate integrated cross dose ({target_roi}): {gate_integrated_cross_dose_gy:.6e} Gy"
     )
     if unc_est is not None and unc_min is not None and unc_max is not None:
         print(
-            f"OpenGate MC uncertainty ({target_roi}):         {unc_est * 100:.2f}% (bounds: [{unc_min * 100:.3f}%, {unc_max * 100:.2f}%])"
+            f"OpenGate MC uncertainty ({target_roi}): {unc_est * 100:.2f}% (bounds: [{unc_min * 100:.3f}%, {unc_max * 100:.2f}%])"
         )
-    print(f"Relative difference:                         {rel_diff * 100:.2f}%")
+    print(f"Relative difference: {rel_diff * 100:.2f}%  (<50% expected)")
 
     # Cross dose is secondary (~100x lower than self dose), driven by photons with greater
     # geometric sensitivity to distance differences between stylized phantom and patient anatomy
     assert (
         rel_diff < 0.50
-    ), f"Madsen vs OpenGate cross dose difference too large: {rel_diff * 100:.2f}% (<50% expected)"
+    ), f"Madsen vs OpenGate cross dose difference too large: {rel_diff * 100:.2f}%"
     assert dose_madsen_cross_gy > 0.0
     assert gate_integrated_cross_dose_gy > 0.0
 
