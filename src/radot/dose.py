@@ -107,15 +107,19 @@ def dose_hanscheid2018(
     time_from_injection_h: float,
     s_value: float,
     mass_scaling: float,
+    source_roi_a: Optional[np.ndarray] = None,
 ) -> float:
     """
     Input image and ROI must be numpy arrays
     - spect must be in Bq (not concentration)
     - acquisition time in hours
     - output is in Gray
+    - source_roi_a: optional mask for source organ activity (for cross-dose).
+      If None, defaults to roi_a (self-dose).
     """
-    # compute mean activity in the ROI, in MBq
-    v = spect_bq_a[roi_a == 1]
+    # compute activity in source ROI (defaults to roi_a for self-dose)
+    act_mask = (source_roi_a == 1) if source_roi_a is not None else (roi_a == 1)
+    v = spect_bq_a[act_mask]
     At = np.sum(v) / 1e6
 
     # S is in (mGy/MBq/s), so we get dose in mGy

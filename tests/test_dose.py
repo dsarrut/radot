@@ -7,6 +7,7 @@ from click.testing import CliRunner
 from radot.cli import main
 from radot.dose import (
     compute_roi_dose,
+    dose_hanscheid2018,
     dose_madsen2018,
     roi_dose_uncertainty_bounds,
     roi_dose_uncertainty_estimate,
@@ -310,6 +311,116 @@ def test_hanscheid2017_self_dose():
     ), f"Hanscheid vs OpenGate difference too large: {rel_diff * 100:.2f}%"
 
 
+def test_hanscheid2018_self_dose():
+    # pytest -s tests/test_dose.py -k "test_hanscheid2018_self_dose" -v
+    bench_path = (
+        Path(__file__).resolve().parent / "data" / "p142_opengate_benchmark.json"
+    )
+    if not bench_path.exists():
+        pytest.skip("p142 OpenGate benchmark JSON not found.")
+
+    with open(bench_path) as f:
+        bench = json.load(f)
+
+    p142_raw_dir = Path(__file__).resolve().parent.parent / "data" / "p142"
+    gate_dose_path = p142_raw_dir / "output_vrt" / "output_dose.mhd"
+    liver_path = p142_raw_dir / "liver_4mm_cropped.nii.gz"
+    ct_path = p142_raw_dir / "ct_4mm_cropped.nii.gz"
+
+    total_activity_bq = float(bench["total_activity_bq"])
+    isotope = bench.get("radionuclide", "Lu177")
+    teff_h = float(bench["teff_h"])
+    # In Hanscheid 2018, Teff = 2 * t, so acquisition time t = Teff / 2 corresponds to Teff = 45h
+    time_from_injection_h = teff_h / 2.0
+    roi_name = bench["roi_name"]
+    phantom = bench.get("phantom", "male")
+
+    # If full patient 3D images exist locally in data/p142, test with actual images
+    if gate_dose_path.exists() and liver_path.exists() and ct_path.exists():
+        liver_img = sitk.ReadImage(str(liver_path))
+        mask = sitk.GetArrayViewFromImage(liver_img) > 0
+        num_voxels = int(mask.sum())
+
+        activity_img = sitk.Cast(liver_img, sitk.sitkFloat32) * (
+            total_activity_bq / num_voxels
+        )
+        activity_img.SetMetaData("unit", "Bq")
+        activity_img.SetMetaData("time_from_injection", str(time_from_injection_h))
+        labels_img = sitk.Cast(liver_img > 0, sitk.sitkUInt16)
+        ct_img = sitk.ReadImage(str(ct_path))
+
+        gate_img = sitk.ReadImage(str(gate_dose_path))
+        gate_arr = sitk.GetArrayViewFromImage(gate_img)
+        gate_mean_dose_rate_gy_s = float(gate_arr[mask].mean())
+
+        gate_unc_path = p142_raw_dir / "output_vrt" / "output_dose_uncertainty.mhd"
+        if gate_unc_path.exists():
+            gate_unc_img = sitk.ReadImage(str(gate_unc_path))
+            unc_min, unc_max = roi_dose_uncertainty_bounds(gate_img, gate_unc_img, mask)
+            unc_est = roi_dose_uncertainty_estimate(
+                gate_img, gate_unc_img, mask, isotope=isotope
+            )
+        else:
+            unc_min, unc_max, unc_est = None, None, None
+    else:
+        # Otherwise, test using the benchmark parameters without needing heavy image binaries
+        roi_volume_ml = float(bench["roi_volume_ml"])
+        roi_mass_g = float(bench["roi_mass_g"])
+        gate_mean_dose_rate_gy_s = float(bench["opengate"]["mean_dose_rate_gy_s"])
+        op_data = bench.get("opengate", {})
+        unc_min = op_data.get("uncertainty_min_fraction")
+        unc_max = op_data.get(
+            "uncertainty_max_fraction", op_data.get("mean_voxel_uncertainty_fraction")
+        )
+        unc_est = op_data.get("uncertainty_estimate_fraction")
+
+        s = (roi_volume_ml * 1000.0) ** (1.0 / 3.0)
+        activity_img = sitk.Image([1, 1, 1], sitk.sitkFloat32)
+        activity_img.SetSpacing((s, s, s))
+        activity_img.SetMetaData("unit", "Bq")
+        activity_img.SetMetaData("time_from_injection", str(time_from_injection_h))
+        activity_img[0, 0, 0] = total_activity_bq
+
+        labels_img = sitk.Image([1, 1, 1], sitk.sitkUInt16)
+        labels_img.SetSpacing((s, s, s))
+        labels_img[0, 0, 0] = 1
+
+        ct_img = sitk.Image([1, 1, 1], sitk.sitkInt16)
+        ct_img.SetSpacing((s, s, s))
+        ct_val = int(round((roi_mass_g / roi_volume_ml - 1.0) * 1000.0))
+        ct_img[0, 0, 0] = ct_val
+
+    results = compute_roi_dose(
+        image=activity_img,
+        labels=labels_img,
+        method="hanscheid2018",
+        isotope=isotope,
+        ct_image=ct_img,
+        labels_map={1: roi_name},
+        method_params={"phantom": phantom},
+    )
+    dose_hanscheid_gy = results[roi_name]["mean_dose_gy"]
+
+    # Time-integrate OpenGate dose rate with mono-exponential clearance
+    k = np.log(2) / (teff_h * 3600.0)
+    gate_integrated_dose_gy = gate_mean_dose_rate_gy_s / k
+
+    rel_diff = (
+        abs(dose_hanscheid_gy - gate_integrated_dose_gy) / gate_integrated_dose_gy
+    )
+    print(f"\nH\u00e4nscheid 2018 mean dose: {dose_hanscheid_gy:.6e} Gy")
+    print(f"OpenGate integrated dose: {gate_integrated_dose_gy:.6e} Gy")
+    if unc_est is not None and unc_min is not None and unc_max is not None:
+        print(
+            f"OpenGate MC uncertainty (liver): {unc_est * 100:.2f}% (bounds: [{unc_min * 100:.3f}%, {unc_max * 100:.2f}%])"
+        )
+    print(f"Relative difference: {rel_diff * 100:.2f}%  (<5% expected)")
+
+    assert (
+        rel_diff < 0.05
+    ), f"Hanscheid 2018 vs OpenGate difference too large: {rel_diff * 100:.2f}% (<5% expected)"
+
+
 def test_madsen2018_cross_dose():
     # pytest -s tests/test_dose.py -k "test_madsen2018_cross_dose" -v
     bench_path = (
@@ -437,6 +548,139 @@ def test_madsen2018_cross_dose():
         rel_diff < 0.50
     ), f"Madsen vs OpenGate cross dose difference too large: {rel_diff * 100:.2f}%"
     assert dose_madsen_cross_gy > 0.0
+    assert gate_integrated_cross_dose_gy > 0.0
+
+
+def test_hanscheid2018_cross_dose():
+    # pytest -s tests/test_dose.py -k "test_hanscheid2018_cross_dose" -v
+    bench_path = (
+        Path(__file__).resolve().parent / "data" / "p142_opengate_benchmark.json"
+    )
+    if not bench_path.exists():
+        pytest.skip("p142 OpenGate benchmark JSON not found.")
+
+    with open(bench_path) as f:
+        bench = json.load(f)
+
+    if "cross_dose" not in bench:
+        pytest.skip("p142 cross_dose benchmark data not found in JSON.")
+
+    cross_bench = bench["cross_dose"]
+    p142_raw_dir = Path(__file__).resolve().parent.parent / "data" / "p142"
+    gate_dose_path = p142_raw_dir / "output_vrt" / "output_dose.mhd"
+    liver_path = p142_raw_dir / "liver_4mm_cropped.nii.gz"
+    ct_path = p142_raw_dir / "ct_4mm_cropped.nii.gz"
+    labels_crop_path = p142_raw_dir / "labels_all_4mm_cropped.nii.gz"
+
+    total_activity_bq = float(bench["total_activity_bq"])
+    isotope = bench.get("radionuclide", "Lu177")
+    teff_h = float(bench["teff_h"])
+    # In Hanscheid 2018, Teff = 2 * t, so t = Teff / 2 corresponds to Teff = 45h
+    time_from_injection_h = teff_h / 2.0
+    phantom = bench.get("phantom", "male")
+    source_roi = cross_bench.get("source_roi_name", "Liver")
+    target_roi = cross_bench["target_roi_name"]
+
+    from radot.db import resolve_organ_name, get_s_value, get_reference_mass
+
+    od_source = resolve_organ_name(source_roi, phantom)
+    od_target = resolve_organ_name(target_roi, phantom)
+    s_cross = get_s_value(phantom, isotope, od_source, od_target)
+    target_ref_mass = get_reference_mass(phantom, od_target)
+
+    if (
+        gate_dose_path.exists()
+        and liver_path.exists()
+        and ct_path.exists()
+        and labels_crop_path.exists()
+    ):
+        liver_img = sitk.ReadImage(str(liver_path))
+        mask_source = sitk.GetArrayViewFromImage(liver_img) > 0
+        num_source_voxels = int(mask_source.sum())
+
+        act_img = sitk.Cast(liver_img, sitk.sitkFloat32) * (
+            total_activity_bq / num_source_voxels
+        )
+        act_arr = sitk.GetArrayViewFromImage(act_img)
+
+        lbl_crop = sitk.ReadImage(str(labels_crop_path))
+        mask_target = sitk.GetArrayViewFromImage(lbl_crop) == 6  # Kidney_R is ID 6
+
+        ct_img = sitk.ReadImage(str(ct_path))
+        ct_arr = sitk.GetArrayViewFromImage(ct_img)
+        spacing = ct_img.GetSpacing()
+        vox_vol = (spacing[0] * spacing[1] * spacing[2]) / 1000.0
+        density = np.maximum(0.0, 1.0 + (ct_arr[mask_target] / 1000.0))
+        target_mass_g = float(np.sum(density) * vox_vol)
+
+        gate_img = sitk.ReadImage(str(gate_dose_path))
+        gate_arr = sitk.GetArrayViewFromImage(gate_img)
+        gate_mean_rate_gy_s = float(gate_arr[mask_target].mean())
+
+        gate_unc_path = p142_raw_dir / "output_vrt" / "output_dose_uncertainty.mhd"
+        if gate_unc_path.exists():
+            gate_unc_img = sitk.ReadImage(str(gate_unc_path))
+            unc_min, unc_max = roi_dose_uncertainty_bounds(
+                gate_img, gate_unc_img, mask_target
+            )
+            unc_est = roi_dose_uncertainty_estimate(
+                gate_img, gate_unc_img, mask_target, isotope=isotope
+            )
+        else:
+            unc_min, unc_max, unc_est = None, None, None
+
+        mass_scaling = target_mass_g / target_ref_mass
+        dose_h2018_cross_gy = dose_hanscheid2018(
+            spect_bq_a=act_arr,
+            roi_a=mask_target.astype(np.uint8),
+            time_from_injection_h=time_from_injection_h,
+            s_value=s_cross,
+            mass_scaling=mass_scaling,
+            source_roi_a=mask_source.astype(np.uint8),
+        )
+    else:
+        target_mass_g = float(cross_bench["target_mass_g"])
+        gate_mean_rate_gy_s = float(cross_bench["opengate"]["mean_dose_rate_gy_s"])
+        op_data = cross_bench["opengate"]
+        unc_min = op_data.get("uncertainty_min_fraction")
+        unc_max = op_data.get("uncertainty_max_fraction")
+        unc_est = op_data.get("uncertainty_estimate_fraction")
+
+        a0_mbq = total_activity_bq / 1e6
+        mass_scaling = target_mass_g / target_ref_mass
+        dose_h2018_cross_gy = (
+            a0_mbq
+            * (2 * time_from_injection_h * 3600.0)
+            / np.log(2)
+            * s_cross
+            / mass_scaling
+            / 1000.0
+        )
+
+    # Time-integrate OpenGate cross dose rate over source clearance Teff
+    k = np.log(2) / (teff_h * 3600.0)
+    gate_integrated_cross_dose_gy = gate_mean_rate_gy_s / k
+
+    rel_diff = (
+        abs(dose_h2018_cross_gy - gate_integrated_cross_dose_gy)
+        / gate_integrated_cross_dose_gy
+    )
+    print(
+        f"\nH\u00e4nscheid 2018 cross dose ({target_roi} <- {source_roi}): {dose_h2018_cross_gy:.6e} Gy"
+    )
+    print(
+        f"OpenGate integrated cross dose ({target_roi}): {gate_integrated_cross_dose_gy:.6e} Gy"
+    )
+    if unc_est is not None and unc_min is not None and unc_max is not None:
+        print(
+            f"OpenGate MC uncertainty ({target_roi}): {unc_est * 100:.2f}% (bounds: [{unc_min * 100:.3f}%, {unc_max * 100:.2f}%])"
+        )
+    print(f"Relative difference: {rel_diff * 100:.2f}%  (<50% expected)")
+
+    assert (
+        rel_diff < 0.50
+    ), f"Hanscheid 2018 vs OpenGate cross dose difference too large: {rel_diff * 100:.2f}%"
+    assert dose_h2018_cross_gy > 0.0
     assert gate_integrated_cross_dose_gy > 0.0
 
 
