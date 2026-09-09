@@ -277,11 +277,19 @@ Where:
 *   $A(t, x,y,z)$ is the activity in voxel $(x,y,z)$ at acquisition time (in Bq).
 *   $3600$ converts seconds to hours.
 
+#### Decay Chain Cascade (`--cascade`)
+For cascade alpha emitters (such as $^{225}\text{Ac}$, $^{223}\text{Ra}$, $^{212}\text{Pb}$), the parent radionuclide decays into radioactive progeny. When `--cascade` is active, the effective non-penetrating energy constant $\Delta_{\text{local, cascade}}$ is computed in secular equilibrium over all daughters in the decay chain:
+$$
+\Delta_{\text{local, cascade}} = \sum_{i \in \text{chain}} Y_i \cdot \Delta_{\text{local}}(i)
+$$
+where $Y_i$ is the cumulative branching yield for daughter $i$ sourced from the official **IAEA LiveChart of Nuclides REST API** (curated in `radot/data/decay_chains.json`, updated via maintainer script `scripts/update_decay_chains.py`).
+For example, for $^{225}\text{Ac}$, $\Delta_{\text{local, cascade}} \approx 28.70\text{ MeV}$ (compared to $5.92\text{ MeV}$ for parent alone), matching full-chain Monte Carlo simulations (OpenGate) within $\approx 2.7\%$.
+
 ## 4. Tests
 
-### Validation with OpenGate Monte Carlo: Self-Dose (`test_madsen2018_self_dose`, `test_hanscheid2017_self_dose`, `test_hanscheid2018_self_dose`)
+### Validation with OpenGate Monte Carlo: Self-Dose (`test_madsen2018_self_dose`, `test_hanscheid2017_self_dose`, `test_hanscheid2018_self_dose`, `test_ldm_self_dose`)
 
-Located in [`tests/test_dose.py`](../tests/test_dose.py), these tests compare organ-level absorbed dose calculations against a ground-truth Monte Carlo dose rate simulation performed with OpenGate (`opengate_dose_rate`) on the `p142` patient dataset ($A_0 = 10^6\text{ Bq}$, $T_{\text{eff}} = 45.0\text{ h}$):
+Located in [`tests/test_dose.py`](../tests/test_dose.py), these tests compare organ-level absorbed dose and dose rate calculations against a ground-truth Monte Carlo dose rate simulation performed with OpenGate (`opengate_dose_rate`) on the `p142` patient dataset ($A_0 = 10^6\text{ Bq}$, $T_{\text{eff}} = 45.0\text{ h}$):
 
 1. **Simulation Input (`data/p142/`):**
    * Companion cropped CT: `ct_4mm_cropped.nii.gz`
@@ -294,8 +302,40 @@ Located in [`tests/test_dose.py`](../tests/test_dose.py), these tests compare or
    * **Madsen 2018 (`test_madsen2018_self_dose`)**: Uses OpenDose S-values and CT-based patient organ mass scaling. Self-dose is predominantly driven by $\beta^-$ particles ($\sim 95\%$), leading to very local deposition; relative difference is $< 5\%$ (actual agreement is $\approx 3.8\%$).
    * **Hänscheid 2017 (`test_hanscheid2017_self_dose`)**: Uses the empirical formula $D = 0.125 \cdot C_{\text{mean}} \cdot 2^{t/T_{\text{eff}}} \cdot T_{\text{eff}}$. Assumes unit tissue density ($\rho = 1.0\text{ g/mL}$) whereas the patient's liver in CT has $\bar{\rho} \approx 1.08\text{ g/mL}$, leading to an expected relative difference $< 15\%$ (actual agreement is $\approx 9.5\%$).
    * **Hänscheid 2018 (`test_hanscheid2018_self_dose`)**: Uses OpenDose S-values assuming $T_{\text{eff}} = 2 \cdot t$ ($t = 22.5\text{ h}$ for $T_{\text{eff}} = 45.0\text{ h}$). Yields identical results to Madsen 2018; relative difference is $< 5\%$ (actual agreement is $\approx 3.8\%$).
+   * **Local Deposition Model (`test_ldm_self_dose`)**: Uses physical non-penetrating energy constant $\Delta_{\text{local}} = 0.14713\text{ MeV}$ with voxel-level CT density. Directly compares instantaneous dose rate $\dot{D}$ (and integrated dose); relative difference is $< 1\%$ (actual agreement is $\approx 0.29\%$).
    * All tests compute and print the Monte Carlo ROI uncertainty estimate and bounds via `roi_dose_uncertainty_bounds` and `roi_dose_uncertainty_estimate`.
    * Fall back automatically to `tests/data/p142_opengate_benchmark.json` if raw 3D images under `data/p142/` are absent.
+
+### Validation with OpenGate Monte Carlo: Yttrium-90 Self-Dose (`test_y90_self_dose`)
+
+Located in [`tests/test_dose.py`](../tests/test_dose.py), this test compares absorbed dose and dose rate calculations against an OpenGate Monte Carlo simulation for $^{90}\text{Y}$ ($A_0 = 10^6\text{ Bq}$, $T_{\text{eff}} = T_p = 64.1\text{ h}$ for radioembolization microspheres):
+
+1. **Simulation Input (`data/p142/`):**
+   * Configured in `p142_dose_rate_y90.json` with `"output_folder": "output_y90_vrt"`.
+   * Mean $\beta^-$ energy of $^{90}\text{Y}$ is $\approx 0.93\text{ MeV}$ (compared to $\approx 0.15\text{ MeV}$ for $^{177}\text{Lu}$), with maximum beta range $\sim 11\text{ mm}$ in tissue.
+2. **Comparison:**
+   * **Local Deposition Model (`ldm`)**: Matches OpenGate within $1.8\%$ (slight boundary escape effect due to the $11\text{ mm}$ beta range extending across boundary voxels).
+   * **Madsen 2018 (`madsen2018`)**: Matches OpenGate within $6.3\%$ using the OpenDose S-value for $^{90}\text{Y}$ and patient mass scaling.
+
+### Validation with OpenGate Monte Carlo: Iodine-131 Self-Dose (`test_i131_self_dose`)
+
+Located in [`tests/test_dose.py`](../tests/test_dose.py), this test compares absorbed dose calculations for $^{131}\text{I}$ ($A_0 = 5 \times 10^5\text{ Bq}$, $T_{\text{eff}} = T_p = 192.5\text{ h}$):
+
+1. **Simulation Input (`data/p142/`):**
+   * Configured in `p142_dose_rate_i131.json` with `"output_folder": "output_i131_vrt"`.
+2. **Comparison:**
+   * **Madsen 2018 (`madsen2018`)**: Matches OpenGate within **$0.43\%$** ($1.437 \times 10^{-2}\text{ Gy}$ vs $1.431 \times 10^{-2}\text{ Gy}$). OpenDose S-values account for both the $\beta^-$ spectrum and photon self-absorption.
+   * **Local Deposition Model (`ldm`)**: Predicts $1.079 \times 10^{-2}\text{ Gy}$ ($\approx 25\%$ lower than OpenGate). This illustrates an important physical limitation of the LDM: $^{131}\text{I}$ emits energetic photons ($364\text{ keV}$, $81.7\%$ yield) which deposit $\approx 25\%$ of the total self-dose in a large organ like the liver ($1.4\text{ kg}$). Because LDM only models non-penetrating electrons ($\Delta_{\text{local}} = 0.192\text{ MeV}$), it excludes this photon self-dose component.
+
+### Validation with OpenGate Monte Carlo: Actinium-225 Self-Dose (`test_ac225_self_dose`)
+
+Located in [`tests/test_dose.py`](../tests/test_dose.py), this test compares alpha emitter $^{225}\text{Ac}$ calculations ($A_0 = 10^5\text{ Bq}$, $T_{\text{eff}} = T_p = 240.0\text{ h}$):
+
+1. **Simulation Input (`data/p142/`):**
+   * Configured in `p142_dose_rate_ac225.json` in analog mode (`"mode": "analog"`, `"output_folder": "output_ac225_vrt"`).
+2. **Comparison:**
+   * **Madsen 2018 vs LDM**: For the single $^{225}\text{Ac}$ parent decay ($\Delta_{\text{local}} = 5.92\text{ MeV}$), Madsen 2018 ($8.308 \times 10^{-2}\text{ Gy}$) and LDM ($8.301 \times 10^{-2}\text{ Gy}$) match each other within **$0.09\%$**.
+   * **OpenGate Decay Cascade**: In analog mode, OpenGate tracks the complete decay chain cascade of $^{225}\text{Ac}$ down to stable $^{209}\text{Bi}$ ($4\alpha + 2\beta^-$: $^{225}\text{Ac} \to {}^{221}\text{Fr} \to {}^{217}\text{At} \to {}^{213}\text{Bi} \to {}^{213}\text{Po} \to {}^{209}\text{Pb} \to {}^{209}\text{Bi}$), depositing $\approx 28.0\text{ MeV}$ per $^{225}\text{Ac}$ decay in secular equilibrium. Consequently, the OpenGate integrated dose ($3.921 \times 10^{-1}\text{ Gy}$) is $\approx 4.72\times$ higher than the single-decay parent models ($28.0\text{ MeV} / 5.92\text{ MeV} \approx 4.73$), matching the physical cascade factor.
 
 ### Validation with OpenGate Monte Carlo: Cross-Dose (`test_madsen2018_cross_dose` & `test_hanscheid2018_cross_dose`)
 
@@ -305,25 +345,42 @@ Located in [`tests/test_dose.py`](../tests/test_dose.py), these tests validate c
    * Cross-dose is $\sim 100\times$ lower than self-dose ($\sim 36\ \mu\text{Gy}$ vs $\sim 3.9\text{ mGy}$) and is $100\%$ deposited by penetrating photon emissions (gammas and bremsstrahlung).
    * Cross-dose S-values depend heavily on inter-organ distance and anatomy geometry ($1/r^2$). Due to morphological differences between the stylized reference phantom and the actual patient CT anatomy, differences around $\approx 40\%$ are expected.
    * Both **Madsen 2018** and **Hänscheid 2018** cross-dose calculations verify that relative difference against OpenGate is $< 50\%$ (actual agreement $\approx 44.8\%$) and report the kidney ROI uncertainty.
-   * *Note on Hänscheid 2017:* Cross-dose is not defined for `hanscheid2017` because that method is purely based on local activity concentration in the target organ ($C_{\text{mean}} = 0$ in target organ yields $0\text{ Gy}$).
+   * *Note on Hänscheid 2017 & LDM:* Cross-dose is not defined for `hanscheid2017` or `ldm` because both methods assume non-penetrating local energy deposition within the activity-bearing volume ($C_{\text{mean}} = 0$ / zero activity in target organ yields $0\text{ Gy}$).
 
-**Create / update the benchmark:**
+**Create / update the benchmarks:**
 ```bash
-# in folder data/p142 (not in git)
-opengate_dose_rate p142_dose_rate_test1.json
+# In data/p142/ (not committed to git)
+# Run simulations for desired radionuclides:
+opengate_dose_rate p142_dose_rate_lu177.json
+opengate_dose_rate p142_dose_rate_y90.json
+opengate_dose_rate p142_dose_rate_i131.json
+opengate_dose_rate p142_dose_rate_ac225.json
+
+# Automatically discover all simulations and generate benchmark JSON files:
 ./create_benchmark_json.py
+# Generates:
+#   tests/data/p142_lu177_opengate_benchmark.json
+#   tests/data/p142_y90_opengate_benchmark.json
+#   tests/data/p142_i131_opengate_benchmark.json
+#   tests/data/p142_ac225_opengate_benchmark.json
+#   tests/data/p142_opengate_benchmark.json (Lu-177 default)
 ```
 
 **Run the validation tests:**
 ```bash
-# Run all OpenGate validation tests (5 tests)
+# Run all OpenGate validation tests (9 tests)
 pytest -s tests/test_dose.py -k "dose"
 
 # Run individual tests
 pytest -s tests/test_dose.py -k "test_madsen2018_self_dose"
 pytest -s tests/test_dose.py -k "test_hanscheid2017_self_dose"
 pytest -s tests/test_dose.py -k "test_hanscheid2018_self_dose"
+pytest -s tests/test_dose.py -k "test_ldm_self_dose"
+pytest -s tests/test_dose.py -k "test_y90_self_dose"
+pytest -s tests/test_dose.py -k "test_i131_self_dose"
+pytest -s tests/test_dose.py -k "test_ac225_self_dose"
 pytest -s tests/test_dose.py -k "test_madsen2018_cross_dose"
 pytest -s tests/test_dose.py -k "test_hanscheid2018_cross_dose"
 ```
+
 

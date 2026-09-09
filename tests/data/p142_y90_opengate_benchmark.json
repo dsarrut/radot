@@ -1,0 +1,34 @@
+{
+  "description": "Patient 142 cropped liver Y90 OpenGate VRT simulation benchmark",
+  "patient": "p142",
+  "roi_name": "Liver",
+  "radionuclide": "Y90",
+  "phantom": "male",
+  "total_activity_bq": 1000000.0,
+  "teff_h": 64.1,
+  "time_from_injection_h": 0.0,
+  "num_voxels": 20572,
+  "roi_volume_ml": 1316.608,
+  "roi_mass_g": 1423.515625,
+  "opengate": {
+    "mean_dose_rate_gy_s": 1.069457487640309e-07,
+    "simulation_mode": "vrt",
+    "uncertainty_min_fraction": 0.0008228763392200227,
+    "uncertainty_max_fraction": 0.11753516639325998,
+    "uncertainty_estimate_fraction": 0.005975599420851137,
+    "mean_voxel_uncertainty_fraction": 0.11753516639325998
+  },
+  "cross_dose": {
+    "target_roi_name": "Kidney_R",
+    "source_roi_name": "Liver",
+    "target_num_voxels": 2270,
+    "target_volume_ml": 145.28,
+    "target_mass_g": 161.4965362548828,
+    "opengate": {
+      "mean_dose_rate_gy_s": 7.244364310368537e-13,
+      "uncertainty_min_fraction": 0.7461373552705317,
+      "uncertainty_max_fraction": 1.0,
+      "uncertainty_estimate_fraction": 1.0
+    }
+  }
+}

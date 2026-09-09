@@ -7,6 +7,7 @@ from radot.cli import main
 from radot.db import get_non_penetrating_energy_constant_mev
 from radot.dose import compute_roi_dose
 
+
 def test_get_non_penetrating_energy_constant_mev():
     # Lu-177 non-penetrating energy
     lu_const = get_non_penetrating_energy_constant_mev("Lu177")
@@ -17,13 +18,46 @@ def test_get_non_penetrating_energy_constant_mev():
     assert y_const > 0.8  # Typically around 0.93 MeV
 
 
+def test_decay_chains_and_cascade_energy():
+    from radot.db import get_decay_chain, get_cascade_energy_constant_mev
+
+    # 1. Non-cascade isotope returns single Delta_local
+    lu_tot, lu_contrib = get_cascade_energy_constant_mev("Lu177", cascade=True)
+    assert lu_tot == pytest.approx(get_non_penetrating_energy_constant_mev("Lu177"))
+    assert "Lu177" in lu_contrib
+
+    # 2. Ac-225 decay chain lookup
+    chain = get_decay_chain("Ac225")
+    assert chain is not None
+    assert chain["parent"] == "Ac225"
+    daughters = [d["nuclide"] for d in chain["daughters"]]
+    assert "Fr221" in daughters
+    assert "Bi213" in daughters
+    assert "Pb209" in daughters
+
+    # 3. Ac-225 cascade Delta_local in secular equilibrium (~28.7 MeV vs 5.92 MeV parent alone)
+    ac_parent, _ = get_cascade_energy_constant_mev("Ac225", cascade=False)
+    ac_cascade, ac_contrib = get_cascade_energy_constant_mev("Ac225", cascade=True)
+    assert ac_parent == pytest.approx(5.9168, rel=1e-3)
+    assert ac_cascade == pytest.approx(28.704, rel=1e-2)
+    assert ac_cascade / ac_parent == pytest.approx(4.85, rel=1e-2)
+    assert len(ac_contrib) >= 6
+
+    # 4. Ra-223 and Pb-212 cascade constants
+    ra_cascade, _ = get_cascade_energy_constant_mev("Ra223", cascade=True)
+    assert ra_cascade > 25.0  # 4 alphas cascade (~28 MeV)
+
+    pb_cascade, _ = get_cascade_energy_constant_mev("Pb212", cascade=True)
+    assert pb_cascade > 7.0  # 1 alpha cascade (~8 MeV)
+
+
 def test_ldm_core_calculation_without_ct():
     # Setup test SPECT image (2x2x2) with voxel values of 1e6 Bq
     image = sitk.Image([2, 2, 2], sitk.sitkFloat32)
     # Voxel spacing: 2mm isotropic
     image.SetSpacing([2.0, 2.0, 2.0])
     image_arr = np.ones((2, 2, 2), dtype=np.float32) * 1e6
-    
+
     # Write array to SITK image
     sitk_image = sitk.GetImageFromArray(image_arr)
     sitk_image.SetSpacing([2.0, 2.0, 2.0])
@@ -37,7 +71,7 @@ def test_ldm_core_calculation_without_ct():
         method="ldm",
         isotope="Lu177",
         ct_image=None,
-        verbose=True
+        verbose=True,
     )
 
     assert isinstance(dose_img, sitk.Image)
@@ -72,7 +106,7 @@ def test_ldm_core_calculation_with_ct():
         method="ldm",
         isotope="Lu177",
         ct_image=ct_image,
-        verbose=True
+        verbose=True,
     )
 
     dose_arr = sitk.GetArrayFromImage(dose_img)
@@ -100,14 +134,21 @@ def test_ldm_cli_execution(tmp_path):
     sitk.WriteImage(ct, str(ct_path))
 
     # Run LDM CLI command
-    result = runner.invoke(main, [
-        "dose",
-        str(image_path),
-        "-m", "ldm",
-        "--isotope", "Lu177",
-        "--ct", str(ct_path),
-        "-o", str(output_path)
-    ])
+    result = runner.invoke(
+        main,
+        [
+            "dose",
+            str(image_path),
+            "-m",
+            "ldm",
+            "--isotope",
+            "Lu177",
+            "--ct",
+            str(ct_path),
+            "-o",
+            str(output_path),
+        ],
+    )
 
     assert result.exit_code == 0
     assert output_path.exists()
@@ -142,7 +183,7 @@ def test_ldm_core_calculation_with_labels_no_output():
         method="ldm",
         isotope="Lu177",
         labels_map={1: "Liver"},
-        verbose=True
+        verbose=True,
     )
 
     assert isinstance(results, tuple)
@@ -177,13 +218,19 @@ def test_ldm_cli_with_labels_no_output(tmp_path):
         json.dump({"1": "Liver"}, f)
 
     # Run LDM CLI command without output path option -o
-    result = runner.invoke(main, [
-        "dose",
-        str(image_path),
-        "-l", str(labels_path),
-        "-m", "ldm",
-        "--isotope", "Lu177"
-    ])
+    result = runner.invoke(
+        main,
+        [
+            "dose",
+            str(image_path),
+            "-l",
+            str(labels_path),
+            "-m",
+            "ldm",
+            "--isotope",
+            "Lu177",
+        ],
+    )
 
     assert result.exit_code == 0
     assert "Liver" in result.output
@@ -213,7 +260,7 @@ def test_ldm_hu_threshold():
         isotope="Lu177",
         ct_image=ct_image,
         hu_threshold=-800.0,
-        verbose=True
+        verbose=True,
     )
 
     dose_arr = sitk.GetArrayFromImage(dose_img)
@@ -248,15 +295,22 @@ def test_ldm_dose_rate(tmp_path):
         json.dump({"1": "Liver"}, f)
 
     # Run LDM CLI command with --dose-rate
-    result = runner.invoke(main, [
-        "dose",
-        str(image_path),
-        "-l", str(labels_path),
-        "-m", "ldm",
-        "--isotope", "Lu177",
-        "-o", str(output_path),
-        "--dose-rate"
-    ])
+    result = runner.invoke(
+        main,
+        [
+            "dose",
+            str(image_path),
+            "-l",
+            str(labels_path),
+            "-m",
+            "ldm",
+            "--isotope",
+            "Lu177",
+            "-o",
+            str(output_path),
+            "--dose-rate",
+        ],
+    )
 
     assert result.exit_code == 0
     assert "Mean Dose Rate (Gy/h)" in result.output
@@ -268,6 +322,3 @@ def test_ldm_dose_rate(tmp_path):
         meta_data = json.load(f)
     assert meta_data["unit"] == "gy/h"
     assert meta_data["modality"] == "dose"
-
-
-

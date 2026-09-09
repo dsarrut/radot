@@ -19,16 +19,17 @@ def dose_ldm(
     ct_arr: Optional[np.ndarray] = None,
     hu_threshold: Optional[float] = -800.0,
     dose_rate: bool = False,
+    cascade: bool = False,
 ) -> np.ndarray:
     """
     Voxel-level physical Local Deposition Model (LDM).
     - image_arr is physical activity in Bq per voxel
     - returns 3D float numpy array of absorbed dose (in Gy) or dose rate (in Gy/h) per voxel
     """
-    from radot.db import get_non_penetrating_energy_constant_mev
+    from radot.db import get_cascade_energy_constant_mev
 
-    # Get Delta_local in MeV
-    delta_local_mev = get_non_penetrating_energy_constant_mev(isotope)
+    # Get Delta_local in MeV (accounting for decay cascade if requested)
+    delta_local_mev, _ = get_cascade_energy_constant_mev(isotope, cascade=cascade)
 
     # Convert MeV to Joules: 1 MeV = 1.60218e-13 Joules
     # Since mass will be in grams, we scale by 1000 to convert Joules/g to Gy (Joules/kg):
@@ -721,6 +722,7 @@ def compute_roi_dose(
     teff_params: Optional[Dict[str, float]] = None,
     hu_threshold: Optional[float] = -800.0,
     dose_rate: bool = False,
+    cascade: bool = False,
 ) -> Any:
     """
     Computes average/voxel absorbed doses for specified regions of interest.
@@ -843,6 +845,7 @@ def compute_roi_dose(
             ct_arr=ct_arr,
             hu_threshold=hu_threshold,
             dose_rate=dose_rate,
+            cascade=cascade,
         )
 
         # Create SimpleITK image matching activity image space
@@ -927,6 +930,7 @@ def compute_roi_dose_file(
     verbose: bool = False,
     hu_threshold: Optional[float] = -800.0,
     dose_rate: bool = False,
+    cascade: bool = False,
 ) -> None:
     image_path = Path(image_path)
     if labels_path is not None:
@@ -1073,6 +1077,7 @@ def compute_roi_dose_file(
         method_params=method_params,
         hu_threshold=hu_threshold,
         dose_rate=dose_rate,
+        cascade=cascade,
     )
 
     if method_key == "ldm":

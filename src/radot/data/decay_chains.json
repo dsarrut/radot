@@ -1,0 +1,685 @@
+{
+  "_metadata": {
+    "source": "IAEA Nuclear Data Services (LiveChart of Nuclides REST API)",
+    "url": "https://nds.iaea.org/relnsd/v0/data",
+    "generated_at_utc": "2026-09-09T14:19:02.266696+00:00",
+    "description": "Authoritative radioactive decay chains and secular equilibrium yields for medical radionuclides"
+  },
+  "chains": {
+    "Ac225": {
+      "parent": "Ac225",
+      "z": 89,
+      "a": 225,
+      "half_life_str": "9.920 d",
+      "half_life_s": 857088.0,
+      "daughters": [
+        {
+          "nuclide": "Ac225",
+          "z": 89,
+          "a": 225,
+          "yield": 1.0,
+          "half_life_str": "9.920 d",
+          "half_life_s": 857088.0,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Fr221",
+          "z": 87,
+          "a": 221,
+          "yield": 1.0,
+          "half_life_str": "4.9 m",
+          "half_life_s": 294.0,
+          "is_stable": false
+        },
+        {
+          "nuclide": "At217",
+          "z": 85,
+          "a": 217,
+          "yield": 1.0,
+          "half_life_str": "32.6 ms",
+          "half_life_s": 0.0326,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Ra221",
+          "z": 88,
+          "a": 221,
+          "yield": 0.001,
+          "half_life_str": "28 s",
+          "half_life_s": 28.0,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Bi213",
+          "z": 83,
+          "a": 213,
+          "yield": 0.99993,
+          "half_life_str": "45.59 m",
+          "half_life_s": 2735.4,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Rn217",
+          "z": 86,
+          "a": 217,
+          "yield": 0.001,
+          "half_life_str": "0.54 ms",
+          "half_life_s": 0.00054,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Po213",
+          "z": 84,
+          "a": 213,
+          "yield": 0.979531,
+          "half_life_str": "3.706 us",
+          "half_life_s": 3.706e-06,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Tl209",
+          "z": 81,
+          "a": 209,
+          "yield": 0.021399,
+          "half_life_str": "2.162 m",
+          "half_life_s": 129.72,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Pb209",
+          "z": 82,
+          "a": 209,
+          "yield": 1.00093,
+          "half_life_str": "3.234 h",
+          "half_life_s": 11642.4,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Bi209",
+          "z": 83,
+          "a": 209,
+          "yield": 1.00093,
+          "half_life_str": "2.01E19 Y",
+          "half_life_s": 6.342942120892992e+26,
+          "is_stable": true
+        }
+      ]
+    },
+    "Ra223": {
+      "parent": "Ra223",
+      "z": 88,
+      "a": 223,
+      "half_life_str": "11.43 d",
+      "half_life_s": 987552.0,
+      "daughters": [
+        {
+          "nuclide": "Ra223",
+          "z": 88,
+          "a": 223,
+          "yield": 1.0,
+          "half_life_str": "11.43 d",
+          "half_life_s": 987552.0,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Rn219",
+          "z": 86,
+          "a": 219,
+          "yield": 1.0,
+          "half_life_str": "3.96 s",
+          "half_life_s": 3.96,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Po215",
+          "z": 84,
+          "a": 215,
+          "yield": 1.0,
+          "half_life_str": "1.781 ms",
+          "half_life_s": 0.001781,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Pb211",
+          "z": 82,
+          "a": 211,
+          "yield": 0.999998,
+          "half_life_str": "36.1 m",
+          "half_life_s": 2166.0,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Bi211",
+          "z": 83,
+          "a": 211,
+          "yield": 0.999998,
+          "half_life_str": "2.14 m",
+          "half_life_s": 128.4,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Tl207",
+          "z": 81,
+          "a": 207,
+          "yield": 0.997238,
+          "half_life_str": "4.77 m",
+          "half_life_s": 286.2,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Po211",
+          "z": 84,
+          "a": 211,
+          "yield": 0.00276,
+          "half_life_str": "0.516 s",
+          "half_life_s": 0.516,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Pb207",
+          "z": 82,
+          "a": 207,
+          "yield": 0.999998,
+          "half_life_str": "STABLE",
+          "half_life_s": null,
+          "is_stable": true
+        }
+      ]
+    },
+    "Pb212": {
+      "parent": "Pb212",
+      "z": 82,
+      "a": 212,
+      "half_life_str": "10.622 h",
+      "half_life_s": 38239.2,
+      "daughters": [
+        {
+          "nuclide": "Pb212",
+          "z": 82,
+          "a": 212,
+          "yield": 1.0,
+          "half_life_str": "10.622 h",
+          "half_life_s": 38239.2,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Bi212",
+          "z": 83,
+          "a": 212,
+          "yield": 1.0,
+          "half_life_str": "60.55 m",
+          "half_life_s": 3633.0,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Po212",
+          "z": 84,
+          "a": 212,
+          "yield": 0.6406,
+          "half_life_str": "294.3 ns",
+          "half_life_s": 2.943e-07,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Tl208",
+          "z": 81,
+          "a": 208,
+          "yield": 0.3594,
+          "half_life_str": "3.053 m",
+          "half_life_s": 183.18,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Pb208",
+          "z": 82,
+          "a": 208,
+          "yield": 1.0,
+          "half_life_str": "STABLE",
+          "half_life_s": null,
+          "is_stable": true
+        }
+      ]
+    },
+    "Bi212": {
+      "parent": "Bi212",
+      "z": 83,
+      "a": 212,
+      "half_life_str": "60.55 m",
+      "half_life_s": 3633.0,
+      "daughters": [
+        {
+          "nuclide": "Bi212",
+          "z": 83,
+          "a": 212,
+          "yield": 1.0,
+          "half_life_str": "60.55 m",
+          "half_life_s": 3633.0,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Po212",
+          "z": 84,
+          "a": 212,
+          "yield": 0.6406,
+          "half_life_str": "294.3 ns",
+          "half_life_s": 2.943e-07,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Tl208",
+          "z": 81,
+          "a": 208,
+          "yield": 0.3594,
+          "half_life_str": "3.053 m",
+          "half_life_s": 183.18,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Pb208",
+          "z": 82,
+          "a": 208,
+          "yield": 1.0,
+          "half_life_str": "STABLE",
+          "half_life_s": null,
+          "is_stable": true
+        }
+      ]
+    },
+    "At211": {
+      "parent": "At211",
+      "z": 85,
+      "a": 211,
+      "half_life_str": "7.214 h",
+      "half_life_s": 25970.4,
+      "daughters": [
+        {
+          "nuclide": "At211",
+          "z": 85,
+          "a": 211,
+          "yield": 1.0,
+          "half_life_str": "7.214 h",
+          "half_life_s": 25970.4,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Po211",
+          "z": 84,
+          "a": 211,
+          "yield": 0.582,
+          "half_life_str": "0.516 s",
+          "half_life_s": 0.516,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Bi207",
+          "z": 83,
+          "a": 207,
+          "yield": 0.418,
+          "half_life_str": "31.55 Y",
+          "half_life_s": 995621014.4983776,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Pb207",
+          "z": 82,
+          "a": 207,
+          "yield": 1.0,
+          "half_life_str": "STABLE",
+          "half_life_s": null,
+          "is_stable": true
+        }
+      ]
+    },
+    "Th227": {
+      "parent": "Th227",
+      "z": 90,
+      "a": 227,
+      "half_life_str": "18.697 d",
+      "half_life_s": 1615420.8,
+      "daughters": [
+        {
+          "nuclide": "Th227",
+          "z": 90,
+          "a": 227,
+          "yield": 1.0,
+          "half_life_str": "18.697 d",
+          "half_life_s": 1615420.8,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Ra223",
+          "z": 88,
+          "a": 223,
+          "yield": 1.0,
+          "half_life_str": "11.43 d",
+          "half_life_s": 987552.0,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Rn219",
+          "z": 86,
+          "a": 219,
+          "yield": 1.0,
+          "half_life_str": "3.96 s",
+          "half_life_s": 3.96,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Po215",
+          "z": 84,
+          "a": 215,
+          "yield": 1.0,
+          "half_life_str": "1.781 ms",
+          "half_life_s": 0.001781,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Pb211",
+          "z": 82,
+          "a": 211,
+          "yield": 0.999998,
+          "half_life_str": "36.1 m",
+          "half_life_s": 2166.0,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Bi211",
+          "z": 83,
+          "a": 211,
+          "yield": 0.999998,
+          "half_life_str": "2.14 m",
+          "half_life_s": 128.4,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Tl207",
+          "z": 81,
+          "a": 207,
+          "yield": 0.997238,
+          "half_life_str": "4.77 m",
+          "half_life_s": 286.2,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Po211",
+          "z": 84,
+          "a": 211,
+          "yield": 0.00276,
+          "half_life_str": "0.516 s",
+          "half_life_s": 0.516,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Pb207",
+          "z": 82,
+          "a": 207,
+          "yield": 0.999998,
+          "half_life_str": "STABLE",
+          "half_life_s": null,
+          "is_stable": true
+        }
+      ]
+    },
+    "Tb149": {
+      "parent": "Tb149",
+      "z": 65,
+      "a": 149,
+      "half_life_str": "4.12 h",
+      "half_life_s": 14832.0,
+      "daughters": [
+        {
+          "nuclide": "Tb149",
+          "z": 65,
+          "a": 149,
+          "yield": 1.0,
+          "half_life_str": "4.12 h",
+          "half_life_s": 14832.0,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Gd149",
+          "z": 64,
+          "a": 149,
+          "yield": 0.833,
+          "half_life_str": "9.28 d",
+          "half_life_s": 801792.0,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Eu145",
+          "z": 63,
+          "a": 145,
+          "yield": 0.167,
+          "half_life_str": "5.93 d",
+          "half_life_s": 512352.0,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Eu149",
+          "z": 63,
+          "a": 149,
+          "yield": 0.833,
+          "half_life_str": "93.1 d",
+          "half_life_s": 8043840.0,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Sm145",
+          "z": 62,
+          "a": 145,
+          "yield": 0.167,
+          "half_life_str": "340 d",
+          "half_life_s": 29376000.0,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Sm149",
+          "z": 62,
+          "a": 149,
+          "yield": 0.833,
+          "half_life_str": "STABLE",
+          "half_life_s": null,
+          "is_stable": true
+        },
+        {
+          "nuclide": "Pm145",
+          "z": 61,
+          "a": 145,
+          "yield": 0.167,
+          "half_life_str": "17.7 Y",
+          "half_life_s": 558557589.7502784,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Nd145",
+          "z": 60,
+          "a": 145,
+          "yield": 0.167,
+          "half_life_str": "STABLE",
+          "half_life_s": null,
+          "is_stable": true
+        }
+      ]
+    },
+    "Sr90": {
+      "parent": "Sr90",
+      "z": 38,
+      "a": 90,
+      "half_life_str": "28.91 Y",
+      "half_life_s": 912310729.9254547,
+      "daughters": [
+        {
+          "nuclide": "Sr90",
+          "z": 38,
+          "a": 90,
+          "yield": 1.0,
+          "half_life_str": "28.91 Y",
+          "half_life_s": 912310729.9254547,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Y90",
+          "z": 39,
+          "a": 90,
+          "yield": 1.0,
+          "half_life_str": "64.05 h",
+          "half_life_s": 230580.0,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Zr90",
+          "z": 40,
+          "a": 90,
+          "yield": 1.0,
+          "half_life_str": "STABLE",
+          "half_life_s": null,
+          "is_stable": true
+        }
+      ]
+    },
+    "Ge68": {
+      "parent": "Ge68",
+      "z": 32,
+      "a": 68,
+      "half_life_str": "270.93 d",
+      "half_life_s": 23408352.0,
+      "daughters": [
+        {
+          "nuclide": "Ge68",
+          "z": 32,
+          "a": 68,
+          "yield": 1.0,
+          "half_life_str": "270.93 d",
+          "half_life_s": 23408352.0,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Ga68",
+          "z": 31,
+          "a": 68,
+          "yield": 1.0,
+          "half_life_str": "67.71 m",
+          "half_life_s": 4062.6,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Zn68",
+          "z": 30,
+          "a": 68,
+          "yield": 1.0,
+          "half_life_str": "STABLE",
+          "half_life_s": null,
+          "is_stable": true
+        }
+      ]
+    },
+    "Sr82": {
+      "parent": "Sr82",
+      "z": 38,
+      "a": 82,
+      "half_life_str": "25.35 d",
+      "half_life_s": 2190240.0,
+      "daughters": [
+        {
+          "nuclide": "Sr82",
+          "z": 38,
+          "a": 82,
+          "yield": 1.0,
+          "half_life_str": "25.35 d",
+          "half_life_s": 2190240.0,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Rb82",
+          "z": 37,
+          "a": 82,
+          "yield": 1.0,
+          "half_life_str": "1.2575 m",
+          "half_life_s": 75.45,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Kr82",
+          "z": 36,
+          "a": 82,
+          "yield": 1.0,
+          "half_life_str": "STABLE",
+          "half_life_s": null,
+          "is_stable": true
+        }
+      ]
+    },
+    "Mo99": {
+      "parent": "Mo99",
+      "z": 42,
+      "a": 99,
+      "half_life_str": "65.924 h",
+      "half_life_s": 237326.4,
+      "daughters": [
+        {
+          "nuclide": "Mo99",
+          "z": 42,
+          "a": 99,
+          "yield": 1.0,
+          "half_life_str": "65.924 h",
+          "half_life_s": 237326.4,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Tc99",
+          "z": 43,
+          "a": 99,
+          "yield": 1.0,
+          "half_life_str": "2.111E+5 Y",
+          "half_life_s": 6661667073236.371,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Ru99",
+          "z": 44,
+          "a": 99,
+          "yield": 1.0,
+          "half_life_str": "STABLE",
+          "half_life_s": null,
+          "is_stable": true
+        }
+      ]
+    },
+    "W188": {
+      "parent": "W188",
+      "z": 74,
+      "a": 188,
+      "half_life_str": "69.78 d",
+      "half_life_s": 6028992.0,
+      "daughters": [
+        {
+          "nuclide": "W188",
+          "z": 74,
+          "a": 188,
+          "yield": 1.0,
+          "half_life_str": "69.78 d",
+          "half_life_s": 6028992.0,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Re188",
+          "z": 75,
+          "a": 188,
+          "yield": 1.0,
+          "half_life_str": "17.005 h",
+          "half_life_s": 61218.0,
+          "is_stable": false
+        },
+        {
+          "nuclide": "Os188",
+          "z": 76,
+          "a": 188,
+          "yield": 1.0,
+          "half_life_str": "STABLE",
+          "half_life_s": null,
+          "is_stable": true
+        }
+      ]
+    }
+  }
+}

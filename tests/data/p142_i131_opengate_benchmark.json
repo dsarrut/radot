@@ -1,0 +1,34 @@
+{
+  "description": "Patient 142 cropped liver I131 OpenGate VRT simulation benchmark",
+  "patient": "p142",
+  "roi_name": "Liver",
+  "radionuclide": "I131",
+  "phantom": "male",
+  "total_activity_bq": 500000.0,
+  "teff_h": 192.4968,
+  "time_from_injection_h": 0.0,
+  "num_voxels": 20572,
+  "roi_volume_ml": 1316.608,
+  "roi_mass_g": 1423.515625,
+  "opengate": {
+    "mean_dose_rate_gy_s": 1.4314002095768103e-08,
+    "simulation_mode": "vrt",
+    "uncertainty_min_fraction": 0.0012406444372879471,
+    "uncertainty_max_fraction": 0.17576274960207644,
+    "uncertainty_estimate_fraction": 0.002510887800478621,
+    "mean_voxel_uncertainty_fraction": 0.17576274960207644
+  },
+  "cross_dose": {
+    "target_roi_name": "Kidney_R",
+    "source_roi_name": "Liver",
+    "target_num_voxels": 2270,
+    "target_volume_ml": 145.28,
+    "target_mass_g": 161.4965362548828,
+    "opengate": {
+      "mean_dose_rate_gy_s": 7.789341228759554e-10,
+      "uncertainty_min_fraction": 0.0022095664034530427,
+      "uncertainty_max_fraction": 0.10284476797422248,
+      "uncertainty_estimate_fraction": 0.004471847984830816
+    }
+  }
+}

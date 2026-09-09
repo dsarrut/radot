@@ -5,8 +5,18 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
 
 @click.group(context_settings=CONTEXT_SETTINGS)
-@click.option("-v", "--verbose", is_flag=True, help="Show verbose debugging logs and Python stack trace on errors.")
-@click.option("-q", "--quiet", is_flag=True, help="Silence progress/status output, showing only errors.")
+@click.option(
+    "-v",
+    "--verbose",
+    is_flag=True,
+    help="Show verbose debugging logs and Python stack trace on errors.",
+)
+@click.option(
+    "-q",
+    "--quiet",
+    is_flag=True,
+    help="Silence progress/status output, showing only errors.",
+)
 @click.version_option(version="0.1.0")
 @click.pass_context
 def main(ctx, verbose, quiet):
@@ -17,8 +27,8 @@ def main(ctx, verbose, quiet):
     ctx.obj["verbose"] = verbose
     ctx.obj["quiet"] = quiet
     from radot.log import configure_logging
-    configure_logging(verbose=verbose, quiet=quiet)
 
+    configure_logging(verbose=verbose, quiet=quiet)
 
 
 def handle_cli_exception(e: Exception) -> None:
@@ -77,6 +87,7 @@ def segment(ct_path, output_path, mode, fast):
         segment_ct(ct_path, output_path, mode, fast)
         import os
         import sys
+
         if "pytest" not in sys.modules and "_pytest" not in sys.modules:
             os._exit(0)
     except Exception as e:
@@ -85,7 +96,9 @@ def segment(ct_path, output_path, mode, fast):
 
 #### ROIS STATISTICS ####
 @main.command()
-@click.argument("labels_path", required=False, type=click.Path(exists=True, path_type=Path))
+@click.argument(
+    "labels_path", required=False, type=click.Path(exists=True, path_type=Path)
+)
 @click.option(
     "-i",
     "--image",
@@ -132,7 +145,17 @@ def segment(ct_path, output_path, mode, fast):
     type=click.Choice(["hu", "suv", "bqml", "bq", "gy"], case_sensitive=False),
     help="Current unit of the image. Required to determine if activity should be preserved (e.g. bq) during resampling.",
 )
-def stats(labels_path, image_path, image_type, output_path, labels, rois, resample_to, sigma, unit):
+def stats(
+    labels_path,
+    image_path,
+    image_type,
+    output_path,
+    labels,
+    rois,
+    resample_to,
+    sigma,
+    unit,
+):
     """Compute volume and intensity statistics for labels."""
     from radot.stats import compute_stats_file
 
@@ -220,12 +243,21 @@ def stats(labels_path, image_path, image_type, output_path, labels, rois, resamp
     help="Apply a Gaussian anti-aliasing filter when downsampling (continuous images only). Enabled by default.",
 )
 def resample(
-    image_path, spacing, like_path, image_type, output_path, unit, preserve_total, gaussian
+    image_path,
+    spacing,
+    like_path,
+    image_type,
+    output_path,
+    unit,
+    preserve_total,
+    gaussian,
 ):
     """Resample an image to a target spacing or to match another image grid."""
 
     if not spacing and not like_path:
-        raise click.UsageError("Either --spacing (-s) or --like (-l) must be specified.")
+        raise click.UsageError(
+            "Either --spacing (-s) or --like (-l) must be specified."
+        )
     if spacing and like_path:
         raise click.UsageError("Cannot specify both --spacing (-s) and --like (-l).")
 
@@ -237,7 +269,9 @@ def resample(
 
         if like_path:
             like_suffix = "".join(like_path.suffixes)
-            like_base = like_path.name[: -len(like_suffix)] if like_suffix else like_path.name
+            like_base = (
+                like_path.name[: -len(like_suffix)] if like_suffix else like_path.name
+            )
             output_path = Path(f"{base}_like_{like_base}{suffix}")
         else:
             # Format spacing to remove trailing decimals if integers (e.g. 4.0 -> 4)
@@ -334,7 +368,18 @@ def resample(
     type=click.Path(exists=True, path_type=Path),
     help="Optional labels image path (required for segmentation-based LBM).",
 )
-def convert_units(image_path, from_unit, to_unit, output_path, weight, activity, height, sex, lbm_method, labels_path):
+def convert_units(
+    image_path,
+    from_unit,
+    to_unit,
+    output_path,
+    weight,
+    activity,
+    height,
+    sex,
+    lbm_method,
+    labels_path,
+):
     """Convert units of a radioactive image (PET/SPECT)."""
     from radot.convert import convert_image_units_file
 
@@ -355,10 +400,10 @@ def convert_units(image_path, from_unit, to_unit, output_path, weight, activity,
         handle_cli_exception(e)
 
 
-
 #### IMAGE METADATA ####
 def common_meta_options(f):
     import click
+
     f = click.argument("image_path", type=click.Path(exists=True, path_type=Path))(f)
     f = click.option(
         "--modality",
@@ -367,7 +412,9 @@ def common_meta_options(f):
     )(f)
     f = click.option(
         "--unit",
-        type=click.Choice(["hu", "suv", "bqml", "bq", "gy", "gy/h", "sul"], case_sensitive=False),
+        type=click.Choice(
+            ["hu", "suv", "bqml", "bq", "gy", "gy/h", "sul"], case_sensitive=False
+        ),
         help="Physical unit of voxel values (hu, suv, bqml, bq, gy, gy/h, sul).",
     )(f)
     f = click.option(
@@ -414,6 +461,7 @@ def common_meta_options(f):
 def meta_list():
     """List all possible metadata keys, valid choices, formats, and descriptions."""
     import sys
+
     sys.stdout.write("Supported image metadata keys:\n")
     sys.stdout.write("  - modality: Image modality type.\n")
     sys.stdout.write("              Valid choices: ct, pet, spect, dose\n")
@@ -427,7 +475,9 @@ def meta_list():
     sys.stdout.write("                    Format: YYYY-MM-DD HH:MM:SS\n")
     sys.stdout.write("  - acquisition_date: Acquisition date and time.\n")
     sys.stdout.write("                      Format: YYYY-MM-DD HH:MM:SS\n")
-    sys.stdout.write("  - time_from_injection: Time elapsed from injection to acquisition (computed helper option, not stored directly).\n")
+    sys.stdout.write(
+        "  - time_from_injection: Time elapsed from injection to acquisition (computed helper option, not stored directly).\n"
+    )
     sys.stdout.write("                         Format: day:hours:min (e.g. 1:12:30)\n")
     sys.stdout.write("  - height: Patient height (in cm).\n")
     sys.stdout.write("            Format: floating point number\n")
@@ -524,7 +574,6 @@ def _run_meta_command(
         handle_cli_exception(e)
 
 
-
 #### DICOM CONVERSION ####
 @main.command()
 @click.argument("dicom_path", type=click.Path(exists=True, path_type=Path))
@@ -569,18 +618,34 @@ def dicom_list(folder_path):
 def dose_list():
     """List available dosimetry methods."""
     import sys
-    sys.stdout.write("Available dosimetry methods:\n")
-    sys.stdout.write("  - hanscheid2017: Hanscheid 2017 method (0.125 scaling factor, specific to Lu177)\n")
-    sys.stdout.write("                   Equation: Dose = 0.125 * C_mean * 2^(t/T_eff) * T_eff\n")
-    sys.stdout.write("  - hanscheid2018: Hanscheid 2018 method (uses OpenDose S-value database for phantom-specific regional dosimetry)\n")
-    sys.stdout.write("                   Equation: Dose = TIA * S * mass_scaling\n")
-    sys.stdout.write("  - madsen2018: Madsen 2018 method (uses OpenDose S-value database for phantom-specific regional dosimetry and effective half-life)\n")
-    sys.stdout.write("                Equation: Dose = TIA * S * mass_scaling\n")
-    sys.stdout.write("  - ldm: Local Deposition Model (3D voxel-level physical deposition dosimetry using non-penetrating decay emissions)\n")
-    sys.stdout.write("         Equation: Dose = (TIA * Delta_local * 1.60218e-10) / mass\n")
-    sys.stdout.write("         Supports computing instantaneous dose rate (in Gy/h) when --dose-rate is set:\n")
-    sys.stdout.write("         Equation: Dose Rate = (Activity * Delta_local * 1.60218e-10 * 3600) / mass\n")
 
+    sys.stdout.write("Available dosimetry methods:\n")
+    sys.stdout.write(
+        "  - hanscheid2017: Hanscheid 2017 method (0.125 scaling factor, specific to Lu177)\n"
+    )
+    sys.stdout.write(
+        "                   Equation: Dose = 0.125 * C_mean * 2^(t/T_eff) * T_eff\n"
+    )
+    sys.stdout.write(
+        "  - hanscheid2018: Hanscheid 2018 method (uses OpenDose S-value database for phantom-specific regional dosimetry)\n"
+    )
+    sys.stdout.write("                   Equation: Dose = TIA * S * mass_scaling\n")
+    sys.stdout.write(
+        "  - madsen2018: Madsen 2018 method (uses OpenDose S-value database for phantom-specific regional dosimetry and effective half-life)\n"
+    )
+    sys.stdout.write("                Equation: Dose = TIA * S * mass_scaling\n")
+    sys.stdout.write(
+        "  - ldm: Local Deposition Model (3D voxel-level physical deposition dosimetry using non-penetrating decay emissions)\n"
+    )
+    sys.stdout.write(
+        "         Equation: Dose = (TIA * Delta_local * 1.60218e-10) / mass\n"
+    )
+    sys.stdout.write(
+        "         Supports computing instantaneous dose rate (in Gy/h) when --dose-rate is set:\n"
+    )
+    sys.stdout.write(
+        "         Equation: Dose Rate = (Activity * Delta_local * 1.60218e-10 * 3600) / mass\n"
+    )
 
 
 @main.command(name="dose")
@@ -667,6 +732,11 @@ def dose_list():
     default="male",
     help="OpenDose phantom name (e.g. male, female).",
 )
+@click.option(
+    "--cascade/--no-cascade",
+    default=False,
+    help="Include radioactive decay chain cascade in secular equilibrium (e.g. for Ac225, Ra223).",
+)
 def dose(
     image_path,
     labels_path,
@@ -683,6 +753,7 @@ def dose(
     quiet,
     hu_threshold,
     dose_rate,
+    cascade,
 ):
     """Compute absorbed doses for specified regions of interest (ROI)."""
     from radot.dose import compute_roi_dose_file
@@ -700,14 +771,17 @@ def dose(
         raise click.UsageError("Options --verbose and --quiet are mutually exclusive.")
     configure_logging(verbose=cli_verbose, quiet=cli_quiet)
 
-
     method_key = method.lower()
     if dose_rate and method_key != "ldm":
-        raise click.UsageError("Option '--dose-rate' is only supported with the 'ldm' method.")
+        raise click.UsageError(
+            "Option '--dose-rate' is only supported with the 'ldm' method."
+        )
     if method_key != "ldm" and not labels_path:
         raise click.UsageError("Missing option '-l' / '--labels'.")
     if method_key == "ldm" and not labels_path and not output_path:
-        raise click.UsageError("Option '-o' / '--output' is required when using the LDM method without labels.")
+        raise click.UsageError(
+            "Option '-o' / '--output' is required when using the LDM method without labels."
+        )
 
     rois_list = []
     if rois:
@@ -759,6 +833,7 @@ def dose(
             verbose=verbose,
             hu_threshold=hu_threshold,
             dose_rate=dose_rate,
+            cascade=cascade,
         )
     except Exception as e:
         handle_cli_exception(e)
@@ -798,24 +873,28 @@ def opendose(ctx, model, radionuclide, force, upload, upload_dest):
 
     if upload:
         if not upload_dest:
-            raise click.UsageError("Destination path (--upload-dest) is required when using --upload.")
-        
+            raise click.UsageError(
+                "Destination path (--upload-dest) is required when using --upload."
+            )
+
         # Normalize protocol separator if user wrote host://path instead of host:path
         if "://" in upload_dest:
             upload_dest = upload_dest.replace("://", ":")
-            
+
         import subprocess
         import importlib.resources
         from pathlib import Path
-        
-        db_dir = importlib.resources.files("radot").joinpath("data").joinpath("opendose")
+
+        db_dir = (
+            importlib.resources.files("radot").joinpath("data").joinpath("opendose")
+        )
         db_path = Path(str(db_dir))
-        
+
         # Get all subdirectories and files inside the database folder to upload them directly
         src_paths = [str(p) for p in db_path.iterdir() if not p.name.startswith(".")]
         if not src_paths:
             raise click.ClickException("No database files found to upload.")
-            
+
         cmd = ["scp", "-r"] + src_paths + [upload_dest]
         click.echo(f"RADOT: Uploading local database contents using: {' '.join(cmd)}")
         try:
@@ -881,17 +960,19 @@ def opendose_status(model, radionuclide):
             norm_iso = normalize_isotope(radionuclide)
             file_gz = phantom_path / f"{norm_iso}.json.gz"
             file_json = phantom_path / f"{norm_iso}.json"
-            
+
             target_file = None
             if file_gz.exists():
                 target_file = file_gz
             elif file_json.exists():
                 target_file = file_json
-                
+
             if not target_file:
-                click.echo(f"S-value matrix for isotope '{norm_iso}' under phantom '{norm_phantom}' is not downloaded/present locally.")
+                click.echo(
+                    f"S-value matrix for isotope '{norm_iso}' under phantom '{norm_phantom}' is not downloaded/present locally."
+                )
                 return
-                
+
             try:
                 if target_file.suffix == ".gz":
                     with gzip.open(target_file, "rt", encoding="utf-8") as f:
@@ -901,9 +982,13 @@ def opendose_status(model, radionuclide):
                         s_matrix = json.load(f)
             except Exception as e:
                 raise click.ClickException(f"Failed to read S-value matrix: {e}")
-                
-            click.echo(f"S-values for Phantom: {norm_phantom}, Radionuclide: {norm_iso} (Path: {target_file})")
-            click.echo(f"{'Source Organ':<25} {'Target Organ':<25} {'S-value (mGy/MBq.s)':<20}")
+
+            click.echo(
+                f"S-values for Phantom: {norm_phantom}, Radionuclide: {norm_iso} (Path: {target_file})"
+            )
+            click.echo(
+                f"{'Source Organ':<25} {'Target Organ':<25} {'S-value (mGy/MBq.s)':<20}"
+            )
             click.echo("-" * 72)
             for src, targets in sorted(s_matrix.items()):
                 for tgt, val in sorted(targets.items()):
@@ -912,16 +997,20 @@ def opendose_status(model, radionuclide):
         else:
             masses_file = phantom_path / "masses.json"
             if not masses_file.exists():
-                click.echo(f"Reference masses for phantom '{norm_phantom}' are not downloaded/present locally.")
+                click.echo(
+                    f"Reference masses for phantom '{norm_phantom}' are not downloaded/present locally."
+                )
                 return
-                
+
             try:
                 with open(masses_file, "r", encoding="utf-8") as f:
                     masses = json.load(f)
             except Exception as e:
                 raise click.ClickException(f"Failed to read masses: {e}")
-                
-            click.echo(f"Reference Masses for Phantom: {norm_phantom} (Path: {masses_file})")
+
+            click.echo(
+                f"Reference Masses for Phantom: {norm_phantom} (Path: {masses_file})"
+            )
             click.echo(f"{'Organ':<30} {'Mass (g)':<15}")
             click.echo("-" * 45)
             for organ, mass in sorted(masses.items()):
@@ -929,7 +1018,9 @@ def opendose_status(model, radionuclide):
             return
 
     if radionuclide and not model:
-        raise click.UsageError("Missing option '-m' / '--model' when using '-r' / '--radionuclide'.")
+        raise click.UsageError(
+            "Missing option '-m' / '--model' when using '-r' / '--radionuclide'."
+        )
 
     # Print header
     click.echo("Local OpenDose Database Inventory:")
@@ -940,40 +1031,52 @@ def opendose_status(model, radionuclide):
         return
 
     # Find phantoms (subdirectories)
-    phantoms = sorted([p for p in db_path.iterdir() if p.is_dir() and not p.name.startswith(".")])
+    phantoms = sorted(
+        [p for p in db_path.iterdir() if p.is_dir() and not p.name.startswith(".")]
+    )
 
     total_bytes = 0
     phantom_count = 0
     radionuclide_count = 0
 
     for i, phantom in enumerate(phantoms):
-        is_last_phantom = (i == len(phantoms) - 1)
+        is_last_phantom = i == len(phantoms) - 1
         phantom_prefix = "└── " if is_last_phantom else "├── "
         click.echo(f"{phantom_prefix}{phantom.name}/")
-        
+
         # Find files in phantom
-        files = sorted([f for f in phantom.iterdir() if f.is_file() and not f.name.startswith(".")])
+        files = sorted(
+            [f for f in phantom.iterdir() if f.is_file() and not f.name.startswith(".")]
+        )
         # Filter to only masses.json and S-value matrices
-        files = [f for f in files if f.name == "masses.json" or f.name.endswith(".json.gz") or f.name.endswith(".json")]
-        
+        files = [
+            f
+            for f in files
+            if f.name == "masses.json"
+            or f.name.endswith(".json.gz")
+            or f.name.endswith(".json")
+        ]
+
         file_indent = "    " if is_last_phantom else "│   "
-        
+
         phantom_has_files = False
         for j, file in enumerate(files):
-            is_last_file = (j == len(files) - 1)
+            is_last_file = j == len(files) - 1
             file_prefix = "└── " if is_last_file else "├── "
-            
+
             # Read details of the file
             details = ""
             try:
                 if file.name == "masses.json":
                     import json
+
                     with open(file, "r", encoding="utf-8") as f:
                         data = json.load(f)
                     details = f" ({len(data)} organs)"
                 elif file.name.endswith(".json.gz"):
                     import gzip
                     import json
+
                     with gzip.open(file, "rt", encoding="utf-8") as f:
                         data = json.load(f)
                     num_sources = len(data)
@@ -981,6 +1084,7 @@ def opendose_status(model, radionuclide):
                     details = f" ({num_sources} source organs, {num_svalues} S-values)"
                 elif file.name.endswith(".json"):
                     import json
+
                     with open(file, "r", encoding="utf-8") as f:
                         data = json.load(f)
                     num_sources = len(data)
@@ -988,15 +1092,15 @@ def opendose_status(model, radionuclide):
                     details = f" ({num_sources} source organs, {num_svalues} S-values)"
             except Exception as e:
                 details = f" (error: {e})"
-                
+
             click.echo(f"{file_indent}{file_prefix}[OK] {file.name}{details}")
-            
+
             # Track statistics
             total_bytes += file.stat().st_size
             if file.name != "masses.json":
                 radionuclide_count += 1
             phantom_has_files = True
-            
+
         if phantom_has_files:
             phantom_count += 1
 
@@ -1008,7 +1112,9 @@ def opendose_status(model, radionuclide):
     else:
         space_str = f"{total_bytes} B"
 
-    click.echo(f"\nTotal space used: {space_str} ({radionuclide_count} Radionuclides, {phantom_count} Phantoms)")
+    click.echo(
+        f"\nTotal space used: {space_str} ({radionuclide_count} Radionuclides, {phantom_count} Phantoms)"
+    )
 
 
 @opendose.command(name="list")
@@ -1026,6 +1132,7 @@ def opendose_status(model, radionuclide):
 def opendose_list(ctx, model, radionuclide):
     """List local OpenDose database inventory or print downloaded values."""
     ctx.forward(opendose_status)
+
 
 @main.group(name="roi")
 def roi():
@@ -1051,27 +1158,31 @@ def roi_list(source):
         TS_GROUPS,
         OPENDOSE_PASSIVE_TARGETS,
     )
-    
+
     if source == "all":
         click.echo("\nRegistered ROI Nomenclature Maps (TG-263 Hub)\n")
-        click.echo(f"{'TotalSegmentator Name':<30} {'TG-263 Label':<20} {'OpenDose Target':<25}")
+        click.echo(
+            f"{'TotalSegmentator Name':<30} {'TG-263 Label':<20} {'OpenDose Target':<25}"
+        )
         click.echo("─" * 78)
-        
+
         for ts_name, val in sorted(TS_TO_TG263.items()):
             tg263_label = val[1]
             od_target = TG263_TO_OD.get(tg263_label, "")
             click.echo(f"{ts_name:<30} {tg263_label:<20} {od_target:<25}")
         click.echo()
-        
+
     elif source == "ts":
         click.echo("\nTotalSegmentator Mapping Inventory\n")
-        click.echo(f"{'TotalSegmentator Name':<30} {'TG-263 Label':<20} {'Mapping Route':<20} {'OpenDose Target':<25}")
+        click.echo(
+            f"{'TotalSegmentator Name':<30} {'TG-263 Label':<20} {'Mapping Route':<20} {'OpenDose Target':<25}"
+        )
         click.echo("─" * 98)
-        
+
         for ts_name, val in sorted(TS_TO_TG263.items()):
             tg263_label = val[1]
             od_target = TG263_TO_OD.get(tg263_label, "")
-            
+
             if od_target:
                 route = "[STAGE 1] Hub"
                 resolves_to = od_target
@@ -1084,10 +1195,10 @@ def roi_list(source):
             else:
                 route = "[STAGE 3] UNMAPPED"
                 resolves_to = "⛔ CRASH SAFEGUARD"
-                
+
             click.echo(f"{ts_name:<30} {tg263_label:<20} {route:<20} {resolves_to:<25}")
         click.echo()
-        
+
     elif source == "od":
         # Build mapping from OpenDose target -> list of TS Names
         od_to_ts_names = {}
@@ -1096,22 +1207,26 @@ def roi_list(source):
             od_target = TG263_TO_OD.get(tg263_label, "")
             if od_target:
                 od_to_ts_names.setdefault(od_target, []).append(ts_name)
-                
+
         for ts_name, od_val in TS_TO_OD_FALLBACK.items():
             od_to_ts_names.setdefault(od_val, []).append(ts_name)
-            
+
         for ts_name, od_val in TS_GROUPS.items():
             od_to_ts_names.setdefault(od_val, []).append(ts_name)
-            
+
         from radot.db import _find_matching_key, _load_masses
-        
+
         try:
             masses_male = _load_masses("icrp_110_male")
             masses_female = _load_masses("icrp_110_female")
             standard_od_organs = set(masses_male.keys()) | set(masses_female.keys())
         except Exception:
-            standard_od_organs = set(OD_TO_TG263.keys()) | set(TS_TO_OD_FALLBACK.values()) | set(OPENDOSE_PASSIVE_TARGETS)
-            
+            standard_od_organs = (
+                set(OD_TO_TG263.keys())
+                | set(TS_TO_OD_FALLBACK.values())
+                | set(OPENDOSE_PASSIVE_TARGETS)
+            )
+
         full_od_to_ts_names = {}
         for od_organ in standard_od_organs:
             matched_base = _find_matching_key(od_to_ts_names, od_organ)
@@ -1119,14 +1234,18 @@ def roi_list(source):
                 full_od_to_ts_names[od_organ] = od_to_ts_names[matched_base]
             else:
                 for base_target, ts_list in od_to_ts_names.items():
-                    if od_organ.lower().startswith(base_target.lower()) or base_target.lower().startswith(od_organ.lower()):
+                    if od_organ.lower().startswith(
+                        base_target.lower()
+                    ) or base_target.lower().startswith(od_organ.lower()):
                         full_od_to_ts_names[od_organ] = ts_list
                         break
-        
+
         click.echo("\nOpenDose Reference Phantom Targets\n")
-        click.echo(f"{'OpenDose Organ Name':<50} {'Status':<20} {'Mapped From (TS)':<25}")
+        click.echo(
+            f"{'OpenDose Organ Name':<50} {'Status':<20} {'Mapped From (TS)':<25}"
+        )
         click.echo("─" * 98)
-        
+
         for od_name in sorted(standard_od_organs):
             ts_list = full_od_to_ts_names.get(od_name, [])
             if ts_list:
@@ -1140,7 +1259,9 @@ def roi_list(source):
             else:
                 is_passive = False
                 for p_target in OPENDOSE_PASSIVE_TARGETS:
-                    if od_name.lower().startswith(p_target.lower()) or p_target.lower().startswith(od_name.lower()):
+                    if od_name.lower().startswith(
+                        p_target.lower()
+                    ) or p_target.lower().startswith(od_name.lower()):
                         is_passive = True
                         break
                 if is_passive:
@@ -1149,17 +1270,19 @@ def roi_list(source):
                 else:
                     status = "[INACTIVE]"
                     mapped_from = "--"
-                
+
             click.echo(f"{od_name:<50} {status:<20} {mapped_from:<25}")
         click.echo()
-        
+
     elif source == "tg":
-        tg263_labels = set(TG263_TO_OD.keys()) | {val[1] for val in TS_TO_TG263.values()}
-        
+        tg263_labels = set(TG263_TO_OD.keys()) | {
+            val[1] for val in TS_TO_TG263.values()
+        }
+
         click.echo("\nSupported AAPM TG-263 Standard Labels\n")
         click.echo(f"{'TG-263 Label':<25} {'Description':<35} {'Status':<15}")
         click.echo("─" * 78)
-        
+
         for label in sorted(tg263_labels):
             desc = label.replace("_", " ")
             od_name = TG263_TO_OD.get(label, "")
@@ -1167,7 +1290,7 @@ def roi_list(source):
                 desc = f"TG-263 standard for {od_name.lower()}"
             else:
                 desc = f"TG-263 standard for {desc.lower()}"
-                
+
             click.echo(f"{label:<25} {desc:<35} {'Registered':<15}")
         click.echo()
 
@@ -1176,11 +1299,17 @@ def roi_list(source):
 @click.argument("name")
 def roi_match(name):
     """Query an ROI name to find exact matches or closest nomenclature suggestions."""
-    from radot.nomenclature import resolve_roi_name_to_opendose, find_closest_matches, TS_TO_TG263, TG263_TO_OD, TS_TO_OD_FALLBACK
-    
+    from radot.nomenclature import (
+        resolve_roi_name_to_opendose,
+        find_closest_matches,
+        TS_TO_TG263,
+        TG263_TO_OD,
+        TS_TO_OD_FALLBACK,
+    )
+
     lower_name = name.lower()
     is_registered = False
-    
+
     if lower_name in [k.lower() for k in TS_TO_TG263.keys()]:
         is_registered = True
     elif lower_name in [k.lower() for k in TG263_TO_OD.keys()]:
@@ -1189,12 +1318,12 @@ def roi_match(name):
         is_registered = True
     elif lower_name in [k.lower() for k in TS_TO_OD_FALLBACK.keys()]:
         is_registered = True
-        
+
     if is_registered:
         resolved = resolve_roi_name_to_opendose(name)
-        click.echo(f"\n✅ \"{name}\" is registered. Resolves to OpenDose: \"{resolved}\"\n")
+        click.echo(f'\n✅ "{name}" is registered. Resolves to OpenDose: "{resolved}"\n')
     else:
-        click.echo(f"\n❌ \"{name}\" is not explicitly registered.")
+        click.echo(f'\n❌ "{name}" is not explicitly registered.')
         closest = find_closest_matches(name)
         if closest:
             click.echo("💡 Did you mean one of these?")
@@ -1209,29 +1338,33 @@ def roi_verify(path):
     """Scan a patient sidecar JSON mapping file before execution to report unmapped structures."""
     from radot.nomenclature import verify_sidecar_mappings
     import json
-    
+
     try:
         with open(path, "r", encoding="utf-8") as f:
             raw_map = json.load(f)
             labels_map = {int(k): v for k, v in raw_map.items()}
     except Exception as e:
         raise click.ClickException(f"Failed to parse label mapping JSON file: {e}")
-        
+
     report = verify_sidecar_mappings(labels_map)
-    
+
     click.echo(f"\nScanning sidecar mappings from: {path}\n")
-    
+
     if report["mapped"]:
         click.echo("Mapped structures:")
         for lid, (name, resolved) in sorted(report["mapped"].items()):
-            click.echo(f"   - Label {lid}: \"{name}\" -> \"{resolved}\" (OpenDose)")
-            
+            click.echo(f'   - Label {lid}: "{name}" -> "{resolved}" (OpenDose)')
+
     if report["unmapped"]:
-        click.echo("\n❌ Unmapped structures (requires override or manual S-value definition):")
+        click.echo(
+            "\n❌ Unmapped structures (requires override or manual S-value definition):"
+        )
         for lid, name in sorted(report["unmapped"].items()):
-            click.echo(f"   - Label {lid}: \"{name}\"")
+            click.echo(f'   - Label {lid}: "{name}"')
         click.echo()
-        raise click.ClickException("Verification failed: sidecar contains unmapped structures.")
+        raise click.ClickException(
+            "Verification failed: sidecar contains unmapped structures."
+        )
     else:
         click.echo("\n✅ Verification successful: all structures successfully mapped!")
         click.echo()
@@ -1248,25 +1381,25 @@ def radionuclide_list():
     """List all available radionuclides in the ICRP-107 database."""
     import importlib.resources
     import sys
-    
+
     try:
         icrp_dir = importlib.resources.files("icrp107_database").joinpath("icrp107")
         available = []
         for p in icrp_dir.iterdir():
             if p.name.endswith(".json"):
                 available.append(p.name[:-5])
-        
+
         if not available:
             sys.stdout.write("No radionuclides found in the icrp107-database.\n")
             return
-            
+
         available.sort()
         sys.stdout.write("\nAvailable Radionuclides:\n")
         # Format as 6 columns
         col_width = 12
         num_cols = 6
         for i in range(0, len(available), num_cols):
-            chunk = available[i:i + num_cols]
+            chunk = available[i : i + num_cols]
             line = "".join(f"{name:<{col_width}}" for name in chunk) + "\n"
             sys.stdout.write(line)
         sys.stdout.write("\n")
@@ -1282,33 +1415,36 @@ def radionuclide_info(isotope):
     import json
     import re
     import sys
-    
+
     try:
-        iso_clean = re.sub(r'[-_\s]', '', isotope).lower()
+        iso_clean = re.sub(r"[-_\s]", "", isotope).lower()
         icrp_dir = importlib.resources.files("icrp107_database").joinpath("icrp107")
-        
+
         matched_path = None
         for p in icrp_dir.iterdir():
             if p.name.endswith(".json"):
                 name_without_ext = p.name[:-5]
-                if re.sub(r'[-_\s]', '', name_without_ext).lower() == iso_clean:
+                if re.sub(r"[-_\s]", "", name_without_ext).lower() == iso_clean:
                     matched_path = p
                     break
-                    
+
         if not matched_path:
-            raise ValueError(f"Isotope '{isotope}' is not available in the icrp107-database package.")
-            
+            raise ValueError(
+                f"Isotope '{isotope}' is not available in the icrp107-database package."
+            )
+
         with matched_path.open("r", encoding="utf-8") as f:
             data = json.load(f)
             if isinstance(data, str):
                 data = json.loads(data)
-                
+
         name = data.get("name", matched_path.name[:-5])
         half_life = data.get("half_life")
         time_unit = data.get("time_unit", "s")
-        
+
         # Display physical half-life with original units and converted units
         from radot.db import get_physical_half_life_h
+
         try:
             hl_hours = get_physical_half_life_h(name)
             hl_days = hl_hours / 24.0
@@ -1318,26 +1454,41 @@ def radionuclide_info(isotope):
                 hl_str = f"{half_life} {time_unit} ({hl_hours:.4f} hours)"
         except Exception:
             hl_str = f"{half_life} {time_unit}"
-            
+
         sys.stdout.write(f"\nRadionuclide: {name}\n")
         sys.stdout.write(f"Physical Half-life: {hl_str}\n\n")
-        
+
         emissions = data.get("emissions", {})
         if not emissions:
             sys.stdout.write("No emissions data available for this radionuclide.\n")
             return
-            
+
         sys.stdout.write("Emissions Summary:\n")
-        sys.stdout.write(f"{'Type':<12} | {'Num':<5} | {'Total Yield':<11} | {'Total Energy (MeV)':<18} | {'Avg Energy (MeV)':<16}\n")
+        sys.stdout.write(
+            f"{'Type':<12} | {'Num':<5} | {'Total Yield':<11} | {'Total Energy (MeV)':<18} | {'Avg Energy (MeV)':<16}\n"
+        )
         sys.stdout.write("─" * 73 + "\n")
-        
+
         # We order standard emission types
-        emission_types = ["alpha", "beta-", "beta+", "gamma", "X", "auger", "IE", "neutron", "alpha recoil", "annihilation", "fission", "betaD"]
+        emission_types = [
+            "alpha",
+            "beta-",
+            "beta+",
+            "gamma",
+            "X",
+            "auger",
+            "IE",
+            "neutron",
+            "alpha recoil",
+            "annihilation",
+            "fission",
+            "betaD",
+        ]
         for etype in emission_types:
             val = emissions.get(etype, [])
             if not val:
                 continue
-                
+
             num = len(val)
             total_yield = 0.0
             total_energy = 0.0
@@ -1346,15 +1497,65 @@ def radionuclide_info(isotope):
                     energy, yield_val = item[0], item[1]
                     total_yield += yield_val
                     total_energy += energy * yield_val
-            
+
             avg_energy = total_energy / total_yield if total_yield > 0 else 0.0
-            sys.stdout.write(f"{etype:<12} | {num:<5} | {total_yield:<11.4f} | {total_energy:<18.4f} | {avg_energy:<16.4f}\n")
+            sys.stdout.write(
+                f"{etype:<12} | {num:<5} | {total_yield:<11.4f} | {total_energy:<18.4f} | {avg_energy:<16.4f}\n"
+            )
         sys.stdout.write("\n")
-        
+
+        # Check if decay chain cascade is available in radot
+        from radot.db import (
+            get_decay_chain,
+            get_cascade_energy_constant_mev,
+            get_non_penetrating_energy_constant_mev,
+        )
+
+        chain = get_decay_chain(isotope)
+        if chain and "daughters" in chain:
+            daughters = [d for d in chain["daughters"] if not d.get("is_stable", False)]
+            if len(daughters) > 1:
+                total_cascade_mev, _ = get_cascade_energy_constant_mev(
+                    isotope, cascade=True
+                )
+                parent_mev = get_non_penetrating_energy_constant_mev(isotope)
+                factor = total_cascade_mev / parent_mev if parent_mev > 0 else 1.0
+
+                sys.stdout.write(
+                    "Decay Chain Cascade (Secular Equilibrium - Source: IAEA LiveChart):\n"
+                )
+                sys.stdout.write(
+                    f"{'Progeny':<10} | {'T1/2':<12} | {'Yield (Y_i)':<12} | {'Delta_local (MeV)':<18} | {'Contrib (MeV)':<14}\n"
+                )
+                sys.stdout.write("─" * 74 + "\n")
+                for d in chain["daughters"]:
+                    nuc = d["nuclide"]
+                    hl = d.get("half_life_str", "stable")
+                    y = float(d.get("yield", 1.0))
+                    if d.get("is_stable", False):
+                        sys.stdout.write(
+                            f"{nuc:<10} | {hl:<12} | {y:<12.4f} | {'stable':<18} | {0.0:<14.4f}\n"
+                        )
+                    else:
+                        try:
+                            delta_i = get_non_penetrating_energy_constant_mev(nuc)
+                            contrib = y * delta_i
+                            sys.stdout.write(
+                                f"{nuc:<10} | {hl:<12} | {y:<12.4f} | {delta_i:<18.4f} | {contrib:<14.4f}\n"
+                            )
+                        except Exception:
+                            sys.stdout.write(
+                                f"{nuc:<10} | {hl:<12} | {y:<12.4f} | {'N/A':<18} | {'N/A':<14}\n"
+                            )
+                sys.stdout.write("─" * 74 + "\n")
+                sys.stdout.write(
+                    f"Total Cascade Non-Penetrating Energy: {total_cascade_mev:.4f} MeV "
+                    f"(Parent: {parent_mev:.4f} MeV, Cascade Factor: {factor:.2f}x)\n\n"
+                )
+
     except Exception as e:
         handle_cli_exception(e)
 
 
 if __name__ == "__main__":
     main()
-

@@ -421,6 +421,550 @@ def test_hanscheid2018_self_dose():
     ), f"Hanscheid 2018 vs OpenGate difference too large: {rel_diff * 100:.2f}% (<5% expected)"
 
 
+def test_ldm_self_dose():
+    # pytest -s tests/test_dose.py -k "test_ldm_self_dose" -v
+    bench_path = (
+        Path(__file__).resolve().parent / "data" / "p142_opengate_benchmark.json"
+    )
+    if not bench_path.exists():
+        pytest.skip("p142 OpenGate benchmark JSON not found.")
+
+    with open(bench_path) as f:
+        bench = json.load(f)
+
+    p142_raw_dir = Path(__file__).resolve().parent.parent / "data" / "p142"
+    gate_dose_path = p142_raw_dir / "output_vrt" / "output_dose.mhd"
+    liver_path = p142_raw_dir / "liver_4mm_cropped.nii.gz"
+    ct_path = p142_raw_dir / "ct_4mm_cropped.nii.gz"
+
+    total_activity_bq = float(bench["total_activity_bq"])
+    isotope = bench.get("radionuclide", "Lu177")
+    teff_h = float(bench["teff_h"])
+    roi_name = bench["roi_name"]
+
+    # If full patient 3D images exist locally in data/p142, test with actual images
+    if gate_dose_path.exists() and liver_path.exists() and ct_path.exists():
+        liver_img = sitk.ReadImage(str(liver_path))
+        mask = sitk.GetArrayViewFromImage(liver_img) > 0
+        num_voxels = int(mask.sum())
+
+        activity_img = sitk.Cast(liver_img, sitk.sitkFloat32) * (
+            total_activity_bq / num_voxels
+        )
+        activity_img.SetMetaData("unit", "Bq")
+        activity_img.SetMetaData("time_from_injection", "0.0")
+        labels_img = sitk.Cast(liver_img > 0, sitk.sitkUInt16)
+        ct_img = sitk.ReadImage(str(ct_path))
+
+        gate_img = sitk.ReadImage(str(gate_dose_path))
+        gate_arr = sitk.GetArrayViewFromImage(gate_img)
+        gate_mean_dose_rate_gy_s = float(gate_arr[mask].mean())
+
+        gate_unc_path = p142_raw_dir / "output_vrt" / "output_dose_uncertainty.mhd"
+        if gate_unc_path.exists():
+            gate_unc_img = sitk.ReadImage(str(gate_unc_path))
+            unc_min, unc_max = roi_dose_uncertainty_bounds(gate_img, gate_unc_img, mask)
+            unc_est = roi_dose_uncertainty_estimate(
+                gate_img, gate_unc_img, mask, isotope=isotope
+            )
+        else:
+            unc_min, unc_max, unc_est = None, None, None
+    else:
+        # Otherwise, test using the benchmark parameters without needing heavy image binaries
+        roi_volume_ml = float(bench["roi_volume_ml"])
+        roi_mass_g = float(bench["roi_mass_g"])
+        gate_mean_dose_rate_gy_s = float(bench["opengate"]["mean_dose_rate_gy_s"])
+        op_data = bench.get("opengate", {})
+        unc_min = op_data.get("uncertainty_min_fraction")
+        unc_max = op_data.get(
+            "uncertainty_max_fraction", op_data.get("mean_voxel_uncertainty_fraction")
+        )
+        unc_est = op_data.get("uncertainty_estimate_fraction")
+
+        s = (roi_volume_ml * 1000.0) ** (1.0 / 3.0)
+        activity_img = sitk.Image([1, 1, 1], sitk.sitkFloat32)
+        activity_img.SetSpacing((s, s, s))
+        activity_img.SetMetaData("unit", "Bq")
+        activity_img.SetMetaData("time_from_injection", "0.0")
+        activity_img[0, 0, 0] = total_activity_bq
+
+        labels_img = sitk.Image([1, 1, 1], sitk.sitkUInt16)
+        labels_img.SetSpacing((s, s, s))
+        labels_img[0, 0, 0] = 1
+
+        ct_img = sitk.Image([1, 1, 1], sitk.sitkInt16)
+        ct_img.SetSpacing((s, s, s))
+        ct_val = int(round((roi_mass_g / roi_volume_ml - 1.0) * 1000.0))
+        ct_img[0, 0, 0] = ct_val
+
+    results, _ = compute_roi_dose(
+        image=activity_img,
+        labels=labels_img,
+        method="ldm",
+        isotope=isotope,
+        ct_image=ct_img,
+        labels_map={1: roi_name},
+        dose_rate=True,
+    )
+    ldm_mean_dose_rate_gy_s = results[roi_name]["mean_dose_rate_gyh"] / 3600.0
+
+    # Time-integrate dose rate with mono-exponential clearance
+    k = np.log(2) / (teff_h * 3600.0)
+    ldm_integrated_dose_gy = ldm_mean_dose_rate_gy_s / k
+    gate_integrated_dose_gy = gate_mean_dose_rate_gy_s / k
+
+    rel_diff = (
+        abs(ldm_integrated_dose_gy - gate_integrated_dose_gy) / gate_integrated_dose_gy
+    )
+    print(f"\nLDM mean dose rate:        {ldm_mean_dose_rate_gy_s:.6e} Gy/s")
+    print(f"OpenGate mean dose rate:    {gate_mean_dose_rate_gy_s:.6e} Gy/s")
+    print(f"LDM integrated dose:        {ldm_integrated_dose_gy:.6e} Gy")
+    print(f"OpenGate integrated dose:   {gate_integrated_dose_gy:.6e} Gy")
+    if unc_est is not None and unc_min is not None and unc_max is not None:
+        print(
+            f"OpenGate MC uncertainty (liver): {unc_est * 100:.2f}% (bounds: [{unc_min * 100:.3f}%, {unc_max * 100:.2f}%])"
+        )
+    print(f"Relative difference:        {rel_diff * 100:.2f}%  (<1% expected)")
+
+    # LDM non-penetrating deposition matches Monte Carlo electron transport closely (<1%)
+    assert (
+        rel_diff < 0.01
+    ), f"LDM vs OpenGate difference too large: {rel_diff * 100:.2f}% (<1% expected)"
+
+
+def test_y90_self_dose():
+    # pytest -s tests/test_dose.py -k "test_y90_self_dose" -v
+    bench_path = (
+        Path(__file__).resolve().parent / "data" / "p142_y90_opengate_benchmark.json"
+    )
+    if not bench_path.exists():
+        pytest.skip("p142 Y90 OpenGate benchmark JSON not found.")
+
+    with open(bench_path) as f:
+        bench = json.load(f)
+
+    p142_raw_dir = Path(__file__).resolve().parent.parent / "data" / "p142"
+    gate_dose_path = p142_raw_dir / "output_y90_vrt" / "output_dose.mhd"
+    liver_path = p142_raw_dir / "liver_4mm_cropped.nii.gz"
+    ct_path = p142_raw_dir / "ct_4mm_cropped.nii.gz"
+
+    total_activity_bq = float(bench["total_activity_bq"])
+    isotope = "Y90"
+    teff_h = float(bench.get("teff_h", 64.1))
+    roi_name = bench["roi_name"]
+    phantom = bench.get("phantom", "male")
+
+    # If full patient 3D images exist locally in data/p142, test with actual images
+    if gate_dose_path.exists() and liver_path.exists() and ct_path.exists():
+        liver_img = sitk.ReadImage(str(liver_path))
+        mask = sitk.GetArrayViewFromImage(liver_img) > 0
+        num_voxels = int(mask.sum())
+
+        activity_img = sitk.Cast(liver_img, sitk.sitkFloat32) * (
+            total_activity_bq / num_voxels
+        )
+        activity_img.SetMetaData("unit", "Bq")
+        activity_img.SetMetaData("time_from_injection", "0.0")
+        labels_img = sitk.Cast(liver_img > 0, sitk.sitkUInt16)
+        ct_img = sitk.ReadImage(str(ct_path))
+
+        gate_img = sitk.ReadImage(str(gate_dose_path))
+        gate_arr = sitk.GetArrayViewFromImage(gate_img)
+        gate_mean_dose_rate_gy_s = float(gate_arr[mask].mean())
+
+        gate_unc_path = p142_raw_dir / "output_y90_vrt" / "output_dose_uncertainty.mhd"
+        if gate_unc_path.exists():
+            gate_unc_img = sitk.ReadImage(str(gate_unc_path))
+            unc_min, unc_max = roi_dose_uncertainty_bounds(gate_img, gate_unc_img, mask)
+            unc_est = roi_dose_uncertainty_estimate(
+                gate_img, gate_unc_img, mask, isotope=isotope
+            )
+        else:
+            unc_min, unc_max, unc_est = None, None, None
+    else:
+        # Otherwise, test using the benchmark parameters without needing heavy image binaries
+        roi_volume_ml = float(bench["roi_volume_ml"])
+        roi_mass_g = float(bench["roi_mass_g"])
+        gate_mean_dose_rate_gy_s = float(bench["opengate"]["mean_dose_rate_gy_s"])
+        op_data = bench.get("opengate", {})
+        unc_min = op_data.get("uncertainty_min_fraction")
+        unc_max = op_data.get(
+            "uncertainty_max_fraction", op_data.get("mean_voxel_uncertainty_fraction")
+        )
+        unc_est = op_data.get("uncertainty_estimate_fraction")
+
+        s = (roi_volume_ml * 1000.0) ** (1.0 / 3.0)
+        activity_img = sitk.Image([1, 1, 1], sitk.sitkFloat32)
+        activity_img.SetSpacing((s, s, s))
+        activity_img.SetMetaData("unit", "Bq")
+        activity_img.SetMetaData("time_from_injection", "0.0")
+        activity_img[0, 0, 0] = total_activity_bq
+
+        labels_img = sitk.Image([1, 1, 1], sitk.sitkUInt16)
+        labels_img.SetSpacing((s, s, s))
+        labels_img[0, 0, 0] = 1
+
+        ct_img = sitk.Image([1, 1, 1], sitk.sitkInt16)
+        ct_img.SetSpacing((s, s, s))
+        ct_val = int(round((roi_mass_g / roi_volume_ml - 1.0) * 1000.0))
+        ct_img[0, 0, 0] = ct_val
+
+    # 1. Madsen 2018 calculation
+    results_madsen = compute_roi_dose(
+        image=activity_img,
+        labels=labels_img,
+        method="madsen2018",
+        isotope=isotope,
+        ct_image=ct_img,
+        labels_map={1: roi_name},
+        teff_params={roi_name: teff_h},
+        method_params={"phantom": phantom},
+    )
+    dose_madsen_gy = results_madsen[roi_name]["mean_dose_gy"]
+
+    # 2. LDM calculation
+    results_ldm, _ = compute_roi_dose(
+        image=activity_img,
+        labels=labels_img,
+        method="ldm",
+        isotope=isotope,
+        ct_image=ct_img,
+        labels_map={1: roi_name},
+        dose_rate=True,
+    )
+    ldm_mean_dose_rate_gy_s = results_ldm[roi_name]["mean_dose_rate_gyh"] / 3600.0
+
+    k = np.log(2) / (teff_h * 3600.0)
+    ldm_integrated_dose_gy = ldm_mean_dose_rate_gy_s / k
+    gate_integrated_dose_gy = gate_mean_dose_rate_gy_s / k
+
+    rel_diff_madsen = (
+        abs(dose_madsen_gy - gate_integrated_dose_gy) / gate_integrated_dose_gy
+    )
+    rel_diff_ldm = (
+        abs(ldm_integrated_dose_gy - gate_integrated_dose_gy) / gate_integrated_dose_gy
+    )
+
+    print(f"\nY90 OpenGate mean dose rate:    {gate_mean_dose_rate_gy_s:.6e} Gy/s")
+    print(f"Y90 OpenGate integrated dose:   {gate_integrated_dose_gy:.6e} Gy")
+    print(
+        f"Y90 Madsen 2018 mean dose:      {dose_madsen_gy:.6e} Gy (diff: {rel_diff_madsen * 100:.2f}%)"
+    )
+    print(
+        f"Y90 LDM integrated dose:        {ldm_integrated_dose_gy:.6e} Gy (diff: {rel_diff_ldm * 100:.2f}%)"
+    )
+    if unc_est is not None and unc_min is not None and unc_max is not None:
+        print(
+            f"OpenGate MC uncertainty (liver): {unc_est * 100:.2f}% (bounds: [{unc_min * 100:.3f}%, {unc_max * 100:.2f}%])"
+        )
+
+    # For Y90:
+    # LDM matches within 3% (slight edge effect due to ~11mm range)
+    # Madsen 2018 matches within 10%
+    assert (
+        rel_diff_ldm < 0.05
+    ), f"Y90 LDM vs OpenGate difference too large: {rel_diff_ldm * 100:.2f}% (<5% expected)"
+    assert (
+        rel_diff_madsen < 0.10
+    ), f"Y90 Madsen vs OpenGate difference too large: {rel_diff_madsen * 100:.2f}% (<10% expected)"
+
+
+def test_i131_self_dose():
+    # pytest -s tests/test_dose.py -k "test_i131_self_dose" -v
+    bench_path = (
+        Path(__file__).resolve().parent / "data" / "p142_i131_opengate_benchmark.json"
+    )
+    if not bench_path.exists():
+        pytest.skip("p142 I131 OpenGate benchmark JSON not found.")
+
+    with open(bench_path) as f:
+        bench = json.load(f)
+
+    p142_raw_dir = Path(__file__).resolve().parent.parent / "data" / "p142"
+    gate_dose_path = p142_raw_dir / "output_i131_vrt" / "output_dose.mhd"
+    liver_path = p142_raw_dir / "liver_4mm_cropped.nii.gz"
+    ct_path = p142_raw_dir / "ct_4mm_cropped.nii.gz"
+
+    total_activity_bq = float(bench["total_activity_bq"])
+    isotope = "I131"
+    teff_h = float(bench.get("teff_h", 192.4968))
+    roi_name = bench["roi_name"]
+    phantom = bench.get("phantom", "male")
+
+    if gate_dose_path.exists() and liver_path.exists() and ct_path.exists():
+        liver_img = sitk.ReadImage(str(liver_path))
+        mask = sitk.GetArrayViewFromImage(liver_img) > 0
+        num_voxels = int(mask.sum())
+
+        activity_img = sitk.Cast(liver_img, sitk.sitkFloat32) * (
+            total_activity_bq / num_voxels
+        )
+        activity_img.SetMetaData("unit", "Bq")
+        activity_img.SetMetaData("time_from_injection", "0.0")
+        labels_img = sitk.Cast(liver_img > 0, sitk.sitkUInt16)
+        ct_img = sitk.ReadImage(str(ct_path))
+
+        gate_img = sitk.ReadImage(str(gate_dose_path))
+        gate_arr = sitk.GetArrayViewFromImage(gate_img)
+        gate_mean_dose_rate_gy_s = float(gate_arr[mask].mean())
+
+        gate_unc_path = p142_raw_dir / "output_i131_vrt" / "output_dose_uncertainty.mhd"
+        if gate_unc_path.exists():
+            gate_unc_img = sitk.ReadImage(str(gate_unc_path))
+            unc_min, unc_max = roi_dose_uncertainty_bounds(gate_img, gate_unc_img, mask)
+            unc_est = roi_dose_uncertainty_estimate(
+                gate_img, gate_unc_img, mask, isotope=isotope
+            )
+        else:
+            unc_min, unc_max, unc_est = None, None, None
+    else:
+        roi_volume_ml = float(bench["roi_volume_ml"])
+        roi_mass_g = float(bench["roi_mass_g"])
+        gate_mean_dose_rate_gy_s = float(bench["opengate"]["mean_dose_rate_gy_s"])
+        op_data = bench.get("opengate", {})
+        unc_min = op_data.get("uncertainty_min_fraction")
+        unc_max = op_data.get(
+            "uncertainty_max_fraction", op_data.get("mean_voxel_uncertainty_fraction")
+        )
+        unc_est = op_data.get("uncertainty_estimate_fraction")
+
+        s = (roi_volume_ml * 1000.0) ** (1.0 / 3.0)
+        activity_img = sitk.Image([1, 1, 1], sitk.sitkFloat32)
+        activity_img.SetSpacing((s, s, s))
+        activity_img.SetMetaData("unit", "Bq")
+        activity_img.SetMetaData("time_from_injection", "0.0")
+        activity_img[0, 0, 0] = total_activity_bq
+
+        labels_img = sitk.Image([1, 1, 1], sitk.sitkUInt16)
+        labels_img.SetSpacing((s, s, s))
+        labels_img[0, 0, 0] = 1
+
+        ct_img = sitk.Image([1, 1, 1], sitk.sitkInt16)
+        ct_img.SetSpacing((s, s, s))
+        ct_val = int(round((roi_mass_g / roi_volume_ml - 1.0) * 1000.0))
+        ct_img[0, 0, 0] = ct_val
+
+    # 1. Madsen 2018 calculation
+    results_madsen = compute_roi_dose(
+        image=activity_img,
+        labels=labels_img,
+        method="madsen2018",
+        isotope=isotope,
+        ct_image=ct_img,
+        labels_map={1: roi_name},
+        teff_params={roi_name: teff_h},
+        method_params={"phantom": phantom},
+    )
+    dose_madsen_gy = results_madsen[roi_name]["mean_dose_gy"]
+
+    # 2. LDM calculation
+    results_ldm, _ = compute_roi_dose(
+        image=activity_img,
+        labels=labels_img,
+        method="ldm",
+        isotope=isotope,
+        ct_image=ct_img,
+        labels_map={1: roi_name},
+        dose_rate=True,
+    )
+    ldm_mean_dose_rate_gy_s = results_ldm[roi_name]["mean_dose_rate_gyh"] / 3600.0
+
+    k = np.log(2) / (teff_h * 3600.0)
+    ldm_integrated_dose_gy = ldm_mean_dose_rate_gy_s / k
+    gate_integrated_dose_gy = gate_mean_dose_rate_gy_s / k
+
+    rel_diff_madsen = (
+        abs(dose_madsen_gy - gate_integrated_dose_gy) / gate_integrated_dose_gy
+    )
+    rel_diff_ldm = (
+        abs(ldm_integrated_dose_gy - gate_integrated_dose_gy) / gate_integrated_dose_gy
+    )
+
+    print(f"\nI131 OpenGate mean dose rate:    {gate_mean_dose_rate_gy_s:.6e} Gy/s")
+    print(f"I131 OpenGate integrated dose:   {gate_integrated_dose_gy:.6e} Gy")
+    print(
+        f"I131 Madsen 2018 mean dose:      {dose_madsen_gy:.6e} Gy (diff: {rel_diff_madsen * 100:.2f}%)"
+    )
+    print(
+        f"I131 LDM integrated dose:        {ldm_integrated_dose_gy:.6e} Gy (diff: {rel_diff_ldm * 100:.2f}%)"
+    )
+    if unc_est is not None and unc_min is not None and unc_max is not None:
+        print(
+            f"OpenGate MC uncertainty (liver): {unc_est * 100:.2f}% (bounds: [{unc_min * 100:.3f}%, {unc_max * 100:.2f}%])"
+        )
+
+    # Madsen 2018 accounts for both beta and photon self-dose via OpenDose S-values (diff < 2%)
+    assert (
+        rel_diff_madsen < 0.05
+    ), f"I131 Madsen vs OpenGate difference too large: {rel_diff_madsen * 100:.2f}% (<5% expected)"
+    # LDM only accounts for local non-penetrating electrons (Delta_local = 0.192 MeV),
+    # ignoring ~25% self-dose contributed by 364 keV photons in the large liver volume.
+    assert (
+        0.15 < rel_diff_ldm < 0.35
+    ), f"I131 LDM vs OpenGate difference outside expected photon self-dose range: {rel_diff_ldm * 100:.2f}%"
+
+
+def test_ac225_self_dose():
+    # pytest -s tests/test_dose.py -k "test_ac225_self_dose" -v
+    bench_path = (
+        Path(__file__).resolve().parent / "data" / "p142_ac225_opengate_benchmark.json"
+    )
+    if not bench_path.exists():
+        pytest.skip("p142 Ac225 OpenGate benchmark JSON not found.")
+
+    with open(bench_path) as f:
+        bench = json.load(f)
+
+    p142_raw_dir = Path(__file__).resolve().parent.parent / "data" / "p142"
+    gate_dose_path = p142_raw_dir / "output_ac225_vrt" / "output_dose.mhd"
+    liver_path = p142_raw_dir / "liver_4mm_cropped.nii.gz"
+    ct_path = p142_raw_dir / "ct_4mm_cropped.nii.gz"
+
+    total_activity_bq = float(bench["total_activity_bq"])
+    isotope = "Ac225"
+    teff_h = float(bench.get("teff_h", 240.0))
+    roi_name = bench["roi_name"]
+    phantom = bench.get("phantom", "male")
+
+    if gate_dose_path.exists() and liver_path.exists() and ct_path.exists():
+        liver_img = sitk.ReadImage(str(liver_path))
+        mask = sitk.GetArrayViewFromImage(liver_img) > 0
+        num_voxels = int(mask.sum())
+
+        activity_img = sitk.Cast(liver_img, sitk.sitkFloat32) * (
+            total_activity_bq / num_voxels
+        )
+        activity_img.SetMetaData("unit", "Bq")
+        activity_img.SetMetaData("time_from_injection", "0.0")
+        labels_img = sitk.Cast(liver_img > 0, sitk.sitkUInt16)
+        ct_img = sitk.ReadImage(str(ct_path))
+
+        gate_img = sitk.ReadImage(str(gate_dose_path))
+        gate_arr = sitk.GetArrayViewFromImage(gate_img)
+        gate_mean_dose_rate_gy_s = float(gate_arr[mask].mean())
+
+        gate_unc_path = (
+            p142_raw_dir / "output_ac225_vrt" / "output_dose_uncertainty.mhd"
+        )
+        if gate_unc_path.exists():
+            gate_unc_img = sitk.ReadImage(str(gate_unc_path))
+            unc_min, unc_max = roi_dose_uncertainty_bounds(gate_img, gate_unc_img, mask)
+            unc_est = roi_dose_uncertainty_estimate(
+                gate_img, gate_unc_img, mask, isotope=isotope
+            )
+        else:
+            unc_min, unc_max, unc_est = None, None, None
+    else:
+        roi_volume_ml = float(bench["roi_volume_ml"])
+        roi_mass_g = float(bench["roi_mass_g"])
+        gate_mean_dose_rate_gy_s = float(bench["opengate"]["mean_dose_rate_gy_s"])
+        op_data = bench.get("opengate", {})
+        unc_min = op_data.get("uncertainty_min_fraction")
+        unc_max = op_data.get(
+            "uncertainty_max_fraction", op_data.get("mean_voxel_uncertainty_fraction")
+        )
+        unc_est = op_data.get("uncertainty_estimate_fraction")
+
+        s = (roi_volume_ml * 1000.0) ** (1.0 / 3.0)
+        activity_img = sitk.Image([1, 1, 1], sitk.sitkFloat32)
+        activity_img.SetSpacing((s, s, s))
+        activity_img.SetMetaData("unit", "Bq")
+        activity_img.SetMetaData("time_from_injection", "0.0")
+        activity_img[0, 0, 0] = total_activity_bq
+
+        labels_img = sitk.Image([1, 1, 1], sitk.sitkUInt16)
+        labels_img.SetSpacing((s, s, s))
+        labels_img[0, 0, 0] = 1
+
+        ct_img = sitk.Image([1, 1, 1], sitk.sitkInt16)
+        ct_img.SetSpacing((s, s, s))
+        ct_val = int(round((roi_mass_g / roi_volume_ml - 1.0) * 1000.0))
+        ct_img[0, 0, 0] = ct_val
+
+    # 1. Madsen 2018 calculation (single Ac-225 parent decay)
+    results_madsen = compute_roi_dose(
+        image=activity_img,
+        labels=labels_img,
+        method="madsen2018",
+        isotope=isotope,
+        ct_image=ct_img,
+        labels_map={1: roi_name},
+        teff_params={roi_name: teff_h},
+        method_params={"phantom": phantom},
+    )
+    dose_madsen_gy = results_madsen[roi_name]["mean_dose_gy"]
+
+    # 2. LDM calculation (single Ac-225 parent decay)
+    results_ldm, _ = compute_roi_dose(
+        image=activity_img,
+        labels=labels_img,
+        method="ldm",
+        isotope=isotope,
+        ct_image=ct_img,
+        labels_map={1: roi_name},
+        dose_rate=True,
+    )
+    ldm_mean_dose_rate_gy_s = results_ldm[roi_name]["mean_dose_rate_gyh"] / 3600.0
+
+    k = np.log(2) / (teff_h * 3600.0)
+    ldm_integrated_dose_gy = ldm_mean_dose_rate_gy_s / k
+    gate_integrated_dose_gy = gate_mean_dose_rate_gy_s / k
+
+    # Madsen and LDM single-parent calculations match closely (<1%)
+    rel_diff_models = (
+        abs(dose_madsen_gy - ldm_integrated_dose_gy) / ldm_integrated_dose_gy
+    )
+    # OpenGate analog simulation tracks the full decay cascade (4 alphas + 2 betas) down to Bi209,
+    # 3. LDM calculation with cascade=True (secular equilibrium decay chain: Ac225 -> Bi209)
+    results_ldm_cascade, _ = compute_roi_dose(
+        image=activity_img,
+        labels=labels_img,
+        method="ldm",
+        isotope=isotope,
+        ct_image=ct_img,
+        labels_map={1: roi_name},
+        dose_rate=True,
+        cascade=True,
+    )
+    ldm_cascade_rate_gy_s = results_ldm_cascade[roi_name]["mean_dose_rate_gyh"] / 3600.0
+    ldm_cascade_dose_gy = ldm_cascade_rate_gy_s / k
+    rel_diff_cascade = (
+        abs(ldm_cascade_dose_gy - gate_integrated_dose_gy) / gate_integrated_dose_gy
+    )
+
+    cascade_ratio = gate_integrated_dose_gy / ldm_integrated_dose_gy
+
+    print(f"\nAc225 OpenGate mean dose rate:   {gate_mean_dose_rate_gy_s:.6e} Gy/s")
+    print(f"Ac225 OpenGate integrated dose:  {gate_integrated_dose_gy:.6e} Gy")
+    print(f"Ac225 Madsen 2018 mean dose:     {dose_madsen_gy:.6e} Gy (parent only)")
+    print(
+        f"Ac225 LDM integrated dose:       {ldm_integrated_dose_gy:.6e} Gy (parent only)"
+    )
+    print(
+        f"Ac225 LDM cascade dose:          {ldm_cascade_dose_gy:.6e} Gy (diff vs Gate: {rel_diff_cascade * 100:.2f}%)"
+    )
+    print(
+        f"Ac225 Madsen vs LDM diff:        {rel_diff_models * 100:.2f}% (<1% expected)"
+    )
+    print(f"Ac225 Cascade ratio (Gate/LDM):  {cascade_ratio:.3f}x (~4.72x expected)")
+    if unc_est is not None and unc_min is not None and unc_max is not None:
+        print(
+            f"OpenGate MC uncertainty (liver): {unc_est * 100:.2f}% (bounds: [{unc_min * 100:.3f}%, {unc_max * 100:.2f}%])"
+        )
+
+    # Parent-only Madsen and LDM calculations match closely (<1%)
+    assert (
+        rel_diff_models < 0.01
+    ), f"Ac225 Madsen vs LDM difference too large: {rel_diff_models * 100:.2f}% (<1% expected)"
+    assert (
+        4.5 < cascade_ratio < 5.0
+    ), f"Ac225 OpenGate decay cascade ratio unexpected: {cascade_ratio:.3f} (expected ~4.72x)"
+    # With cascade=True, LDM matches OpenGate full-chain analog simulation within 5% (actual ~2.68%)
+    assert (
+        rel_diff_cascade < 0.05
+    ), f"Ac225 LDM cascade vs OpenGate difference too large: {rel_diff_cascade * 100:.2f}% (<5% expected)"
+
+
 def test_madsen2018_cross_dose():
     # pytest -s tests/test_dose.py -k "test_madsen2018_cross_dose" -v
     bench_path = (
