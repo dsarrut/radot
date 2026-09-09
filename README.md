@@ -15,7 +15,36 @@ eval "$(_RADOT_COMPLETE=zsh_source radot)"
 
 ## Quick Start
 
-See the [Quickstart Guide](docs/quickstart.md) to get started with CLI commands and Python workflows.
+`radot` can be used as a command-line tool (CLI) or as a Python library.
+
+### 1. Command-Line Interface (CLI)
+
+Run `radot` commands directly from your terminal:
+
+```bash
+radot dose spect.nii.gz -m ldm --isotope Lu177 --ct ct.nii.gz -o dose.nii.gz
+```
+
+### 2. Python Library
+
+Import `radot` and call dosimetry functions directly in your Python code:
+
+```python
+from pathlib import Path
+from radot.dose import compute_roi_dose_file
+
+compute_roi_dose_file(
+    image_path=Path("spect.nii.gz"),
+    labels_path=Path("labels.nii.gz"),
+    method="madsen2018",
+    isotope="Lu177",
+    ct_path=Path("ct.nii.gz"),
+    output_path=Path("dose.nii.gz"),
+    dose_rate=True,
+)
+```
+
+For more examples and workflows, see the [Quickstart Guide](docs/quickstart.md).
 
 ## Core Features
 
