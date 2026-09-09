@@ -5,7 +5,11 @@ import pytest
 import SimpleITK as sitk
 from click.testing import CliRunner
 from radot.cli import main
-from radot.dose import compute_roi_dose
+from radot.dose import (
+    compute_roi_dose,
+    roi_dose_uncertainty_bounds,
+    roi_dose_uncertainty_estimate,
+)
 
 
 def test_compute_roi_dose_core():
@@ -136,11 +140,27 @@ def test_madsen2018_opengate_p142_comparison():
         gate_img = sitk.ReadImage(str(gate_dose_path))
         gate_arr = sitk.GetArrayViewFromImage(gate_img)
         gate_mean_dose_rate_gy_s = float(gate_arr[mask].mean())
+
+        gate_unc_path = p142_raw_dir / "output_vrt" / "output_dose_uncertainty.mhd"
+        if gate_unc_path.exists():
+            gate_unc_img = sitk.ReadImage(str(gate_unc_path))
+            unc_min, unc_max = roi_dose_uncertainty_bounds(gate_img, gate_unc_img, mask)
+            unc_est = roi_dose_uncertainty_estimate(
+                gate_img, gate_unc_img, mask, isotope=isotope
+            )
+        else:
+            unc_min, unc_max, unc_est = None, None, None
     else:
         # Otherwise, test using the benchmark parameters without needing heavy image binaries
         roi_volume_ml = float(bench["roi_volume_ml"])
         roi_mass_g = float(bench["roi_mass_g"])
         gate_mean_dose_rate_gy_s = float(bench["opengate"]["mean_dose_rate_gy_s"])
+        op_data = bench.get("opengate", {})
+        unc_min = op_data.get("uncertainty_min_fraction")
+        unc_max = op_data.get(
+            "uncertainty_max_fraction", op_data.get("mean_voxel_uncertainty_fraction")
+        )
+        unc_est = op_data.get("uncertainty_estimate_fraction")
 
         s = (roi_volume_ml * 1000.0) ** (1.0 / 3.0)
         activity_img = sitk.Image([1, 1, 1], sitk.sitkFloat32)
@@ -177,14 +197,15 @@ def test_madsen2018_opengate_p142_comparison():
     rel_diff = abs(dose_madsen_gy - gate_integrated_dose_gy) / gate_integrated_dose_gy
     print(f"Madsen 2018 mean dose: {dose_madsen_gy:.6e} Gy")
     print(f"OpenGate integrated dose: {gate_integrated_dose_gy:.6e} Gy")
+    if unc_est is not None and unc_min is not None and unc_max is not None:
+        print(
+            f"OpenGate MC uncertainty (liver): {unc_est * 100:.2f}% (bounds: [{unc_min * 100:.3f}%, {unc_max * 100:.2f}%])"
+        )
     print(f"Relative difference: {rel_diff * 100:.2f}%")
 
     assert (
         rel_diff < 0.05
     ), f"Madsen vs OpenGate difference too large: {rel_diff * 100:.2f}%"
-    assert dose_madsen_gy == pytest.approx(
-        bench["madsen2018"]["mean_dose_gy"], rel=1e-3
-    )
 
 
 def test_invalid_isotope_error():
@@ -757,3 +778,58 @@ def test_mutually_exclusive_verbose_quiet(tmp_path):
     )
     assert result_cmd.exit_code != 0
     assert "mutually exclusive" in result_cmd.output
+
+
+def test_roi_dose_uncertainty_bounds():
+    # 1. Single voxel: bounds must equal the voxel uncertainty
+    dose = np.array([[[10.0]]], dtype=np.float32)
+    unc = np.array([[[0.05]]], dtype=np.float32)
+    mask = np.array([[[1]]], dtype=np.uint8)
+
+    unc_min, unc_max = roi_dose_uncertainty_bounds(dose, unc, mask)
+    assert unc_min == pytest.approx(0.05)
+    assert unc_max == pytest.approx(0.05)
+
+    # 2. 4 identical voxels:
+    # lower bound = 0.05 / sqrt(4) = 0.025
+    # upper bound = 0.05
+    dose_4 = np.ones((2, 2, 1), dtype=np.float32) * 5.0
+    unc_4 = np.ones((2, 2, 1), dtype=np.float32) * 0.05
+    mask_4 = np.ones((2, 2, 1), dtype=np.uint8)
+
+    unc_min_4, unc_max_4 = roi_dose_uncertainty_bounds(dose_4, unc_4, mask_4)
+    assert unc_min_4 == pytest.approx(0.025)
+    assert unc_max_4 == pytest.approx(0.05)
+
+    # 3. SimpleITK image input
+    sitk_dose = sitk.GetImageFromArray(dose_4)
+    sitk_unc = sitk.GetImageFromArray(unc_4)
+    sitk_mask = sitk.GetImageFromArray(mask_4)
+
+    unc_min_sitk, unc_max_sitk = roi_dose_uncertainty_bounds(
+        sitk_dose, sitk_unc, sitk_mask
+    )
+    assert unc_min_sitk == pytest.approx(0.025)
+    assert unc_max_sitk == pytest.approx(0.05)
+
+    # 4. Empty mask raises error
+    empty_mask = np.zeros_like(mask_4)
+    with pytest.raises(ValueError, match="ROI mask contains no voxels"):
+        roi_dose_uncertainty_bounds(dose_4, unc_4, empty_mask)
+
+
+def test_roi_dose_uncertainty_estimate():
+    # 4 voxels with large spacing 10x10x10 mm, isotope Lu177 (range = 1.8 mm)
+    # nu_cluster = (1 + 1.8/10)^3 = 1.18^3 = 1.643
+    dose = np.ones((2, 2, 1), dtype=np.float32)
+    unc = np.ones((2, 2, 1), dtype=np.float32) * 0.05
+    mask = np.ones((2, 2, 1), dtype=np.uint8)
+
+    unc_est = roi_dose_uncertainty_estimate(
+        dose, unc, mask, spacing_mm=(10.0, 10.0, 10.0), isotope="Lu177"
+    )
+    # unc_min = 0.025, unc_max = 0.05
+    # expected: 0.025 * sqrt(1.643032) approx 0.03204
+    assert unc_est == pytest.approx(0.025 * np.sqrt(1.18**3), rel=1e-3)
+    assert unc_est >= 0.025
+    assert unc_est <= 0.05

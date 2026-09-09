@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union, Tuple
 import numpy as np
 import SimpleITK as sitk
 from pathlib import Path
@@ -26,15 +26,15 @@ def dose_ldm(
     - returns 3D float numpy array of absorbed dose (in Gy) or dose rate (in Gy/h) per voxel
     """
     from radot.db import get_non_penetrating_energy_constant_mev
-    
+
     # Get Delta_local in MeV
     delta_local_mev = get_non_penetrating_energy_constant_mev(isotope)
-    
+
     # Convert MeV to Joules: 1 MeV = 1.60218e-13 Joules
     # Since mass will be in grams, we scale by 1000 to convert Joules/g to Gy (Joules/kg):
     # 1.60218e-13 * 1000 = 1.60218e-10
     mev_to_joules_per_g = 1.60218e-10
-    
+
     # Compute density map (g/cm3 = g/mL) from Hounsfield Units (HU)
     if ct_arr is not None:
         density_arr = 1.0 + (ct_arr / 1000.0)
@@ -42,30 +42,36 @@ def dose_ldm(
         density_arr = np.clip(density_arr, 1e-3, None)
     else:
         density_arr = np.ones_like(image_arr)
-        
+
     # Voxel mass in grams: Volume (mL) * Density (g/mL)
     voxel_mass_g = voxel_volume_ml * density_arr
-    
+
     if dose_rate:
         # Instantaneous Dose Rate (Gy/h) at the time of acquisition:
         # activity (Bq) * Delta_local (MeV) * conversions (J/g/MeV) * 3600 (s/h) / mass (g)
-        dose_arr = (image_arr * delta_local_mev * mev_to_joules_per_g * 3600.0) / voxel_mass_g
+        dose_arr = (
+            image_arr * delta_local_mev * mev_to_joules_per_g * 3600.0
+        ) / voxel_mass_g
     else:
         # Physical decay constant lambda = ln(2) / T_p (in hours)
         t_p_h = get_physical_half_life_h(isotope)
         decay_constant_h = np.log(2) / t_p_h
-        
+
         # Compute Time Integrated Activity (TIA) per voxel in Bq.s:
         decay_constant_s = decay_constant_h / 3600.0
-        tia_arr = image_arr * np.exp(decay_constant_h * time_from_injection_h) / decay_constant_s
-        
+        tia_arr = (
+            image_arr
+            * np.exp(decay_constant_h * time_from_injection_h)
+            / decay_constant_s
+        )
+
         # Absorbed Dose (Gy) per voxel: TIA (Bq.s) * Delta_local (MeV) * conversions / mass (g)
         dose_arr = (tia_arr * delta_local_mev * mev_to_joules_per_g) / voxel_mass_g
-    
+
     # Apply HU threshold if CT is present
     if ct_arr is not None and hu_threshold is not None:
         dose_arr[ct_arr < hu_threshold] = 0.0
-        
+
     return dose_arr
 
 
@@ -153,6 +159,125 @@ def dose_madsen2018(
 
     return float(dose)
 
+
+# Approximate maximum beta ranges in soft tissue (in mm)
+ISOTOPE_BETA_RANGE_MM = {
+    "lu177": 1.8,
+    "y90": 11.0,
+    "i131": 2.4,
+    "tb161": 2.2,
+    "re188": 10.0,
+    "sm153": 3.1,
+    "p32": 8.0,
+    "cu67": 1.8,
+}
+
+
+def roi_dose_uncertainty_bounds(
+    dose: Union[np.ndarray, sitk.Image],
+    uncertainty: Union[np.ndarray, sitk.Image],
+    mask: Union[np.ndarray, sitk.Image],
+) -> tuple[float, float]:
+    """
+    Compute theoretical lower and upper bounds on the relative uncertainty of an ROI mean dose.
+
+    Parameters:
+        dose: 3D dose or dose rate map (SimpleITK Image or NumPy array).
+        uncertainty: 3D relative uncertainty map (eps_i = sigma_i / D_i).
+        mask: ROI binary mask (voxels > 0 are included).
+
+    Returns:
+        (unc_min, unc_max):
+            - unc_min: Lower bound assuming independent voxels (Cov = 0).
+                       unc_min = sqrt(sum((eps_i * D_i)^2)) / sum(D_i)
+            - unc_max: Upper bound assuming 100% correlation across voxels.
+                       unc_max = sum(eps_i * D_i) / sum(D_i)
+    """
+    d_arr = (
+        sitk.GetArrayViewFromImage(dose)
+        if isinstance(dose, sitk.Image)
+        else np.asarray(dose)
+    )
+    u_arr = (
+        sitk.GetArrayViewFromImage(uncertainty)
+        if isinstance(uncertainty, sitk.Image)
+        else np.asarray(uncertainty)
+    )
+    m_arr = (
+        sitk.GetArrayViewFromImage(mask)
+        if isinstance(mask, sitk.Image)
+        else np.asarray(mask)
+    )
+
+    roi_filter = m_arr > 0
+    if not np.any(roi_filter):
+        raise ValueError("ROI mask contains no voxels.")
+
+    d_roi = d_arr[roi_filter].astype(np.float64)
+    u_roi = u_arr[roi_filter].astype(np.float64)
+
+    total_dose = np.sum(d_roi)
+    if total_dose <= 0:
+        return 0.0, 0.0
+
+    # Absolute standard deviation per voxel: sigma_i = eps_i * D_i
+    sigma_vox = u_roi * d_roi
+
+    # Lower bound: independent voxels, variance of sum = sum of variances
+    unc_min = float(np.sqrt(np.sum(sigma_vox**2)) / total_dose)
+
+    # Upper bound: perfectly correlated voxels, std of sum = sum of stds
+    unc_max = float(np.sum(sigma_vox) / total_dose)
+
+    return unc_min, unc_max
+
+
+def roi_dose_uncertainty_estimate(
+    dose: Union[np.ndarray, sitk.Image],
+    uncertainty: Union[np.ndarray, sitk.Image],
+    mask: Union[np.ndarray, sitk.Image],
+    spacing_mm: Optional[tuple[float, float, float]] = None,
+    isotope: Optional[str] = None,
+    correlation_length_mm: Optional[float] = None,
+) -> float:
+    """
+    Estimate realistic ROI relative uncertainty accounting for finite particle range.
+
+    Estimates the number of voxels correlated by a single primary history (nu_cluster)
+    using the particle range and voxel spacing:
+        nu_cluster = prod(1 + range / spacing_d)
+        unc_est = min(unc_max, unc_min * sqrt(nu_cluster))
+
+    Parameters:
+        dose: 3D dose or dose rate map (SimpleITK Image or NumPy array).
+        uncertainty: 3D relative uncertainty map.
+        mask: ROI binary mask.
+        spacing_mm: Voxel spacing in mm (x, y, z). Auto-extracted if dose is sitk.Image.
+        isotope: Radionuclide name (e.g. 'Lu177', 'Y90') to retrieve typical beta range.
+        correlation_length_mm: Direct override for particle range / correlation length in mm.
+
+    Returns:
+        float: Estimated relative uncertainty as a fraction.
+    """
+    if spacing_mm is None and isinstance(dose, sitk.Image):
+        spacing_mm = dose.GetSpacing()
+    elif spacing_mm is None:
+        spacing_mm = (1.0, 1.0, 1.0)
+
+    if correlation_length_mm is None:
+        iso_key = (isotope or "").lower().replace("-", "")
+        correlation_length_mm = ISOTOPE_BETA_RANGE_MM.get(iso_key, 2.0)
+
+    unc_min, unc_max = roi_dose_uncertainty_bounds(dose, uncertainty, mask)
+
+    # Effective correlation cluster size across spatial dimensions
+    nu_cluster = 1.0
+    for s in spacing_mm:
+        if s > 0:
+            nu_cluster *= 1.0 + float(correlation_length_mm) / float(s)
+
+    unc_est = float(min(unc_max, unc_min * np.sqrt(nu_cluster)))
+    return unc_est
 
 
 def strategy_hanscheid2017(
@@ -384,7 +509,6 @@ DOSIMETRY_STRATEGIES = {
     "hanscheid2018": strategy_hanscheid2018,
     "madsen2018": strategy_madsen2018,
 }
-
 
 
 def compute_dose_generic(
@@ -657,7 +781,9 @@ def compute_roi_dose(
     else:
         if ct_image is not None:
             if not has_same_grid(image, ct_image):
-                raise ValueError("CT image grid does not match activity image grid. Please resample CT first.")
+                raise ValueError(
+                    "CT image grid does not match activity image grid. Please resample CT first."
+                )
 
     # 3. Timing Extraction
     time_from_injection_h = get_time_from_injection_h(image, image_path)
@@ -695,6 +821,7 @@ def compute_roi_dose(
 
     if method_key == "ldm":
         from radot.db import get_physical_half_life_h
+
         t_p_h = get_physical_half_life_h(isotope)
         ct_arr = sitk.GetArrayFromImage(ct_image) if ct_image is not None else None
 
@@ -719,7 +846,7 @@ def compute_roi_dose(
             return dose_image
 
         labels_arr = sitk.GetArrayFromImage(labels)
-        
+
         # Compute voxel mass array for region-absorbed dose aggregation
         if ct_image is not None:
             density_arr = np.clip(1.0 + (ct_arr / 1000.0), 1e-3, None)
@@ -731,12 +858,16 @@ def compute_roi_dose(
         for label_val, roi_name in labels_map.items():
             if rois and roi_name not in rois:
                 continue
-            mask = (labels_arr == label_val)
+            mask = labels_arr == label_val
             if not np.any(mask):
                 continue
 
             roi_mass_g = np.sum(voxel_mass_g[mask])
-            mean_dose_gy = np.sum(dose_arr[mask] * voxel_mass_g[mask]) / roi_mass_g if roi_mass_g > 0 else 0.0
+            mean_dose_gy = (
+                np.sum(dose_arr[mask] * voxel_mass_g[mask]) / roi_mass_g
+                if roi_mass_g > 0
+                else 0.0
+            )
             roi_volume_ml = np.sum(mask) * voxel_volume_ml
 
             if dose_rate:
@@ -869,7 +1000,9 @@ def compute_roi_dose_file(
 
         if resample_target == "like_activity":
             if labels is not None:
-                labels = resample_image(labels, image_type="labels", reference_image=image)
+                labels = resample_image(
+                    labels, image_type="labels", reference_image=image
+                )
             if ct_image is not None:
                 ct_image = resample_image(
                     ct_image,
@@ -880,7 +1013,9 @@ def compute_roi_dose_file(
                 )
         elif resample_target == "like_labels":
             if labels is None:
-                raise ValueError("Cannot resample like labels because labels image is not provided.")
+                raise ValueError(
+                    "Cannot resample like labels because labels image is not provided."
+                )
             image = resample_image(
                 image,
                 image_type=modality.lower(),
@@ -898,7 +1033,9 @@ def compute_roi_dose_file(
                 )
         elif resample_target == "like_ct":
             if ct_image is None:
-                raise ValueError("Cannot resample like CT because CT image is not provided.")
+                raise ValueError(
+                    "Cannot resample like CT because CT image is not provided."
+                )
             image = resample_image(
                 image,
                 image_type=modality.lower(),
@@ -931,6 +1068,7 @@ def compute_roi_dose_file(
 
     if method_key == "ldm":
         from radot.meta import read_metadata, write_metadata
+
         if labels_path is not None:
             results_dict, dose_image = results
             if output_path:
@@ -956,7 +1094,9 @@ def compute_roi_dose_file(
                     output_path.parent.mkdir(parents=True, exist_ok=True)
                     with open(output_path, "w") as f:
                         json.dump(results_dict, f, indent=4)
-            if not output_path or output_path.name.endswith((".nii", ".nii.gz", ".nrrd", ".mhd")):
+            if not output_path or output_path.name.endswith(
+                (".nii", ".nii.gz", ".nrrd", ".mhd")
+            ):
                 pretty_print_dose(results_dict)
         else:
             if not output_path:

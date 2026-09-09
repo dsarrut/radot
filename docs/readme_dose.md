@@ -127,6 +127,28 @@ dose_array = dose_ldm(
 
 ---
 
+### `roi_dose_uncertainty_bounds` & `roi_dose_uncertainty_estimate`
+Tools for estimating the Monte Carlo statistical uncertainty of an organ / ROI mean dose from 3D dose and voxel relative uncertainty maps.
+
+```python
+import SimpleITK as sitk
+from radot.dose import roi_dose_uncertainty_bounds, roi_dose_uncertainty_estimate
+
+dose_img = sitk.ReadImage("output_dose.mhd")
+unc_img = sitk.ReadImage("output_dose_uncertainty.mhd")
+mask_img = sitk.ReadImage("liver_mask.nii.gz")
+
+# Theoretical lower bound (independent voxels) and upper bound (100% correlation)
+unc_min, unc_max = roi_dose_uncertainty_bounds(dose_img, unc_img, mask_img)
+
+# Realistic physical estimate accounting for particle range in soft tissue
+unc_est = roi_dose_uncertainty_estimate(dose_img, unc_img, mask_img, isotope="Lu177")
+
+print(f"ROI Uncertainty: {unc_est * 100:.2f}% (bounds: [{unc_min * 100:.3f}%, {unc_max * 100:.2f}%])")
+```
+
+---
+
 ## 3. Dosimetry Methods Summary
 
 ### Hanscheid 2017 (`hanscheid2017`)
@@ -255,3 +277,33 @@ Where:
 *   $A(t, x,y,z)$ is the activity in voxel $(x,y,z)$ at acquisition time (in Bq).
 *   $3600$ converts seconds to hours.
 
+## 4. Tests
+
+### Validation with OpenGate Monte Carlo: `test_madsen2018_opengate_p142_comparison`
+
+Located in [`tests/test_dose.py`](../tests/test_dose.py), this test compares the organ-level S-value calculation of `madsen2018` against a ground-truth Monte Carlo dose rate simulation performed with OpenGate (`opengate_dose_rate`) on the `p142` patient dataset:
+
+1. **Simulation Input (`data/p142/`):**
+   * Companion cropped CT: `ct_4mm_cropped.nii.gz`
+   * Cropped liver activity: `liver_4mm_cropped.nii.gz` with uniform $^{177}\text{Lu}$ activity defined in `p142_dose_rate_test1.json` ($A_0 = 10^6\text{ Bq}$).
+   * OpenGate simulated output: Instantaneous dose rate map `output_vrt/output_dose.mhd` (in $\text{Gy/s}$).
+
+2. **Integration & Comparison:**
+   * The mean dose rate in the liver from OpenGate ($\dot{D}_{\text{Gate}}$) is time-integrated assuming mono-exponential clearance with effective half-life $T_{\text{eff}} = 45.0\text{ h}$:
+     $$D_{\text{Gate}} = \dot{D}_{\text{Gate}} \cdot \frac{T_{\text{eff}} \cdot 3600}{\ln(2)}$$
+   * This is compared against the absorbed dose computed by `compute_roi_dose(..., method="madsen2018")` using OpenDose S-values and CT-based patient organ mass scaling.
+   * The test asserts that the relative difference is within $5\%$ (actual agreement is $\approx 3.4\%$).
+   * Automatically skipped if local simulation files under `data/p142/` are absent.
+
+**Create the test:**
+```bash
+    # in folder data/p142 (not in git)
+    opengate_dose_rate p142_dose_rate_test1.json
+    ./create_benchmark_json.py
+
+```
+
+**Run the test:**
+```bash
+pytest -s tests/test_dose.py -k "test_madsen2018_opengate_p142_comparison"
+```
