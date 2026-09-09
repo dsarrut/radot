@@ -13,6 +13,8 @@ activate_*
 .vscode
 
 *dev_readme*md
+*readme_dev*md
+dev_docs/
 *-workspace
 uv.lock
 
