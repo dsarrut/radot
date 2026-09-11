@@ -220,6 +220,7 @@ print(f"ROI Uncertainty: {unc_est * 100:.2f}% (bounds: [{unc_min * 100:.3f}%, {u
 The Hänscheid 2017 method is an organ-level dosimetry approach specific to Lutetium-177 ($\text{}^{177}\text{Lu}$) that scales the mean activity concentration by a scaling factor of $0.125$ and the effective half-life.
 
 **Equation:**
+
 $$
 D = 0.125 \cdot C_{\text{mean}} \cdot 2^{\frac{t}{T_{\text{eff}}}} \cdot T_{\text{eff}}
 $$
@@ -236,6 +237,7 @@ Where:
 The Hänscheid 2018 method is an organ-level dosimetry method that uses the OpenDose S-value database for phantom-specific regional dosimetry. It assumes that the effective half-life is $2 \cdot t$ ($T_{\text{eff}} = 2 \cdot t$), meaning that the time integrated activity (TIA) is computed from a single SPECT scan. S-values are scaled by the ratio of reference organ mass to patient organ mass.
 
 **Equation:**
+
 $$
 D = \frac{\tilde{A} \cdot S}{\text{mass-scaling}} \cdot 10^{-3}
 $$
@@ -272,6 +274,7 @@ Where:
 The Madsen 2018 method is an organ-level dosimetry method that uses the OpenDose S-value database for phantom-specific regional dosimetry, similar to `hanscheid2018`, but allows/requires a user-specified effective half-life $T_{\text{eff}}$ per ROI instead of assuming $T_{\text{eff}} = 2 \cdot t$. S-values are scaled by the ratio of reference organ mass to patient organ mass.
 
 **Equation:**
+
 $$
 D = \frac{\tilde{A} \cdot S}{\text{mass-scaling}} \cdot 10^{-3}
 $$
@@ -383,7 +386,9 @@ Each timepoint can define its own companion `labels` and `ct`. If both a global 
 The Local Deposition Model (LDM) is a voxel-level dosimetry method based on the physical deposition of non-penetrating radiations. It calculates the energy absorbed locally in each voxel.
 
 #### Integrated Absorbed Dose (Gy)
+
 **Equation:**
+
 $$
 D(x,y,z) = \frac{\tilde{A}(x,y,z) \cdot \Delta_{\text{local}} \cdot 1.60218 \times 10^{-10}}{m(x,y,z)}
 $$
@@ -407,12 +412,15 @@ Where:
     $$
     (capped at a minimum of $0.001\text{ g/mL}$).
 *   $1.60218 \times 10^{-10}$ is the conversion factor from $\text{MeV}/\text{g}$ to $\text{Gy}$ ($\text{J}/\text{kg}$):
-    $$1\text{ MeV} = 1.60218 \times 10^{-13}\text{ J} \implies 1\text{ MeV/g} = 1.60218 \times 10^{-10}\text{ J/kg}$$
+    $$
+    1\text{ MeV} = 1.60218 \times 10^{-13}\text{ J} \implies 1\text{ MeV/g} = 1.60218 \times 10^{-10}\text{ J/kg}
+    $$
 
 #### Instantaneous Dose Rate (Gy/h)
 When `--dose-rate` is active, it computes the instantaneous dose rate at the acquisition time.
 
 **Equation:**
+
 $$
 \dot{D}(x,y,z) = \frac{A(t, x,y,z) \cdot \Delta_{\text{local}} \cdot 1.60218 \times 10^{-10} \cdot 3600}{m(x,y,z)}
 $$
