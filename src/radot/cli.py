@@ -649,7 +649,14 @@ def dose_list():
 
 
 @main.command(name="dose")
-@click.argument("image_path", type=click.Path(exists=True, path_type=Path))
+@click.argument("image_path", required=False, type=click.Path(exists=True, path_type=Path))
+@click.option(
+    "-c",
+    "--config",
+    "config_path",
+    type=click.Path(exists=True, path_type=Path),
+    help="Path to JSON configuration file.",
+)
 @click.option(
     "-l",
     "--labels",
@@ -667,12 +674,12 @@ def dose_list():
 @click.option(
     "-m",
     "--method",
-    required=True,
+    required=False,
     help="Dosimetry model / method (e.g. madsen2018).",
 )
 @click.option(
     "--isotope",
-    required=True,
+    required=False,
     help="Radionuclide (e.g. Lu177).",
 )
 @click.option(
@@ -739,6 +746,7 @@ def dose_list():
 )
 def dose(
     image_path,
+    config_path,
     labels_path,
     ct_path,
     method,
@@ -756,10 +764,38 @@ def dose(
     cascade,
 ):
     """Compute absorbed doses for specified regions of interest (ROI)."""
-    from radot.dose import compute_roi_dose_file
+    from radot.dose import compute_roi_dose_file, load_dose_config
     from radot.log import configure_logging
 
     ctx = click.get_current_context(silent=True)
+
+    # Detect if image_path is actually a JSON config file
+    if image_path is not None and image_path.name.lower().endswith(".json"):
+        if config_path is None:
+            config_path = image_path
+            image_path = None
+
+    if image_path is None and config_path is None:
+        raise click.UsageError(
+            "Missing argument 'IMAGE_PATH' or option '-c' / '--config'."
+        )
+
+    # Load configuration if provided
+    config_dict = {}
+    if config_path is not None:
+        try:
+            config_dict = load_dose_config(config_path)
+        except Exception as e:
+            handle_cli_exception(e)
+
+    def param_from_cli(param_name: str) -> bool:
+        if ctx:
+            return (
+                ctx.get_parameter_source(param_name)
+                == click.core.ParameterSource.COMMANDLINE
+            )
+        return False
+
     cli_quiet = quiet
     cli_verbose = verbose
     if ctx and ctx.obj:
@@ -767,9 +803,59 @@ def dose(
             cli_quiet = True
         if not cli_verbose and ctx.obj.get("verbose"):
             cli_verbose = True
+    if not param_from_cli("quiet") and config_dict.get("quiet"):
+        cli_quiet = True
+    if not param_from_cli("verbose") and config_dict.get("verbose"):
+        cli_verbose = True
+
     if cli_verbose and cli_quiet:
         raise click.UsageError("Options --verbose and --quiet are mutually exclusive.")
     configure_logging(verbose=cli_verbose, quiet=cli_quiet)
+
+    # Resolve inputs (CLI overrides config)
+    if image_path is None:
+        image_path = config_dict.get("image_path")
+    if not image_path:
+        raise click.UsageError(
+            "Missing required activity image path (provide via argument or config file)."
+        )
+
+    if method is None:
+        method = config_dict.get("method")
+    if not method:
+        raise click.UsageError("Missing option '-m' / '--method'.")
+
+    if isotope is None:
+        isotope = config_dict.get("isotope")
+    if not isotope:
+        raise click.UsageError("Missing option '--isotope'.")
+
+    if labels_path is None:
+        labels_path = config_dict.get("labels_path")
+
+    if ct_path is None:
+        ct_path = config_dict.get("ct_path")
+
+    if output_path is None:
+        output_path = config_dict.get("output_path")
+
+    if total_activity is None and "total_activity_mbq" in config_dict:
+        total_activity = config_dict["total_activity_mbq"]
+
+    if resample is None and "resample_target" in config_dict:
+        resample = config_dict["resample_target"]
+
+    if not param_from_cli("dose_rate") and config_dict.get("dose_rate"):
+        dose_rate = True
+
+    if not param_from_cli("cascade") and "cascade" in config_dict:
+        cascade = config_dict["cascade"]
+
+    if not param_from_cli("hu_threshold") and "hu_threshold" in config_dict:
+        hu_threshold = config_dict["hu_threshold"]
+
+    if not param_from_cli("phantom") and "phantom" in config_dict:
+        phantom = config_dict["phantom"]
 
     method_key = method.lower()
     if dose_rate and method_key != "ldm":
@@ -790,10 +876,15 @@ def dose(
                 item_stripped = item.strip()
                 if item_stripped:
                     rois_list.append(item_stripped)
+    elif config_dict.get("rois"):
+        rois_list = config_dict["rois"]
     if not rois_list:
         rois_list = None
 
     method_params = {"phantom": phantom}
+    if "method_params" in config_dict:
+        method_params.update(config_dict["method_params"])
+
     if teff:
         for t in teff:
             for item in t.split(","):

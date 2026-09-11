@@ -916,22 +916,229 @@ def compute_roi_dose(
     )
 
 
+def load_dose_config(
+    config: Union[str, Path, Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Load and normalize a dosimetry configuration file or dictionary.
+    Resolves relative file paths relative to the configuration file location.
+    """
+    if isinstance(config, (str, Path)):
+        config_path = Path(config).resolve()
+        if not config_path.exists():
+            raise FileNotFoundError(f"Configuration file not found: {config_path}")
+        with open(config_path, "r") as f:
+            raw_data = json.load(f)
+        base_dir = config_path.parent
+    elif isinstance(config, dict):
+        raw_data = dict(config)
+        base_dir = Path.cwd()
+    else:
+        raise TypeError(f"Expected path or dict for config, got {type(config).__name__}")
+
+    def resolve_path(p: Optional[Union[str, Path]]) -> Optional[Path]:
+        if p is None:
+            return None
+        p_obj = Path(p)
+        if not p_obj.is_absolute():
+            return (base_dir / p_obj).resolve()
+        return p_obj.resolve()
+
+    res: Dict[str, Any] = {}
+
+    # Activity Image path
+    img = raw_data.get("image_path") or raw_data.get("image")
+    if img is not None:
+        res["image_path"] = resolve_path(img)
+
+    # Labels path
+    lbl = raw_data.get("labels_path") or raw_data.get("labels")
+    if lbl is not None:
+        res["labels_path"] = resolve_path(lbl)
+
+    # CT path
+    ct = raw_data.get("ct_path") or raw_data.get("ct")
+    if ct is not None:
+        res["ct_path"] = resolve_path(ct)
+
+    # Output path
+    out = raw_data.get("output_path") or raw_data.get("output")
+    if out is not None:
+        res["output_path"] = resolve_path(out)
+
+    # Method / Model
+    method = raw_data.get("method") or raw_data.get("model")
+    if method is not None:
+        res["method"] = str(method)
+
+    # Radionuclide / Isotope
+    isotope = raw_data.get("isotope") or raw_data.get("radionuclide")
+    if isotope is not None:
+        res["isotope"] = str(isotope)
+
+    # Total activity
+    act = (
+        raw_data.get("total_activity_mbq")
+        if "total_activity_mbq" in raw_data
+        else raw_data.get("total_activity")
+    )
+    if act is not None:
+        res["total_activity_mbq"] = float(act)
+
+    # ROIs
+    rois = raw_data.get("rois")
+    if rois is not None:
+        if isinstance(rois, str):
+            rois_list = [r.strip() for r in rois.split(",") if r.strip()]
+        elif isinstance(rois, (list, tuple)):
+            rois_list = []
+            for r in rois:
+                if isinstance(r, str):
+                    for item in r.split(","):
+                        item_stripped = item.strip()
+                        if item_stripped:
+                            rois_list.append(item_stripped)
+                else:
+                    rois_list.append(str(r))
+        else:
+            rois_list = list(rois)
+        res["rois"] = rois_list if rois_list else None
+
+    # Resample target
+    resample = raw_data.get("resample_target") or raw_data.get("resample")
+    if resample is not None:
+        res["resample_target"] = str(resample)
+
+    # Phantom
+    phantom = raw_data.get("phantom")
+    if phantom is not None:
+        res["phantom"] = str(phantom)
+
+    # Cascade
+    if "cascade" in raw_data:
+        res["cascade"] = bool(raw_data["cascade"])
+
+    # Dose rate
+    if "dose_rate" in raw_data:
+        res["dose_rate"] = bool(raw_data["dose_rate"])
+
+    # HU threshold
+    if "hu_threshold" in raw_data:
+        res["hu_threshold"] = float(raw_data["hu_threshold"])
+
+    # Verbose
+    if "verbose" in raw_data:
+        res["verbose"] = bool(raw_data["verbose"])
+
+    # Quiet
+    if "quiet" in raw_data:
+        res["quiet"] = bool(raw_data["quiet"])
+
+    # Method params & Teff
+    method_params: Dict[str, Any] = {}
+    if "method_params" in raw_data and isinstance(raw_data["method_params"], dict):
+        method_params = dict(raw_data["method_params"])
+
+    if phantom is not None and "phantom" not in method_params:
+        method_params["phantom"] = phantom
+
+    teff = raw_data.get("teff")
+    if teff is not None:
+        if isinstance(teff, dict):
+            for roi_name, val in teff.items():
+                if isinstance(val, dict):
+                    method_params[roi_name] = val
+                else:
+                    method_params[roi_name] = {"teff": float(val)}
+        elif isinstance(teff, (list, tuple)):
+            for item in teff:
+                if isinstance(item, str):
+                    for t in item.split(","):
+                        t_strip = t.strip()
+                        if not t_strip:
+                            continue
+                        parts = t_strip.split(":")
+                        if len(parts) == 2:
+                            method_params[parts[0].strip()] = {
+                                "teff": float(parts[1].strip())
+                            }
+
+    if method_params:
+        res["method_params"] = method_params
+
+    return res
+
+
 def compute_roi_dose_file(
-    image_path: Path,
-    labels_path: Optional[Path],
-    method: str,
-    isotope: str,
-    ct_path: Optional[Path] = None,
+    image_path: Optional[Union[str, Path]] = None,
+    labels_path: Optional[Union[str, Path]] = None,
+    method: Optional[str] = None,
+    isotope: Optional[str] = None,
+    ct_path: Optional[Union[str, Path]] = None,
     total_activity_mbq: Optional[float] = None,
     rois: Optional[List[str]] = None,
     method_params: Optional[Dict[str, Any]] = None,
-    output_path: Optional[Path] = None,
+    output_path: Optional[Union[str, Path]] = None,
     resample_target: Optional[str] = None,
     verbose: bool = False,
     hu_threshold: Optional[float] = -800.0,
     dose_rate: bool = False,
     cascade: bool = False,
-) -> None:
+    config: Optional[Union[str, Path, Dict[str, Any]]] = None,
+) -> Any:
+    # 0. Check if image_path is actually a JSON config file
+    if (
+        image_path is not None
+        and str(image_path).lower().endswith(".json")
+        and config is None
+        and method is None
+        and isotope is None
+    ):
+        config = image_path
+        image_path = None
+
+    # Merge config file if provided
+    if config is not None:
+        cfg = load_dose_config(config)
+        if image_path is None:
+            image_path = cfg.get("image_path")
+        if labels_path is None:
+            labels_path = cfg.get("labels_path")
+        if ct_path is None:
+            ct_path = cfg.get("ct_path")
+        if method is None:
+            method = cfg.get("method")
+        if isotope is None:
+            isotope = cfg.get("isotope")
+        if total_activity_mbq is None:
+            total_activity_mbq = cfg.get("total_activity_mbq")
+        if rois is None:
+            rois = cfg.get("rois")
+        if output_path is None:
+            output_path = cfg.get("output_path")
+        if resample_target is None:
+            resample_target = cfg.get("resample_target")
+        if not verbose and cfg.get("verbose"):
+            verbose = True
+        if hu_threshold == -800.0 and "hu_threshold" in cfg:
+            hu_threshold = cfg["hu_threshold"]
+        if not dose_rate and cfg.get("dose_rate"):
+            dose_rate = True
+        if not cascade and cfg.get("cascade"):
+            cascade = True
+
+        cfg_mp = cfg.get("method_params", {})
+        if method_params is not None:
+            cfg_mp.update(method_params)
+        method_params = cfg_mp
+
+    if not image_path:
+        raise ValueError("Activity image path ('image') must be provided.")
+    if not method:
+        raise ValueError("Dosimetry method ('method') must be provided.")
+    if not isotope:
+        raise ValueError("Radionuclide ('isotope' / 'radionuclide') must be provided.")
+
     image_path = Path(image_path)
     if labels_path is not None:
         labels_path = Path(labels_path)
@@ -1112,6 +1319,7 @@ def compute_roi_dose_file(
                 (".nii", ".nii.gz", ".nrrd", ".mhd")
             ):
                 pretty_print_dose(results_dict)
+            return results
         else:
             if not output_path:
                 output_path = Path("dose.nii.gz")
@@ -1131,7 +1339,7 @@ def compute_roi_dose_file(
                 injection_date=orig_meta.get("injection_date"),
                 acquisition_date=orig_meta.get("acquisition_date"),
             )
-        return
+            return results
 
     # Print results to stdout
     if output_path:
@@ -1142,6 +1350,8 @@ def compute_roi_dose_file(
     else:
         # Pretty print results as a table
         pretty_print_dose(results)
+
+    return results
 
 
 def pretty_print_dose(results: dict) -> None:
