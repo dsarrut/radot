@@ -36,15 +36,51 @@ def test_fit_exp_linear():
 
 def test_triexpo_fit_against_rpt_dosi_reference():
     """
-    Compare triexpo_fit_jackson2013 against rpt_dosi reference data
+    Compare triexpo_fit_jackson2013 against benchmark reference data
     for liver, spleen, left_kidney, right_kidney.
     """
-    ref_file = Path("/Users/dsarrut/src/py/rpt_dosi/rpt_dosi/tests/data/test003/activities_fit_ref.json")
-    if not ref_file.exists():
-        pytest.skip(f"Reference file not found: {ref_file}")
-
-    with open(ref_file, "r") as f:
-        ref_data = json.load(f)
+    ref_data = {
+        "left_kidney": {
+            "A1": -149.1548942312672,
+            "k1": -1.3,
+            "A2": 18.42237952585982,
+            "k2": -0.12660077229177122,
+            "A3": 130.7325147054074,
+            "k3": -0.019653314606789585,
+            "times": [4.528888888888889, 24.737222222222222, 117.81472222222222],
+            "activities": [129.98251290563923, 80.39765044429889, 12.906145097826597],
+        },
+        "liver": {
+            "A1": -606.9115368611282,
+            "k1": -1.3,
+            "A2": 475.56032858770106,
+            "k2": -0.2572163156374191,
+            "A3": 131.35120827342712,
+            "k3": -0.019041262431118953,
+            "times": [4.528888888888889, 24.737222222222222, 117.81472222222222],
+            "activities": [268.8509665136628, 82.01045792664824, 13.93681180652071],
+        },
+        "spleen": {
+            "A1": -43.547862148638195,
+            "k1": -1.3,
+            "A2": 32.264619824286044,
+            "k2": -0.24464654254889326,
+            "A3": 11.28324232435215,
+            "k3": -0.016010410378693208,
+            "times": [4.528888888888889, 24.737222222222222, 117.81472222222222],
+            "activities": [21.148685894794713, 7.59329457790501, 1.7109633824757777],
+        },
+        "right_kidney": {
+            "A1": -123.01147608841985,
+            "k1": -1.3,
+            "A2": -17.762306344546307,
+            "k2": -0.12350991983534663,
+            "A3": 140.77378243296616,
+            "k3": -0.02102894877015231,
+            "times": [4.528888888888889, 24.737222222222222, 117.81472222222222],
+            "activities": [117.83297415903787, 83.67635522383183, 11.818126112561442],
+        },
+    }
 
     for organ, organ_ref in ref_data.items():
         times = np.array(organ_ref["times"], dtype=float)
