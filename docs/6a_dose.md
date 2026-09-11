@@ -18,11 +18,16 @@ radot dose-list
 ### Computing Dose: `radot dose`
 Calculates absorbed doses (or dose rates) and either writes a 3D dose NIfTI map or prints a formatted summary table to console.
 
+Options can be supplied directly via command-line arguments or through a JSON configuration file:
+
 ```bash
-radot dose <image_path> [options]
+radot dose <image_path_or_config_json> [options]
+# or
+radot dose -c <config_json> [options]
 ```
 
 #### Options:
+* -c, --config <config_path>: Path to a JSON configuration file containing dosimetry settings.
 * -l, --labels <labels_path>: Optional anatomical segmentation label map. Required for S-value methods. Optional for LDM.
 * --ct <ct_path>: Companion CT image used for physical density estimation and mass calibration.
 * -m, --method <hanscheid2017|hanscheid2018|ldm>: Dosimetry model to apply.
@@ -35,8 +40,43 @@ radot dose <image_path> [options]
 * -o, --output <output_path>: Path to output NIfTI dose map or JSON summary results. Required for LDM if running without labels.
 * --resample <like_activity|like_labels|like_ct>: Specifies the grid alignment strategy if input image spaces differ.
 * --phantom <male|female>: Reference phantom model used for S-value calculations. Defaults to male.
+* --cascade / --no-cascade: Account for radioactive decay cascade in secular equilibrium (default: false).
 
-#### Examples:
+#### Using a JSON Configuration File:
+
+Dosimetry studies can be defined in a reproducible JSON file:
+```json
+{
+    "image": "spect.nii.gz",
+    "labels": "labels.nii.gz",
+    "ct": "ct.nii.gz",
+    "method": "hanscheid2017",
+    "radionuclide": "Lu177",
+    "total_activity": 250.0,
+    "rois": ["Liver", "Kidney_L"],
+    "teff": {
+        "Liver": 45.0,
+        "Kidney_L": 32.0
+    },
+    "resample": "like_activity",
+    "output": "dose_results.json"
+}
+```
+Relative paths inside the JSON file are automatically resolved relative to the directory containing the JSON file.
+
+Run with:
+```bash
+# Direct positional syntax
+radot dose dose_config.json
+
+# Explicit flag
+radot dose -c dose_config.json
+
+# Override any setting from CLI
+radot dose dose_config.json -o custom_output.json -v
+```
+
+#### CLI Examples:
 
 1. Organ-level S-value dosimetry (Hänscheid 2017):
 ```bash
@@ -60,12 +100,13 @@ radot dose spect.nii.gz -m ldm --isotope Lu177 --ct ct.nii.gz --dose-rate -o dos
 Manage dosimetry programmatically:
 
 ### `compute_roi_dose_file`
-Executes the full dosimetry pipeline on file paths.
+Executes the full dosimetry pipeline on file paths, or directly from a configuration file/dictionary.
 
 ```python
 from pathlib import Path
 from radot.dose import compute_roi_dose_file
 
+# From arguments:
 compute_roi_dose_file(
     image_path=Path("spect.nii.gz"),
     labels_path=Path("labels.nii.gz"),
@@ -76,6 +117,9 @@ compute_roi_dose_file(
     hu_threshold=-800.0,
     dose_rate=False
 )
+
+# Or directly from a JSON configuration file:
+results = compute_roi_dose_file("dose_config.json")
 ```
 
 ---

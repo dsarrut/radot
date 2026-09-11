@@ -64,20 +64,20 @@ This document provides a high-level overview of the `radot` library architecture
 
 Refer to these Markdown documents in the `docs/` directory for detailed specifications and user guides:
 *   [quickstart.md](docs/quickstart.md): End-to-end CLI usage and Python API workflows.
-*   [readme_dose.md](docs/readme_dose.md): Mathematical formulations for LDM, Hänscheid, and Madsen dosimetry models.
-*   [readme_images_units.md](docs/readme_images_units.md): Unit conversions (`bq`, `bqml`, `suv`, `sul`) and LBM strategies.
-*   [readme_sul.md](docs/readme_sul.md): Stoichiometric CT density integration for SUL without weight dependence.
-*   [readme_radionuclide.md](docs/readme_radionuclide.md): ICRP-107 and IAEA LiveChart decay cascade data integration and prioritization.
-*   [readme_dicom.md](docs/readme_dicom.md): DICOM conversion, series sorting, and sidecar metadata extraction.
-*   [readme_meta.md](docs/readme_meta.md): Companion JSON sidecar specifications and schema.
-*   [readme_segmentation.md](docs/readme_segmentation.md): TotalSegmentator automation and TG-263 label mapping.
-*   [readme_images_resample.md](docs/readme_images_resample.md): Grid resampling and total activity preservation.
-*   [readme_roi_names.md](docs/readme_roi_names.md): Comprehensive ROI mapping policy and cascade stages.
-*   [readme_stats.md](docs/readme_stats.md): Volume, mass, and statistical dosimetry reporting.
-*   [readme_opendose.md](docs/readme_opendose.md): OpenDose S-values and phantom caching.
-*   [readme_peak.md](docs/readme_peak.md): SUVpeak equations, spherical volume integration, and Gaussian filtering.
-*   [readme_logging.md](docs/readme_logging.md): Configuration and levels of the package logging system.
-*   [readme_python.md](docs/readme_python.md): Python API reference and integration recipes.
+*   [6a_dose.md](docs/6a_dose.md): Mathematical formulations for LDM, Hänscheid, and Madsen dosimetry models.
+*   [3a_images_units.md](docs/3a_images_units.md): Unit conversions (`bq`, `bqml`, `suv`, `sul`) and LBM strategies.
+*   [3b_sul.md](docs/3b_sul.md): Stoichiometric CT density integration for SUL without weight dependence.
+*   [5a_radionuclide.md](docs/5a_radionuclide.md): ICRP-107 and IAEA LiveChart decay cascade data integration and prioritization.
+*   [1a_dicom.md](docs/1a_dicom.md): DICOM conversion, series sorting, and sidecar metadata extraction.
+*   [1b_meta.md](docs/1b_meta.md): Companion JSON sidecar specifications and schema.
+*   [2a_segmentation.md](docs/2a_segmentation.md): TotalSegmentator automation and TG-263 label mapping.
+*   [4_images_resample.md](docs/4_images_resample.md): Grid resampling and total activity preservation.
+*   [2b_roi_names.md](docs/2b_roi_names.md): Comprehensive ROI mapping policy and cascade stages.
+*   [6b_stats.md](docs/6b_stats.md): Volume, mass, and statistical dosimetry reporting.
+*   [5b_opendose.md](docs/5b_opendose.md): OpenDose S-values and phantom caching.
+*   [3c_peak.md](docs/3c_peak.md): SUVpeak equations, spherical volume integration, and Gaussian filtering.
+*   [logging.md](docs/logging.md): Configuration and levels of the package logging system.
+*   [python.md](docs/python.md): Python API reference and integration recipes.
 *   [dev_docs/dev_readme_checklist.md](dev_docs/dev_readme_checklist.md): Developer parameter and metadata validation checklist.
 *   [dev_docs/dev_readme_db_api.md](dev_docs/dev_readme_db_api.md): Developer reference for database and phantom layers.
 
