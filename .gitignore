@@ -23,3 +23,6 @@ src/radot/data/opendose.save/
 src/radot/data/source_temp/
 
 /data
+
+docs/bib/
+site/

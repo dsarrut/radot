@@ -1,0 +1,79 @@
+site_name: radot
+site_description: Python library and CLI for radiation dosimetry in radionuclide therapy
+site_author: David Sarrut
+
+exclude_docs: |
+  bib/**
+
+theme:
+  name: material
+  palette:
+    # Light mode
+    - scheme: default
+      primary: teal
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - scheme: slate
+      primary: teal
+      accent: cyan
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.arithmatex:
+      generic: true
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Quickstart: quickstart.md
+      - Python API: python.md
+  - Image Processing:
+      - DICOM Conversion: 1a_dicom.md
+      - Metadata Sidecars: 1b_meta.md
+      - CT Segmentation: 2a_segmentation.md
+      - Standard ROI Names: 2b_roi_names.md
+      - Units & Normalization: 3a_images_units.md
+      - SUL Normalization: 3b_sul.md
+      - SUVpeak: 3c_peak.md
+      - Image Resampling: 4_images_resample.md
+  - Physics & Radionuclides:
+      - Radionuclide Physics: 5a_radionuclide.md
+      - OpenDose Database: 5b_opendose.md
+  - Dosimetry:
+      - Dosimetry Models: 6a_dose.md
+      - Statistics & Reporting: 6b_stats.md
+  - Reference:
+      - Logging: logging.md

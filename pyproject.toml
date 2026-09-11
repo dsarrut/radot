@@ -26,6 +26,11 @@ dependencies = [
     "opengate"
 ]
 
+[project.optional-dependencies]
+docs = [
+    "mkdocs-material>=9.5",
+]
+
 [project.scripts]
 radot = "radot.cli:main"
 

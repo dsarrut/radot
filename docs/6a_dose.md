@@ -150,6 +150,27 @@ results, dose_image = compute_roi_dose(
 
 ---
 
+### `compute_roi_dose_mtp`
+Executes multiple timepoint (MTP) dosimetry (e.g. Jackson 2013 tri-exponential model) using a list of SimpleITK images or file paths:
+
+```python
+from radot.dose import compute_roi_dose_mtp
+
+# Supports a list of 3 SPECT images, with per-timepoint labels or a registered reference label
+results = compute_roi_dose_mtp(
+    images=["spect_tp1.nii.gz", "spect_tp2.nii.gz", "spect_tp3.nii.gz"],
+    labels=["labels_tp1.nii.gz", "labels_tp2.nii.gz", "labels_tp3.nii.gz"],
+    ct_image=["ct_tp1.nii.gz", "ct_tp2.nii.gz", "ct_tp3.nii.gz"],
+    method="jackson2013",
+    isotope="Lu177",
+    rois=["Kidney_L", "Kidney_R", "Liver", "Spleen"]
+)
+
+# Returns dictionary with mean_dose_gy, tia_mbq_s, tia_mbq_h, roi_teff_h, and fit_params per ROI
+```
+
+---
+
 ### `dose_ldm`
 Low-level physical dosimetry function representing the core vectorized mathematical model of LDM.
 
@@ -223,9 +244,9 @@ Where:
 *   $D$ is the mean absorbed dose in the ROI (in Gy).
 *   $\tilde{A}$ is the Time Integrated Activity (TIA) in the ROI (in $\text{MBq}\cdot\text{s}$), calculated as:
     $$
-    \tilde{A} = A(t) \cdot \frac{2 \cdot t \cdot 3600}{\ln(2)}
+    \tilde{A} = A(t) \cdot \frac{T_{\text{eff}} \cdot 3600}{\ln(2)}
     $$
-    with $A(t)$ being the total activity in the ROI (in MBq) at the time of acquisition, and $t$ being the time from injection (in hours).
+    where $T_{\text{eff}} = 2 \cdot t$ by default (as established in Hänscheid et al. 2018), or an optional user-provided effective half-life per ROI. $A(t)$ is the total activity in the ROI (in MBq) at acquisition time, and $t$ is the time from injection (in hours).
 *   $S$ is the self S-value of the organ from the OpenDose database (in $\text{mGy}/(\text{MBq}\cdot\text{s})$).
 *   $\text{mass-scaling}$ is the mass scaling factor:
     $$
@@ -432,17 +453,18 @@ opengate_dose_rate p142_dose_rate_ac225.json
 # Run all dose validation tests
 pytest -s tests/test_dose.py -k "dose"
 
+# Run Jackson 2013 MTP tests
+pytest -v tests/test_dose_jackson.py
+
 # Run individual tests
 pytest -s tests/test_dose.py -k "test_ldm_self_dose"
 pytest -s tests/test_dose.py -k "test_madsen2018_self_dose"
 pytest -s tests/test_dose.py -k "test_hanscheid2017_self_dose"
 pytest -s tests/test_dose.py -k "test_hanscheid2018_self_dose"
+pytest -s tests/test_dose.py -k "test_hanscheid2018_custom_teff"
 pytest -s tests/test_dose.py -k "test_y90_self_dose"
 pytest -s tests/test_dose.py -k "test_i131_self_dose"
 pytest -s tests/test_dose.py -k "test_ac225_self_dose"
 pytest -s tests/test_dose.py -k "test_madsen2018_cross_dose"
 pytest -s tests/test_dose.py -k "test_hanscheid2018_cross_dose"
 ```
-
-
-
