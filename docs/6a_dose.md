@@ -30,7 +30,7 @@ radot dose -c <config_json> [options]
 * -c, --config <config_path>: Path to a JSON configuration file containing dosimetry settings.
 * -l, --labels <labels_path>: Optional anatomical segmentation label map. Required for S-value methods. Optional for LDM.
 * --ct <ct_path>: Companion CT image used for physical density estimation and mass calibration.
-* -m, --method <hanscheid2017|hanscheid2018|ldm>: Dosimetry model to apply.
+* -m, --method <hanscheid2017|hanscheid2018|madsen2018|jackson2013|ldm>: Dosimetry model to apply.
 * --isotope <name>: Radionuclide identifier (e.g. Lu177, Y90) to retrieve physical yield constraints.
 * --rois <name>: ROI name to include. Can be specified multiple times or comma-separated.
 * --teff <ROI:value>: Effective half-life override per ROI in hours (e.g. --teff Liver:45.0 --teff Kidney_L:32.0).
@@ -53,8 +53,7 @@ Dosimetry studies can be defined in a reproducible JSON file:
     "method": "hanscheid2017",
     "radionuclide": "Lu177",
     "total_activity": 250.0,
-    "rois": ["Liver", "Kidney_L"],
-    "teff": {
+    "rois": {
         "Liver": 45.0,
         "Kidney_L": 32.0
     },
@@ -62,6 +61,7 @@ Dosimetry studies can be defined in a reproducible JSON file:
     "output": "dose_results.json"
 }
 ```
+*(Alternatively, you can separate `"rois": ["Liver", "Kidney_L"]` and `"teff": {"Liver": 45.0, "Kidney_L": 32.0}`)*
 Relative paths inside the JSON file are automatically resolved relative to the directory containing the JSON file.
 
 Run with:
@@ -274,6 +274,87 @@ Where:
     where $m_{\text{patient}}$ is the patient's organ mass and $m_{\text{reference}}$ is the reference phantom's organ mass.
 *   $10^{-3}$ converts the resulting dose from mGy to Gy.
 
+---
+
+### Jackson 2013 (`jackson2013`)
+The Jackson 2013 method (*Jackson et al., Med. Phys. 40(11), 112503 (2013)*) is a **multiple-timepoint (MTP)** organ-level dosimetry method. It requires **exactly 3 SPECT acquisitions** ($t_1 < t_2 < t_3$ post-injection) and fits an analytical tri-exponential biological clearance curve to the decay-corrected time-activity points:
+
+$$
+A_{\text{bio}}(t) = A_1 e^{k_1 t} + A_2 e^{k_2 t} + A_3 e^{k_3 t}
+$$
+
+with physiological constraints:
+1. Physical uptake at injection is zero: $A_{\text{bio}}(0) = 0 \implies A_1 = -(A_2 + A_3)$.
+2. The initial uptake rate is fixed based on typical small molecule/peptide kinetics: $k_1 = -1.3\text{ h}^{-1}$ ($T_{1/2} \approx 32\text{ min}$).
+3. Stepwise log-linear stripping derives the intermediate $(A_2, k_2)$ and terminal $(A_3, k_3)$ clearance components, with non-divergence boundary enforcement ($k_3 \le -0.001\text{ h}^{-1}$).
+
+#### Time-Integrated Activity (TIA)
+The physical activity curve $A(t) = A_{\text{bio}}(t) e^{-\lambda_p t} = \sum_{i=1}^3 A_i e^{(k_i - \lambda_p) t}$ is analytically integrated from $t = 0 \to \infty$:
+
+$$
+\tilde{A} = \sum_{i=1}^{3} \frac{A_i}{\lambda_p - k_i} \times 3600 \quad [\text{MBq}\cdot\text{s}]
+$$
+
+where $\lambda_p = \ln(2) / T_p$ is the physical decay constant (in $\text{h}^{-1}$). This formulation decouples physical decay from biological kinetics, making the implementation applicable to any radionuclide.
+
+#### Absorbed Dose
+Organ absorbed dose is calculated using OpenDose reference $S$-values and patient-specific organ mass scaling:
+
+$$
+D = \frac{\tilde{A} \cdot S}{\text{mass-scaling}} \cdot 10^{-3} \quad [\text{Gy}]
+$$
+
+where $\text{mass-scaling} = m_{\text{patient}} / m_{\text{reference}}$, and $S$ is in $\text{mGy}/(\text{MBq}\cdot\text{s})$.
+
+#### Multi-Timepoint Configuration Example
+MTP studies are configured in a JSON file specifying the sequence of SPECT acquisitions under `"timepoints"`.
+
+**1. Independent segmentations per timepoint (recommended when images are not co-registered):**
+Each timepoint can define its own companion `labels` and `ct`. If both a global `labels` and per-timepoint `labels` are provided, the per-timepoint segmentation takes precedence:
+
+```json
+{
+    "method": "jackson2013",
+    "isotope": "Lu177",
+    "rois": ["Liver", "Kidney_L", "Kidney_R", "Spleen"],
+    "timepoints": [
+        {
+            "image": "spect_tp1.nii.gz",
+            "labels": "labels_tp1.nii.gz",
+            "ct": "ct_tp1.nii.gz"
+        },
+        {
+            "image": "spect_tp2.nii.gz",
+            "labels": "labels_tp2.nii.gz",
+            "ct": "ct_tp2.nii.gz"
+        },
+        {
+            "image": "spect_tp3.nii.gz",
+            "labels": "labels_tp3.nii.gz",
+            "ct": "ct_tp3.nii.gz"
+        }
+    ],
+    "output": "dose_jackson.json"
+}
+```
+
+**2. Single reference segmentation (when images are pre-registered to TP1):**
+```json
+{
+    "method": "jackson2013",
+    "isotope": "Lu177",
+    "labels": "labels_tp1.nii.gz",
+    "ct": "ct_tp1.nii.gz",
+    "rois": ["Liver", "Kidney_L", "Kidney_R", "Spleen"],
+    "timepoints": [
+        "spect_tp1.nii.gz",
+        "spect_tp2.nii.gz",
+        "spect_tp3.nii.gz"
+    ],
+    "output": "dose_jackson.json"
+}
+```
+*Note: Acquisition delays can be inferred automatically from each SPECT image sidecar (`injection_date` and `acquisition_date`), or explicitly specified in each timepoint dictionary (e.g. `{"image": "spect_tp1.nii.gz", "time_h": 4.99}`).*
 
 ---
 

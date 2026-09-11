@@ -232,3 +232,46 @@ def test_cli_dose_missing_params(tmp_path):
     res2 = runner.invoke(main, ["dose", str(incomplete_cfg)])
     assert res2.exit_code != 0
     assert "Missing option '-m' / '--method'" in res2.output
+
+
+def test_load_dose_config_grouped_rois(dummy_study):
+    study_dir = dummy_study["dir"]
+
+    # 1. Test dictionary with float values
+    cfg_file1 = study_dir / "cfg_grouped_dict.json"
+    with open(cfg_file1, "w") as f:
+        json.dump({
+            "image": "spect.nii.gz",
+            "labels": "labels.nii.gz",
+            "method": "madsen2018",
+            "isotope": "Lu177",
+            "rois": {
+                "Liver": 45.2,
+                "Spleen": {"teff": 38.0}
+            }
+        }, f)
+
+    loaded1 = load_dose_config(cfg_file1)
+    assert set(loaded1["rois"]) == {"Liver", "Spleen"}
+    assert loaded1["method_params"]["Liver"]["teff"] == 45.2
+    assert loaded1["method_params"]["Spleen"]["teff"] == 38.0
+
+    # 2. Test list of dicts
+    cfg_file2 = study_dir / "cfg_grouped_list.json"
+    with open(cfg_file2, "w") as f:
+        json.dump({
+            "image": "spect.nii.gz",
+            "labels": "labels.nii.gz",
+            "method": "madsen2018",
+            "isotope": "Lu177",
+            "rois": [
+                {"name": "Liver", "teff": 45.2},
+                {"name": "Spleen", "teff": 38.0}
+            ]
+        }, f)
+
+    loaded2 = load_dose_config(cfg_file2)
+    assert set(loaded2["rois"]) == {"Liver", "Spleen"}
+    assert loaded2["method_params"]["Liver"]["teff"] == 45.2
+    assert loaded2["method_params"]["Spleen"]["teff"] == 38.0
+

@@ -94,6 +94,12 @@ def mock_db_data(monkeypatch):
                         "Liver": 1.3713e-5,
                         "Spleen": 4.1688e-8,
                     },
+                    "Spleen": {
+                        "Left kidney": 3.4509e-7,
+                        "Right kidney": 2.1234e-7,
+                        "Liver": 4.1688e-8,
+                        "Spleen": 1.597e-4,
+                    },
                 }
             else:
                 return {

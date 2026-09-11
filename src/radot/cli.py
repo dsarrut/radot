@@ -646,6 +646,15 @@ def dose_list():
     sys.stdout.write(
         "         Equation: Dose Rate = (Activity * Delta_local * 1.60218e-10 * 3600) / mass\n"
     )
+    sys.stdout.write(
+        "  - jackson2013: Jackson 2013 3-timepoint method (multi-timepoint analytical tri-exponential clearance model with OpenDose S-values)\n"
+    )
+    sys.stdout.write(
+        "                 Equation: Dose = (TIA / 1e6) * (S / mass_scaling) / 1000\n"
+    )
+    sys.stdout.write(
+        "                 Fits decay-corrected biological clearance: A_bio(t) = A1*e^(k1*t) + A2*e^(k2*t) + A3*e^(k3*t)\n"
+    )
 
 
 @main.command(name="dose")
@@ -813,9 +822,10 @@ def dose(
     configure_logging(verbose=cli_verbose, quiet=cli_quiet)
 
     # Resolve inputs (CLI overrides config)
+    timepoints = config_dict.get("timepoints")
     if image_path is None:
         image_path = config_dict.get("image_path")
-    if not image_path:
+    if not image_path and not timepoints:
         raise click.UsageError(
             "Missing required activity image path (provide via argument or config file)."
         )
@@ -862,7 +872,13 @@ def dose(
         raise click.UsageError(
             "Option '--dose-rate' is only supported with the 'ldm' method."
         )
-    if method_key != "ldm" and not labels_path:
+    has_tp_labels = False
+    if timepoints and isinstance(timepoints, (list, tuple)):
+        has_tp_labels = any(
+            isinstance(tp, dict) and ("labels" in tp or "labels_path" in tp)
+            for tp in timepoints
+        )
+    if method_key != "ldm" and not labels_path and not has_tp_labels:
         raise click.UsageError("Missing option '-l' / '--labels'.")
     if method_key == "ldm" and not labels_path and not output_path:
         raise click.UsageError(
@@ -925,6 +941,8 @@ def dose(
             hu_threshold=hu_threshold,
             dose_rate=dose_rate,
             cascade=cascade,
+            config=config_path,
+            timepoints=timepoints,
         )
     except Exception as e:
         handle_cli_exception(e)

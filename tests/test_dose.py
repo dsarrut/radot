@@ -421,6 +421,46 @@ def test_hanscheid2018_self_dose():
     ), f"Hanscheid 2018 vs OpenGate difference too large: {rel_diff * 100:.2f}% (<5% expected)"
 
 
+def test_hanscheid2018_custom_teff():
+    image = sitk.Image([5, 5, 5], sitk.sitkFloat32)
+    image.SetSpacing((10.0, 10.0, 10.0))
+    image.SetMetaData("time_from_injection", "24.0")
+    image.SetMetaData("unit", "Bq")
+    image[2, 2, 2] = 100.0
+
+    labels = sitk.Image([5, 5, 5], sitk.sitkUInt16)
+    labels.SetSpacing((10.0, 10.0, 10.0))
+    labels[2, 2, 2] = 1
+
+    labels_map = {1: "Left kidney"}
+
+    # Default Teff = 2 * 24 = 48 h
+    res_default = compute_roi_dose(
+        image=image,
+        labels=labels,
+        method="hanscheid2018",
+        isotope="Lu177",
+        labels_map=labels_map,
+        method_params={"phantom": "male"},
+    )
+
+    # Custom Teff = 36 h
+    res_custom = compute_roi_dose(
+        image=image,
+        labels=labels,
+        method="hanscheid2018",
+        isotope="Lu177",
+        labels_map=labels_map,
+        method_params={"phantom": "male", "Left kidney": {"teff": 36.0}},
+    )
+
+    assert res_default["Left kidney"]["roi_teff_h"] == 48.0
+    assert res_custom["Left kidney"]["roi_teff_h"] == 36.0
+    # Ratio of doses should be exactly 36 / 48 = 0.75
+    ratio = res_custom["Left kidney"]["mean_dose_gy"] / res_default["Left kidney"]["mean_dose_gy"]
+    assert ratio == pytest.approx(36.0 / 48.0, rel=1e-5)
+
+
 def test_ldm_self_dose():
     # pytest -s tests/test_dose.py -k "test_ldm_self_dose" -v
     bench_path = (
