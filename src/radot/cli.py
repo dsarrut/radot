@@ -368,6 +368,27 @@ def resample(
     type=click.Path(exists=True, path_type=Path),
     help="Optional labels image path (required for segmentation-based LBM).",
 )
+@click.option(
+    "--radionuclide",
+    "--isotope",
+    type=str,
+    help="Radionuclide / isotope (e.g. Ga-68, F-18, PSMA, FDG) for decay correction.",
+)
+@click.option(
+    "--injection-date",
+    type=str,
+    help="Radiopharmaceutical injection timestamp (YYYY-MM-DD HH:MM:SS or YYYY/MM/DD, HH:MM:SS).",
+)
+@click.option(
+    "--acquisition-date",
+    type=str,
+    help="PET acquisition timestamp (YYYY-MM-DD HH:MM:SS or YYYY/MM/DD, HH:MM:SS).",
+)
+@click.option(
+    "--decay-factor",
+    type=float,
+    help="Explicit decay correction factor to apply directly.",
+)
 def convert_units(
     image_path,
     from_unit,
@@ -379,6 +400,10 @@ def convert_units(
     sex,
     lbm_method,
     labels_path,
+    radionuclide,
+    injection_date,
+    acquisition_date,
+    decay_factor,
 ):
     """Convert units of a radioactive image (PET/SPECT)."""
     from radot.convert import convert_image_units_file
@@ -395,6 +420,10 @@ def convert_units(
             sex=sex,
             lbm_method=lbm_method,
             labels_path=labels_path,
+            radionuclide=radionuclide,
+            injection_date=injection_date,
+            acquisition_date=acquisition_date,
+            decay_factor=decay_factor,
         )
     except Exception as e:
         handle_cli_exception(e)
@@ -658,7 +687,9 @@ def dose_list():
 
 
 @main.command(name="dose")
-@click.argument("image_path", required=False, type=click.Path(exists=True, path_type=Path))
+@click.argument(
+    "image_path", required=False, type=click.Path(exists=True, path_type=Path)
+)
 @click.option(
     "-c",
     "--config",

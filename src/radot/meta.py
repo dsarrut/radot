@@ -17,8 +17,23 @@ METADATA_KEYS = {
     "acquisition_date": "acquisition_date",
     "height": "height",
     "sex": "sex",
+    "radionuclide": "radionuclide",
+    "isotope": "radionuclide",
 }
 
+
+def compute_file_sha256(path: Path, chunk_size: int = 65536) -> Optional[str]:
+    """Compute SHA-256 checksum of a file in chunks."""
+    import hashlib
+
+    p = Path(path)
+    if not p.exists() or not p.is_file():
+        return None
+    h = hashlib.sha256()
+    with open(p, "rb") as f:
+        while chunk := f.read(chunk_size):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def validate_date(date_str: str) -> bool:
@@ -127,7 +142,7 @@ def get_pixel_size_bytes(pixel_id: int) -> int:
 def format_memory_size(size_in_bytes: int) -> str:
     """Format memory size in a human-readable string."""
     val = float(size_in_bytes)
-    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
         if val < 1024.0:
             return f"{val:.2f} {unit}"
         val /= 1024.0
@@ -153,19 +168,21 @@ def read_metadata(image_path: Path) -> dict:
         reader = sitk.ImageFileReader()
         reader.SetFileName(str(image_path))
         reader.ReadImageInformation()
-        
+
         size = reader.GetSize()
         spacing = reader.GetSpacing()
         origin = reader.GetOrigin()
         dir_matrix = reader.GetDirection()
-        
+
         pixel_type = sitk.GetPixelIDValueAsString(reader.GetPixelID())
-        
+
         num_voxels = 1
         for s in size:
             num_voxels *= s
 
-        pixel_size = get_pixel_size_bytes(reader.GetPixelID()) * reader.GetNumberOfComponents()
+        pixel_size = (
+            get_pixel_size_bytes(reader.GetPixelID()) * reader.GetNumberOfComponents()
+        )
         mem_size = num_voxels * pixel_size
         mem_size_str = format_memory_size(mem_size)
 
@@ -176,7 +193,7 @@ def read_metadata(image_path: Path) -> dict:
             "direction": dir_matrix,
             "pixel_type": pixel_type,
             "num_voxels": num_voxels,
-            "memory_size": mem_size_str
+            "memory_size": mem_size_str,
         }
     except Exception:
         pass
@@ -187,7 +204,9 @@ def read_metadata(image_path: Path) -> dict:
     weight = get_metadata_case_insensitive(None, "weight", image_path)
     activity = get_metadata_case_insensitive(None, "activity", image_path)
     injection_date = get_metadata_case_insensitive(None, "injection_date", image_path)
-    acquisition_date = get_metadata_case_insensitive(None, "acquisition_date", image_path)
+    acquisition_date = get_metadata_case_insensitive(
+        None, "acquisition_date", image_path
+    )
     height = get_metadata_case_insensitive(None, "height", image_path)
     sex = get_metadata_case_insensitive(None, "sex", image_path)
 
@@ -231,11 +250,7 @@ def read_metadata(image_path: Path) -> dict:
         except Exception:
             pass
 
-    return {
-        "image_info": image_info,
-        "metadata": metadata
-    }
-
+    return {"image_info": image_info, "metadata": metadata}
 
 
 def write_metadata(
@@ -279,8 +294,12 @@ def write_metadata(
     existing_unit = get_metadata_case_insensitive(None, "unit", image_path)
     existing_weight = get_metadata_case_insensitive(None, "weight", image_path)
     existing_activity = get_metadata_case_insensitive(None, "activity", image_path)
-    existing_injection_date = get_metadata_case_insensitive(None, "injection_date", image_path)
-    existing_acquisition_date = get_metadata_case_insensitive(None, "acquisition_date", image_path)
+    existing_injection_date = get_metadata_case_insensitive(
+        None, "injection_date", image_path
+    )
+    existing_acquisition_date = get_metadata_case_insensitive(
+        None, "acquisition_date", image_path
+    )
     existing_height = get_metadata_case_insensitive(None, "height", image_path)
     existing_sex = get_metadata_case_insensitive(None, "sex", image_path)
 
@@ -305,9 +324,7 @@ def write_metadata(
         injection_date if injection_date is not None else existing_injection_date
     )
     final_acquisition_date = (
-        acquisition_date
-        if acquisition_date is not None
-        else existing_acquisition_date
+        acquisition_date if acquisition_date is not None else existing_acquisition_date
     )
     final_height = (
         height
@@ -324,7 +341,9 @@ def write_metadata(
     if time_from_injection is not None:
         delta = parse_time_from_injection(time_from_injection)
         if final_injection_date is not None and final_acquisition_date is not None:
-            raise ValueError("Cannot specify --time-from-injection when both injection and acquisition dates are present.")
+            raise ValueError(
+                "Cannot specify --time-from-injection when both injection and acquisition dates are present."
+            )
         elif final_injection_date is not None:
             inj_dt = datetime.strptime(final_injection_date, "%Y-%m-%d %H:%M:%S")
             acq_dt = inj_dt + delta
@@ -358,7 +377,6 @@ def write_metadata(
     if final_sex is not None:
         meta_dict["sex"] = final_sex
 
-
     sidecar_path = get_sidecar_path(image_path)
     logger.info(f"Saving metadata to sidecar: {sidecar_path}")
     with open(sidecar_path, "w") as f:
@@ -371,13 +389,14 @@ def print_metadata(info_dict: dict) -> None:
     Print gathered metadata and image information to the console.
     """
     import sys
+
     image_info = info_dict.get("image_info", {})
     if image_info:
         size = image_info.get("size")
         sys.stdout.write(f"Image Size: {size}\n")
         sys.stdout.write(f"Spacing: {image_info.get('spacing')}\n")
         sys.stdout.write(f"Origin: {image_info.get('origin')}\n")
-        
+
         dir_matrix = image_info.get("direction")
         if dir_matrix:
             if len(dir_matrix) == 9:
@@ -389,13 +408,13 @@ def print_metadata(info_dict: dict) -> None:
             else:
                 matrix_str = str(dir_matrix)
             sys.stdout.write(f"Orientation Matrix: {matrix_str}\n")
-            
+
         sys.stdout.write(f"Pixel Type: {image_info.get('pixel_type')}\n")
         sys.stdout.write(f"Number of Voxels: {image_info.get('num_voxels')}\n")
         sys.stdout.write(f"Memory Size: {image_info.get('memory_size')}\n")
 
     metadata = info_dict.get("metadata", {})
-    
+
     mod_val = metadata.get("modality")
     sys.stdout.write(f"Modality: {mod_val.upper() if mod_val else '(not set)'}\n")
 
@@ -403,10 +422,14 @@ def print_metadata(info_dict: dict) -> None:
     sys.stdout.write(f"Unit: {unit_val.lower() if unit_val else '(not set)'}\n")
 
     weight_val = metadata.get("weight")
-    sys.stdout.write(f"Weight: {f'{weight_val} kg' if weight_val is not None else '(not set)'}\n")
+    sys.stdout.write(
+        f"Weight: {f'{weight_val} kg' if weight_val is not None else '(not set)'}\n"
+    )
 
     activity_val = metadata.get("activity")
-    sys.stdout.write(f"Activity: {f'{activity_val} MBq' if activity_val is not None else '(not set)'}\n")
+    sys.stdout.write(
+        f"Activity: {f'{activity_val} MBq' if activity_val is not None else '(not set)'}\n"
+    )
 
     inj_val = metadata.get("injection_date")
     sys.stdout.write(f"Injection Date: {inj_val if inj_val else '(not set)'}\n")
@@ -419,7 +442,9 @@ def print_metadata(info_dict: dict) -> None:
         sys.stdout.write(f"Time from injection: {time_from_injection:.2f} hours\n")
 
     height_val = metadata.get("height")
-    sys.stdout.write(f"Height: {f'{height_val} cm' if height_val is not None else '(not set)'}\n")
+    sys.stdout.write(
+        f"Height: {f'{height_val} cm' if height_val is not None else '(not set)'}\n"
+    )
 
     sex_val = metadata.get("sex")
     sys.stdout.write(f"Sex: {sex_val if sex_val else '(not set)'}\n")
@@ -442,7 +467,17 @@ def manage_metadata(
     """
     is_writing = any(
         v is not None
-        for v in (modality, unit, weight, activity, injection_date, acquisition_date, time_from_injection, height, sex)
+        for v in (
+            modality,
+            unit,
+            weight,
+            activity,
+            injection_date,
+            acquisition_date,
+            time_from_injection,
+            height,
+            sex,
+        )
     )
     if is_writing:
         write_metadata(
@@ -460,7 +495,6 @@ def manage_metadata(
     else:
         info_dict = read_metadata(image_path)
         print_metadata(info_dict)
-
 
 
 def get_time_from_injection_h(
