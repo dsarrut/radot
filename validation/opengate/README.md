@@ -12,14 +12,23 @@ The results are published in [docs/7_validation.md](../../docs/7_validation.md).
 | `p142/p142_dose_rate_*.json` | OpenGATE configuration, one per radionuclide |
 | `p142/create_benchmark_json.py` | OpenGATE outputs → `p142/p142_*_opengate_benchmark.json` |
 | `p142/p142_*_opengate_benchmark.json` | Reference values used by the tests and the report |
+| `download_data.py` | Downloads the images and OpenGATE outputs from Zenodo into `p142/data/` |
 | `p142/data/` | Images and OpenGATE outputs (not in git, downloaded on demand) |
 
 ## Run
 
 ```bash
-pytest validation/opengate                   # radot vs the stored OpenGATE values (no download)
+pytest validation                            # radot vs the stored OpenGATE values (no download)
+pytest validation --opengate=images          # radot on the real images vs the OpenGATE images
 python validation/opengate/report.py         # regenerate docs/7_validation.md
 ```
+
+- Default level: the organ is modelled as a single voxel with the volume, mass and activity of the
+  benchmark JSON. It needs no image and runs in CI.
+- `images` level: radot runs on the real CT, liver and labels, and the OpenGATE dose rate is averaged
+  over the same masks. The data (34 MB) are downloaded on first use (`python validation/opengate/download_data.py`
+  does the same) and checked against their SHA-256. It also checks that the stored JSON values are those
+  of the OpenGATE images. On p142, both levels agree within 0.02 percentage points.
 
 `pytest` fails if `docs/7_validation.md` is not up to date.
 

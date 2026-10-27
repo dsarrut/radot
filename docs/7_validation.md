@@ -99,6 +99,7 @@ with `p142_dose_rate_lu177.json`:
 To check radot against the stored values, or regenerate this page:
 
 ```bash
-pytest validation/opengate                    # radot vs the stored OpenGATE values
+pytest validation                             # radot vs the stored OpenGATE values
+pytest validation --opengate=images           # same, on the real images (downloads the data)
 python validation/opengate/report.py          # regenerate this page
 ```
