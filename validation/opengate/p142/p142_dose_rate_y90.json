@@ -1,0 +1,22 @@
+{
+  "# Input CT image": "",
+  "ct_image": "ct_4mm_cropped.nii.gz",
+  "table_mat": "Schneider2000MaterialsTable.txt",
+  "table_density": "Schneider2000DensitiesTable.txt",
+  "density_tolerance_gcm3": 0.2,
+  "# Input activity image": "",
+  "activity_image": "liver_4mm_cropped.nii.gz",
+  "# Input radionuclide": "",
+  "radionuclide": "Y90",
+  "# Input total simulated activity in the whole image, in Bq": "",
+  "activity_bq": 1000000.0,
+  "# Option: number of threads": "",
+  "number_of_threads": 8,
+  "# Option: visualisation (for debug)": "",
+  "visu": false,
+  "# verbosity": "",
+  "verbose": true,
+  "mode": "vrt",
+  "e_factor": 1,
+  "output_folder": "output_y90_vrt"
+}

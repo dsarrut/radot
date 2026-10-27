@@ -26,3 +26,6 @@ src/radot/data/source_temp/
 
 docs/bib/
 site/
+
+# OpenGATE validation images and outputs (downloaded on demand)
+validation/opengate/p142/data

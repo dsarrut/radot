@@ -46,3 +46,6 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 radot = ["data/*.json", "data/opendose/*/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "validation"]

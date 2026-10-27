@@ -75,5 +75,6 @@ nav:
   - Dosimetry:
       - Dosimetry Models: 6a_dose.md
       - Statistics & Reporting: 6b_stats.md
+      - Validation vs Monte Carlo: 7_validation.md
   - Reference:
       - Logging: logging.md

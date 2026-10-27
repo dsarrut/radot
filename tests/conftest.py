@@ -6,13 +6,14 @@ import shutil
 import _pytest.monkeypatch
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def mock_opendose_dir_globally():
     """
     Globally mock importlib.resources.files to point to a temporary folder for all tests.
     This prevents unit tests from writing mock data into the live repository.
     """
-    # Create a temporary directory for the session
+    # Create a temporary directory (module scope: undone before validation/ tests,
+    # which use the real OpenDose data)
     temp_dir = Path(tempfile.mkdtemp())
 
     # Define a mock package root and create data/opendose inside it
@@ -54,7 +55,7 @@ def mock_opendose_dir_globally():
     yield
 
     mp.undo()
-    # Cleanup session temp directory
+    # Cleanup temp directory
     shutil.rmtree(temp_dir)
 
 
