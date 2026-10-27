@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0.0", "wheel"]
+requires = ["setuptools>=77.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -12,21 +12,28 @@ authors = [
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 requires-python = ">=3.11"
+license = "LGPL-3.0-or-later"
+license-files = ["LICENSE.md"]
 dependencies = [
     "SimpleITK",
     "pydicom",
     "click",
-    "pytest",
-    "TotalSegmentator",
-    "icrp107-database", 
-    "opengate"
+    "numpy",
+    "tqdm",
+    "icrp107-database",
 ]
 
 [project.optional-dependencies]
+seg = [
+    "TotalSegmentator",
+]
+dev = [
+    "pytest",
+    "scipy",
+]
 docs = [
     "mkdocs-material>=9.5",
 ]
@@ -36,3 +43,6 @@ radot = "radot.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+radot = ["data/*.json", "data/opendose/*/*.json"]

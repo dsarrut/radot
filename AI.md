@@ -78,6 +78,6 @@ Refer to these Markdown documents in the `docs/` directory for detailed specific
 *   [3c_peak.md](docs/3c_peak.md): SUVpeak equations, spherical volume integration, and Gaussian filtering.
 *   [logging.md](docs/logging.md): Configuration and levels of the package logging system.
 *   [python.md](docs/python.md): Python API reference and integration recipes.
-*   [dev_docs/dev_readme_checklist.md](dev_docs/dev_readme_checklist.md): Developer parameter and metadata validation checklist.
-*   [dev_docs/dev_readme_db_api.md](dev_docs/dev_readme_db_api.md): Developer reference for database and phantom layers.
+*   [dev_docs/dev_readme_010_checklist.md](dev_docs/dev_readme_010_checklist.md): Developer parameter and metadata validation checklist.
+*   [dev_docs/dev_readme_020_db_api.md](dev_docs/dev_readme_020_db_api.md): Developer reference for database and phantom layers.
 

@@ -45,14 +45,6 @@ def handle_cli_exception(e: Exception) -> None:
         raise click.ClickException(str(e))
 
 
-#### HELLO WORLD ####
-@main.command()
-@click.option("--name", default="World", help="Name to greet.")
-def hello(name):
-    """Simple hello world command to verify setup."""
-    click.echo(f"Hello, {name}! Welcome to radot.")
-
-
 #### SEGMENTATION ####
 @main.command()
 @click.argument("ct_path", type=click.Path(exists=True, path_type=Path))

@@ -8,6 +8,13 @@
 pip install -e .
 ```
 
+CT segmentation (`radot segment`) needs TotalSegmentator (and PyTorch), which is an optional extra:
+```bash
+pip install -e ".[seg]"
+```
+
+For development (tests): `pip install -e ".[dev]"`.
+
 To enable shell autocompletion for the CLI (zsh):
 ```bash
 eval "$(_RADOT_COMPLETE=zsh_source radot)"

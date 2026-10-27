@@ -4,7 +4,6 @@ import logging
 
 logger = logging.getLogger("radot")
 import SimpleITK as sitk
-from totalsegmentator.python_api import totalsegmentator
 
 from radot.nomenclature import TS_TO_TG263, FALLBACK_UNMAPPED_ID_RANGE
 
@@ -47,7 +46,15 @@ def segment_ct(ct_path: Path, output_path: Path, mode: str = "total", fast: bool
     import tempfile
     import json
     import numpy as np
-    from totalsegmentator.map_to_binary import class_map
+
+    try:
+        from totalsegmentator.python_api import totalsegmentator
+        from totalsegmentator.map_to_binary import class_map
+    except ImportError as e:
+        raise ImportError(
+            "TotalSegmentator is required for segmentation. "
+            "Install it with: pip install 'radot[seg]'"
+        ) from e
 
     if not ct_path.exists():
         raise FileNotFoundError(f"Input CT file not found: {ct_path}")

@@ -27,17 +27,17 @@ def test_cli_verbosity_flags(tmp_path):
     
     # Test default level configuration
     radot.set_log_level("INFO")
-    result_default = runner.invoke(main, ["hello", "--name", "Test"])
+    result_default = runner.invoke(main, ["dose-list"])
     assert result_default.exit_code == 0
     assert logger.level == logging.INFO
     
     # Test verbose sets logger to DEBUG
-    result_verbose = runner.invoke(main, ["--verbose", "hello", "--name", "Test"])
+    result_verbose = runner.invoke(main, ["--verbose", "dose-list"])
     assert result_verbose.exit_code == 0
     assert logger.level == logging.DEBUG
     
     # Test quiet sets logger to ERROR
-    result_quiet = runner.invoke(main, ["--quiet", "hello", "--name", "Test"])
+    result_quiet = runner.invoke(main, ["--quiet", "dose-list"])
     assert result_quiet.exit_code == 0
     assert logger.level == logging.ERROR
 

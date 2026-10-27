@@ -1,3 +1,4 @@
+import importlib.util
 import pytest
 from pathlib import Path
 import SimpleITK as sitk
@@ -6,6 +7,11 @@ from radot.nomenclature import (
     PRIMARY_ORGAN_ID_RANGE,
     DISCRETE_TISSUE_IDS,
     FALLBACK_UNMAPPED_ID_RANGE,
+)
+
+requires_ts = pytest.mark.skipif(
+    importlib.util.find_spec("totalsegmentator") is None,
+    reason="TotalSegmentator not installed (pip install 'radot[seg]')",
 )
 
 def test_get_tg263_name():
@@ -48,6 +54,7 @@ def test_get_tg263_id():
     # Unknown
     assert get_tg263_id("unknown_organ.nii.gz") is None
 
+@requires_ts
 def test_segment_ct(tmp_path):
     from unittest.mock import patch
     import json
@@ -73,7 +80,7 @@ def test_segment_ct(tmp_path):
         
         sitk.WriteImage(ml_image, str(output))
 
-    with patch("radot.segmentation.totalsegmentator", side_effect=mock_totalsegmentator) as mock_ts:
+    with patch("totalsegmentator.python_api.totalsegmentator", side_effect=mock_totalsegmentator) as mock_ts:
         segment_ct(ct_path, output_path, mode="total", fast=True)
         
         assert mock_ts.call_count == 1
@@ -101,6 +108,7 @@ def test_segment_ct(tmp_path):
     assert output_image.GetSpacing() == ct_image.GetSpacing()
 
 
+@requires_ts
 def test_segment_ct_unmapped_class_uses_fallback_range(tmp_path, caplog):
     from unittest.mock import patch
     import json
@@ -127,7 +135,7 @@ def test_segment_ct_unmapped_class_uses_fallback_range(tmp_path, caplog):
         sitk.WriteImage(ml_image, str(output))
 
     with caplog.at_level(logging.WARNING, logger="radot"):
-        with patch("radot.segmentation.totalsegmentator", side_effect=mock_totalsegmentator):
+        with patch("totalsegmentator.python_api.totalsegmentator", side_effect=mock_totalsegmentator):
             segment_ct(ct_path, output_path, mode="body", fast=True)
 
     json_path = output_path.with_suffix("").with_suffix(".json")
@@ -157,6 +165,7 @@ def test_segment_ct_unmapped_class_uses_fallback_range(tmp_path, caplog):
     )
 
 
+@requires_ts
 def test_segment_ct_fallback_range_exhausted_raises(tmp_path):
     from unittest.mock import patch
 
@@ -180,7 +189,7 @@ def test_segment_ct_fallback_range_exhausted_raises(tmp_path):
     # Shrink the fallback range to a single slot so the second unmapped class
     # overflows it, and force both classes through the unmapped branch.
     with patch("radot.segmentation.FALLBACK_UNMAPPED_ID_RANGE", (fallback_lo, fallback_lo)), \
-         patch("radot.segmentation.totalsegmentator", side_effect=mock_totalsegmentator), \
+         patch("totalsegmentator.python_api.totalsegmentator", side_effect=mock_totalsegmentator), \
          patch("radot.segmentation.get_tg263_id", return_value=None):
         with pytest.raises(RuntimeError, match="Exhausted FALLBACK_UNMAPPED_ID_RANGE"):
             segment_ct(ct_path, output_path, mode="body", fast=True)

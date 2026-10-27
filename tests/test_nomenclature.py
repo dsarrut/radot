@@ -107,7 +107,7 @@ def test_ts_to_tg263_covers_oculomotor_muscles_task():
     # Regression guard: oculomotor_muscles classes were previously entirely
     # absent from TS_TO_TG263, silently routing every one of them through
     # the fallback-ID path. All 19 classes must resolve to a real mapping.
-    from totalsegmentator.map_to_binary import class_map
+    class_map = pytest.importorskip("totalsegmentator.map_to_binary").class_map
     from radot.nomenclature import TS_TO_TG263
 
     task_classes = class_map["oculomotor_muscles"]
