@@ -8,6 +8,7 @@ from radot.dose import (
     compute_roi_dose,
     roi_dose_uncertainty_bounds,
     roi_dose_uncertainty_estimate,
+    roi_mean_chord_mm,
 )
 
 
@@ -750,8 +751,8 @@ def test_roi_dose_uncertainty_bounds():
 
 
 def test_roi_dose_uncertainty_estimate():
-    # 4 voxels with large spacing 10x10x10 mm, isotope Lu177 (range = 1.8 mm)
-    # nu_cluster = (1 + 1.8/10)^3 = 1.18^3 = 1.643
+    # 4 voxels with large spacing 10x10x10 mm, isotope Lu177 (mean beta range = 0.23 mm)
+    # nu_cluster = (1 + 0.23/10)^3
     dose = np.ones((2, 2, 1), dtype=np.float32)
     unc = np.ones((2, 2, 1), dtype=np.float32) * 0.05
     mask = np.ones((2, 2, 1), dtype=np.uint8)
@@ -760,7 +761,30 @@ def test_roi_dose_uncertainty_estimate():
         dose, unc, mask, spacing_mm=(10.0, 10.0, 10.0), isotope="Lu177"
     )
     # unc_min = 0.025, unc_max = 0.05
-    # expected: 0.025 * sqrt(1.643032) approx 0.03204
-    assert unc_est == pytest.approx(0.025 * np.sqrt(1.18**3), rel=1e-3)
+    assert unc_est == pytest.approx(0.025 * np.sqrt(1.023**3), rel=1e-3)
     assert unc_est >= 0.025
     assert unc_est <= 0.05
+
+    # Photons: nu_cluster = 1 + chord / spacing, capped by unc_max
+    unc_ph = roi_dose_uncertainty_estimate(
+        dose, unc, mask, spacing_mm=(10.0, 10.0, 10.0), photons=True, correlation_length_mm=10.0
+    )
+    assert unc_ph == pytest.approx(0.025 * np.sqrt(2.0), rel=1e-6)
+    unc_ph = roi_dose_uncertainty_estimate(
+        dose, unc, mask, spacing_mm=(10.0, 10.0, 10.0), photons=True, correlation_length_mm=100.0
+    )
+    assert unc_ph == pytest.approx(0.05)
+
+
+def test_roi_mean_chord_mm():
+    # Sphere of radius r: mean chord 4r/3 (Cauchy formula)
+    r = 20
+    z, y, x = np.mgrid[-r - 1 : r + 2, -r - 1 : r + 2, -r - 1 : r + 2]
+    sphere = (x**2 + y**2 + z**2 <= r**2).astype(np.uint8)
+    assert roi_mean_chord_mm(sphere, (1.0, 1.0, 1.0)) == pytest.approx(4 * r / 3, rel=0.01)
+    # Spacing scales the chord; sitk input reads the spacing
+    img = sitk.GetImageFromArray(sphere)
+    img.SetSpacing((2.0, 2.0, 2.0))
+    assert roi_mean_chord_mm(img) == pytest.approx(8 * r / 3, rel=0.01)
+    with pytest.raises(ValueError, match="ROI mask contains no voxels"):
+        roi_mean_chord_mm(np.zeros((2, 2, 2)))

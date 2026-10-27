@@ -206,10 +206,38 @@ mask_img = sitk.ReadImage("liver_mask.nii.gz")
 # Theoretical lower bound (independent voxels) and upper bound (100% correlation)
 unc_min, unc_max = roi_dose_uncertainty_bounds(dose_img, unc_img, mask_img)
 
-# Realistic physical estimate accounting for particle range in soft tissue
+# Realistic estimate: one electron history correlates the voxels within the mean beta range
 unc_est = roi_dose_uncertainty_estimate(dose_img, unc_img, mask_img, isotope="Lu177")
 
 print(f"ROI Uncertainty: {unc_est * 100:.2f}% (bounds: [{unc_min * 100:.3f}%, {unc_max * 100:.2f}%])")
+```
+
+One history deposits in several voxels, so the voxel uncertainties are correlated. The estimate is
+`unc_min * sqrt(nu)`, where `nu` is the number of ROI voxels reached by one history:
+
+- electrons (default): a cluster of the mean β range of the isotope, `nu = prod(1 + range / spacing)`;
+- photons (`photons=True`, e.g. a track-length estimator dose map): a photon deposits along its path
+  across the ROI, `nu = 1 + chord / spacing`, with the ROI mean chord `4 V / S` (`roi_mean_chord_mm`).
+
+For a dose map with both, estimate the electron and photon parts separately when they are available
+(e.g. the `e/` and `gamma_tle/` outputs of an OpenGATE VRT simulation) and add the variances. On the
+merged map, the electron estimate underestimates the uncertainty of the photon dose (for a cross-dose,
+by a factor of about 2). Checked against repeated simulations in `validation/opengate/` (see the
+validation page).
+
+```python
+from radot.dose import roi_dose_uncertainty_estimate
+
+parts = [("e", False), ("gamma_tle", True)]
+variance, total = 0.0, 0.0
+for folder, photons in parts:
+    dose = sitk.ReadImage(f"output/{folder}/output_dose.mhd")
+    unc = sitk.ReadImage(f"output/{folder}/output_dose_uncertainty.mhd")
+    mean = sitk.GetArrayViewFromImage(dose)[sitk.GetArrayViewFromImage(mask_img) > 0].mean()
+    u = roi_dose_uncertainty_estimate(dose, unc, mask_img, isotope="Lu177", photons=photons)
+    variance += (u * mean) ** 2
+    total += mean
+unc_organ = variance ** 0.5 / total
 ```
 
 ---
