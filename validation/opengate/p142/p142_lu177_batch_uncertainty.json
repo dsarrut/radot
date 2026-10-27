@@ -1,0 +1,194 @@
+{
+  "description": "Uncertainty of the organ mean OpenGATE dose rate, measured with 20 independent simulations of p142_dose_rate_lu177.json (batch method, see batch_uncertainty.py)",
+  "radionuclide": "Lu177",
+  "n_batches": 20,
+  "self": {
+    "organ": "Liver",
+    "mean_dose_rate_gy_s": [
+      1.6720391611995445e-08,
+      1.6696850930485345e-08,
+      1.6717276257805928e-08,
+      1.6732001024009984e-08,
+      1.6776120126570488e-08,
+      1.6741523941304447e-08,
+      1.673445063559988e-08,
+      1.6750286719110034e-08,
+      1.6753468197578377e-08,
+      1.6711890643750608e-08,
+      1.6717313582650384e-08,
+      1.670785218035612e-08,
+      1.6739830097588626e-08,
+      1.671966905919323e-08,
+      1.6702037884376332e-08,
+      1.6714062412273286e-08,
+      1.6725285828928343e-08,
+      1.672727453914632e-08,
+      1.6718493442982303e-08,
+      1.6682677350598273e-08
+    ],
+    "measured_uncertainty_fraction": 0.0012721327848313512,
+    "measured_uncertainty_precision_fraction": 0.00020636718822237638,
+    "estimated_uncertainty_fraction": 0.0012566437932416017,
+    "batch_mean_vs_reference_fraction": 0.002327406021081403,
+    "batch_mean_uncertainty_fraction": 0.0002844575383289014
+  },
+  "cross": {
+    "organ": "Kidney_R",
+    "mean_dose_rate_gy_s": [
+      1.5514824804831882e-10,
+      1.5387456013489548e-10,
+      1.5184747473397713e-10,
+      1.5278531407372309e-10,
+      1.5199772237789093e-10,
+      1.5283681143686542e-10,
+      1.5287099214341713e-10,
+      1.5482358222893208e-10,
+      1.5255917771909918e-10,
+      1.516920925298469e-10,
+      1.549302907553731e-10,
+      1.57273841099071e-10,
+      1.529555390583851e-10,
+      1.5602776378327662e-10,
+      1.5521011250721654e-10,
+      1.53126930088919e-10,
+      1.5257757287143692e-10,
+      1.567342661281875e-10,
+      1.539503196386061e-10,
+      1.5409492933848794e-10
+    ],
+    "measured_uncertainty_fraction": 0.010577202425015347,
+    "measured_uncertainty_precision_fraction": 0.0017158488089737375,
+    "estimated_uncertainty_fraction": 0.009441774460389492,
+    "batch_mean_vs_reference_fraction": -0.005208064422151871,
+    "batch_mean_uncertainty_fraction": 0.0023651343634109936
+  },
+  "opengate": [
+    {
+      "version": "10.1.1",
+      "commit": "0502a5e61",
+      "branch": "fix_unpickle_actors_cpp",
+      "dirty": "unknown",
+      "note_batches": "from the opengate git reflog; the changes between both commits do not touch the dose actor of a single run"
+    },
+    {
+      "version": "10.1.1",
+      "commit": "0502a5e61",
+      "branch": "fix_unpickle_actors_cpp",
+      "dirty": "unknown",
+      "note_batches": "from the opengate git reflog; the changes between both commits do not touch the dose actor of a single run"
+    },
+    {
+      "version": "10.1.1",
+      "commit": "0502a5e61",
+      "branch": "fix_unpickle_actors_cpp",
+      "dirty": "unknown",
+      "note_batches": "from the opengate git reflog; the changes between both commits do not touch the dose actor of a single run"
+    },
+    {
+      "version": "10.1.1",
+      "commit": "0502a5e61",
+      "branch": "fix_unpickle_actors_cpp",
+      "dirty": "unknown",
+      "note_batches": "from the opengate git reflog; the changes between both commits do not touch the dose actor of a single run"
+    },
+    {
+      "version": "10.1.1",
+      "commit": "0502a5e61",
+      "branch": "fix_unpickle_actors_cpp",
+      "dirty": "unknown",
+      "note_batches": "from the opengate git reflog; the changes between both commits do not touch the dose actor of a single run"
+    },
+    {
+      "version": "10.1.1",
+      "commit": "0502a5e61",
+      "branch": "fix_unpickle_actors_cpp",
+      "dirty": "unknown",
+      "note_batches": "from the opengate git reflog; the changes between both commits do not touch the dose actor of a single run"
+    },
+    {
+      "version": "10.1.1",
+      "commit": "0502a5e61",
+      "branch": "fix_unpickle_actors_cpp",
+      "dirty": "unknown",
+      "note_batches": "from the opengate git reflog; the changes between both commits do not touch the dose actor of a single run"
+    },
+    {
+      "version": "10.1.1",
+      "commit": "0502a5e61 or 2f4543cd8",
+      "note": "checkout changed while this run started",
+      "note_batches": "from the opengate git reflog; the changes between both commits do not touch the dose actor of a single run"
+    },
+    {
+      "version": "10.1.1",
+      "commit": "2f4543cd8",
+      "dirty": false,
+      "note_batches": "from the opengate git reflog; the changes between both commits do not touch the dose actor of a single run"
+    },
+    {
+      "version": "10.1.1",
+      "commit": "2f4543cd8",
+      "dirty": false,
+      "note_batches": "from the opengate git reflog; the changes between both commits do not touch the dose actor of a single run"
+    },
+    {
+      "version": "10.1.1",
+      "commit": "2f4543cd8",
+      "dirty": false,
+      "note_batches": "from the opengate git reflog; the changes between both commits do not touch the dose actor of a single run"
+    },
+    {
+      "version": "10.1.1",
+      "commit": "2f4543cd8",
+      "dirty": false,
+      "note_batches": "from the opengate git reflog; the changes between both commits do not touch the dose actor of a single run"
+    },
+    {
+      "version": "10.1.1",
+      "commit": "2f4543cd8",
+      "dirty": false,
+      "note_batches": "from the opengate git reflog; the changes between both commits do not touch the dose actor of a single run"
+    },
+    {
+      "version": "10.1.1",
+      "commit": "2f4543cd8",
+      "dirty": false,
+      "note_batches": "from the opengate git reflog; the changes between both commits do not touch the dose actor of a single run"
+    },
+    {
+      "version": "10.1.1",
+      "commit": "2f4543cd8",
+      "dirty": false,
+      "note_batches": "from the opengate git reflog; the changes between both commits do not touch the dose actor of a single run"
+    },
+    {
+      "version": "10.1.1",
+      "commit": "2f4543cd8",
+      "dirty": false,
+      "note_batches": "from the opengate git reflog; the changes between both commits do not touch the dose actor of a single run"
+    },
+    {
+      "version": "10.1.1",
+      "commit": "2f4543cd8",
+      "dirty": false,
+      "note_batches": "from the opengate git reflog; the changes between both commits do not touch the dose actor of a single run"
+    },
+    {
+      "version": "10.1.1",
+      "commit": "2f4543cd8",
+      "dirty": false,
+      "note_batches": "from the opengate git reflog; the changes between both commits do not touch the dose actor of a single run"
+    },
+    {
+      "version": "10.1.1",
+      "commit": "2f4543cd8",
+      "dirty": false,
+      "note_batches": "from the opengate git reflog; the changes between both commits do not touch the dose actor of a single run"
+    },
+    {
+      "version": "10.1.1",
+      "commit": "2f4543cd8",
+      "dirty": false,
+      "note_batches": "from the opengate git reflog; the changes between both commits do not touch the dose actor of a single run"
+    }
+  ]
+}

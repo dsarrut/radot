@@ -10,6 +10,7 @@ radot organ doses are compared with full Monte Carlo simulations performed with 
 - **Activity**: uniform in the liver, 1 MBq at t = 0.
 - **OpenGATE**: mean dose rate in the organ at t = 0, integrated with a mono-exponential clearance of effective half-life T<sub>eff</sub>: D = Ḋ(0) · T<sub>eff</sub> / ln 2.
 - **radot**: same activity, same organ mass and the same T<sub>eff</sub>. Organ-level methods use the OpenDose ICRP-110 adult male S-values, scaled to the patient organ mass.
+- **GATE stat. unc.**: statistical uncertainty (one standard deviation) of the organ mean dose rate, estimated from the voxel uncertainty maps, taking into account that one history deposits in several voxels (mean β range for electrons, mean organ chord for photons). Checked with 20 independent Lu-177 simulations: liver 0.13 % measured vs 0.13 % estimated, right kidney 1.06 % vs 0.94 %.
 - **Difference**: (radot − GATE) / GATE.
 - **Expected**: acceptance range for |difference| asserted in `validation/opengate/test_opengate.py`.
 
@@ -19,14 +20,14 @@ Doses in mGy per MBq present in the liver at t = 0.
 
 | Radionuclide | T<sub>eff</sub> (h) | Method | radot | GATE | GATE stat. unc. | Difference | Expected | | Note |
 |---|--:|---|--:|--:|--:|--:|--:|:-:|---|
-| Lu177 | 45.0 | Madsen 2018 | 4.05 | 3.90 | 0.2 % | +3.9 % | < 5 % | ✓ |  |
-| Lu177 | 45.0 | Hänscheid 2017 | 4.27 | 3.90 | 0.2 % | +9.6 % | < 15 % | ✓ | assumes density 1 g/mL and a fixed 0.125 factor |
-| Lu177 | 45.0 | Hänscheid 2018 | 4.05 | 3.90 | 0.2 % | +3.9 % | < 5 % | ✓ | t = T<sub>eff</sub> / 2: same as Madsen 2018 by construction |
-| Lu177 | 45.0 | LDM | 3.89 | 3.90 | 0.2 % | -0.2 % | < 1 % | ✓ |  |
-| Y90 | 64.1 | Madsen 2018 | 33.4 | 35.6 | 0.6 % | -6.2 % | < 10 % | ✓ |  |
-| Y90 | 64.1 | LDM | 35.0 | 35.6 | 0.6 % | -1.8 % | < 5 % | ✓ | edge effect: β range ~11 mm |
-| I131 | 192.5 | Madsen 2018 | 28.8 | 28.6 | 0.3 % | +0.5 % | < 5 % | ✓ |  |
-| I131 | 192.5 | LDM | 21.6 | 28.6 | 0.3 % | -24.6 % | 15–35 % | ✓ | LDM ignores the 364 keV photon self-dose (expected) |
+| Lu177 | 45.0 | Madsen 2018 | 4.05 | 3.90 | 0.1 % | +3.9 % | < 5 % | ✓ |  |
+| Lu177 | 45.0 | Hänscheid 2017 | 4.27 | 3.90 | 0.1 % | +9.6 % | < 15 % | ✓ | assumes density 1 g/mL and a fixed 0.125 factor |
+| Lu177 | 45.0 | Hänscheid 2018 | 4.05 | 3.90 | 0.1 % | +3.9 % | < 5 % | ✓ | t = T<sub>eff</sub> / 2: same as Madsen 2018 by construction |
+| Lu177 | 45.0 | LDM | 3.89 | 3.90 | 0.1 % | -0.2 % | < 1 % | ✓ |  |
+| Y90 | 64.1 | Madsen 2018 | 33.4 | 35.6 | 0.2 % | -6.2 % | < 10 % | ✓ |  |
+| Y90 | 64.1 | LDM | 35.0 | 35.6 | 0.2 % | -1.8 % | < 5 % | ✓ | edge effect: β range ~11 mm |
+| I131 | 192.5 | Madsen 2018 | 28.8 | 28.6 | 0.1 % | +0.5 % | < 5 % | ✓ |  |
+| I131 | 192.5 | LDM | 21.6 | 28.6 | 0.1 % | -24.6 % | 15–35 % | ✓ | LDM ignores the 364 keV photon self-dose (expected) |
 | Ac225 | 240.0 | Madsen 2018 | 831 | 3921 | 0.6 % | -78.8 % | — | — | parent only; GATE tracks the full decay chain |
 | Ac225 | 240.0 | LDM | 830 | 3921 | 0.6 % | -78.8 % | — | — | parent only; GATE tracks the full decay chain |
 | Ac225 | 240.0 | LDM (cascade) | 4028 | 3921 | 0.6 % | +2.7 % | < 5 % | ✓ | with daughters in secular equilibrium |
@@ -37,8 +38,8 @@ Doses in mGy per MBq present in the liver at t = 0.
 
 | Radionuclide | Target ← source | Method | radot | GATE | GATE stat. unc. | Difference | Expected | |
 |---|---|---|--:|--:|--:|--:|--:|:-:|
-| Lu177 | Kidney_R ← Liver | Madsen 2018 | 0.0521 | 0.0361 | 0.6 % | +44.1 % | < 50 % | ✓ |
-| Lu177 | Kidney_R ← Liver | Hänscheid 2018 | 0.0521 | 0.0361 | 0.6 % | +44.1 % | < 50 % | ✓ |
+| Lu177 | Kidney_R ← Liver | Madsen 2018 | 0.0521 | 0.0361 | 0.9 % | +44.1 % | < 50 % | ✓ |
+| Lu177 | Kidney_R ← Liver | Hänscheid 2018 | 0.0521 | 0.0361 | 0.9 % | +44.1 % | < 50 % | ✓ |
 
 Cross-doses are about 100 times lower than self-doses and are mostly due to photons. They depend on the distance between organs, which differs between the reference phantom (used for the S-values) and the patient, hence the larger tolerance. With t = T<sub>eff</sub> / 2, Hänscheid 2018 is identical to Madsen 2018.
 
@@ -61,6 +62,7 @@ The scripts and configurations are in [`validation/opengate/`](https://github.co
 - `p142/prepare/`: preparation of the inputs (resampling to 4 mm, liver mask, cropping around the liver).
 - `p142/p142_dose_rate_*.json`: one OpenGATE configuration per radionuclide (CT, activity image, radionuclide, 1 MBq, simulation mode).
 - `p142/create_benchmark_json.py`: reads the OpenGATE dose-rate images and writes the `p142/p142_*_opengate_benchmark.json` files used on this page.
+- `batch_uncertainty.py`: repeats the Lu-177 simulation with different random seeds to measure the uncertainty of the organ mean (`p142/p142_lu177_batch_uncertainty.json`).
 - `benchmarks.py`: the cases and acceptance ranges shown above; `test_opengate.py`: the same comparisons as tests; `report.py`: this page.
 
 Each simulation is run with the `opengate_dose_rate` command of OpenGATE, for example:
@@ -101,5 +103,6 @@ To check radot against the stored values, or regenerate this page:
 ```bash
 pytest validation                             # radot vs the stored OpenGATE values
 pytest validation --opengate=images           # same, on the real images (downloads the data)
+pytest validation --opengate=simulate         # rerun the OpenGATE simulations, then compare
 python validation/opengate/report.py          # regenerate this page
 ```

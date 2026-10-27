@@ -10,7 +10,7 @@ OpenGATE dose rate at t=0 in a source organ (self-dose) and in one target organ
 is integrated with the same mono-exponential clearance (Teff) as radot, so the
 comparison tests the absorbed dose per decay, not the kinetics.
 
-Two levels:
+Three levels:
 - default (data_dir=None): the organ is modelled as a single voxel with the
   benchmark volume, mass and total activity, and the OpenGATE values are read from
   the benchmark JSON. No image is needed; on p142 the differences with GATE are
@@ -18,12 +18,17 @@ Two levels:
 - images (data_dir given): radot runs on the real CT, liver and organ labels, and
   the OpenGATE dose rate is averaged over the same masks in the OpenGATE images.
   The data are downloaded from Zenodo with download_data().
+- simulate (gate_dir given): as images, but with OpenGATE outputs from a new
+  simulation (run_opengate) instead of the published ones.
 """
 
 import hashlib
+import importlib.metadata
 import json
 import shutil
+import subprocess
 import tempfile
+import urllib.parse
 import urllib.request
 import zipfile
 from dataclasses import dataclass
@@ -44,6 +49,7 @@ from radot.dose import (
 
 BENCH_DIR = Path(__file__).resolve().parent / "p142"
 DATA_DIR = BENCH_DIR / "data"
+SIM_DIR = DATA_DIR / "simulated"
 
 # Images and OpenGATE outputs, Zenodo doi:10.5281/zenodo.23696023 (version 1.0)
 DATA_URL = "https://zenodo.org/records/23696024/files/radot_opengate_p142_v1.0.zip?download=1"
@@ -193,13 +199,104 @@ def organ_masks(bench: dict, data_dir: Path):
     return source, target
 
 
-def gate_from_images(isotope: str, mask: np.ndarray, data_dir: Path) -> Tuple[float, float]:
-    """Mean OpenGATE dose rate (Gy/s) in the mask, and its relative uncertainty."""
-    out = gate_output_dir(isotope, data_dir)
+def opengate_version() -> dict:
+    """Installed opengate version, and its git commit when installed from a checkout."""
+    # Use the install record, not an import: under pytest, "opengate" can resolve
+    # to this folder (validation/opengate) instead of the OpenGATE package.
+    dist = importlib.metadata.distribution("opengate")
+    info = {"version": dist.version}
+    direct_url = json.loads(dist.read_text("direct_url.json") or "{}")
+    url = direct_url.get("url", "")
+    if url.startswith("file://"):
+        repo = Path(urllib.parse.urlparse(url).path)
+        result = subprocess.run(
+            ["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            info["commit"] = result.stdout.strip()
+            status = subprocess.run(
+                ["git", "-C", str(repo), "status", "--porcelain", "--untracked-files=no"],
+                capture_output=True,
+                text=True,
+            )
+            info["dirty"] = bool(status.stdout.strip())
+        elif (repo / ".git").exists():
+            info["commit_error"] = result.stderr.strip()
+    return info
+
+
+def run_opengate(
+    isotope: str,
+    data_dir: Path = DATA_DIR,
+    sim_dir: Path = SIM_DIR,
+    bench_dir: Path = BENCH_DIR,
+) -> Path:
+    """
+    Run opengate_dose_rate with the p142 configuration of this radionuclide.
+    Inputs are read from data_dir; outputs go to sim_dir/<output_folder>, with the
+    log and opengate_version.json. Returns the output folder.
+    """
+    exe = shutil.which("opengate_dose_rate")
+    if exe is None:
+        raise RuntimeError("opengate_dose_rate not found: install opengate (pip install opengate)")
+    config = (Path(bench_dir) / f"p142_dose_rate_{isotope.lower()}.json").resolve()
+    out = gate_output_dir(isotope, sim_dir, bench_dir).resolve()
+    out.mkdir(parents=True, exist_ok=True)
+    with open(out / "opengate.log", "w") as log:
+        subprocess.run(
+            [exe, str(config), "--output_folder", str(out)],
+            cwd=data_dir,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            check=True,
+        )
+    with open(out / "opengate_version.json", "w") as f:
+        json.dump(opengate_version(), f, indent=2)
+    return out
+
+
+def gate_from_images(
+    isotope: str, mask: np.ndarray, data_dir: Path, gate_dir: Optional[Path] = None
+) -> Tuple[float, float]:
+    """
+    Mean OpenGATE dose rate (Gy/s) in the mask, and its relative uncertainty.
+    The OpenGATE outputs are read from gate_dir (default: data_dir).
+    """
+    out = gate_output_dir(isotope, gate_dir if gate_dir is not None else data_dir)
     dose = sitk.ReadImage(str(out / "output_dose.mhd"))
-    unc = sitk.ReadImage(str(out / "output_dose_uncertainty.mhd"))
     rate = float(sitk.GetArrayViewFromImage(dose)[mask].mean())
-    return rate, roi_dose_uncertainty_estimate(dose, unc, mask, isotope=isotope)
+    return rate, gate_roi_uncertainty(out, mask, isotope)
+
+
+def gate_roi_uncertainty(out: Path, mask: np.ndarray, isotope: str) -> float:
+    """
+    Relative uncertainty of the mean OpenGATE dose rate in the mask.
+
+    In VRT mode, the electrons (e/) and the photons (gamma_tle/) are two independent
+    simulations whose dose maps add up to the merged one: each part is estimated with
+    its own correlation model (mean beta range, ROI mean chord) and the variances are
+    added. Otherwise (analog mode, or parts missing), the merged map is used with the
+    electron model, which underestimates the uncertainty of a photon dose.
+    Checked on p142 Lu177 against 20 independent simulations (batch_uncertainty.py).
+    """
+    out = Path(out)
+    parts = [(out / "e", False), (out / "gamma_tle", True)]
+    if not all((folder / "output_dose_uncertainty.mhd").exists() for folder, _ in parts):
+        dose = sitk.ReadImage(str(out / "output_dose.mhd"))
+        unc = sitk.ReadImage(str(out / "output_dose_uncertainty.mhd"))
+        return roi_dose_uncertainty_estimate(dose, unc, mask, isotope=isotope)
+    variance, total = 0.0, 0.0
+    for folder, photons in parts:
+        dose = sitk.ReadImage(str(folder / "output_dose.mhd"))
+        unc = sitk.ReadImage(str(folder / "output_dose_uncertainty.mhd"))
+        mean = float(sitk.GetArrayViewFromImage(dose)[mask].mean())
+        total += mean
+        if mean > 0:
+            u = roi_dose_uncertainty_estimate(dose, unc, mask, isotope=isotope, photons=photons)
+            variance += (u * mean) ** 2
+    return float(np.sqrt(variance) / total)
 
 
 def gate_integrated_dose_gy(dose_rate_gy_s: float, teff_h: float) -> float:
@@ -353,11 +450,15 @@ def radot_cross_dose_gy(
 
 
 def evaluate(
-    case: Case, bench_dir: Path = BENCH_DIR, data_dir: Optional[Path] = None
+    case: Case,
+    bench_dir: Path = BENCH_DIR,
+    data_dir: Optional[Path] = None,
+    gate_dir: Optional[Path] = None,
 ) -> dict:
     """
     Compute radot and OpenGATE doses for one case. Doses are in mGy per MBq.
-    With data_dir, use the real images and the OpenGATE images (see download_data).
+    With data_dir, use the real images and the OpenGATE images (see download_data);
+    with gate_dir, read the OpenGATE images from there (see run_opengate).
     """
     bench = load_benchmark(case.isotope, bench_dir)
     mbq = float(bench["total_activity_bq"]) / 1e6
@@ -376,7 +477,7 @@ def evaluate(
     if data_dir is not None:
         source, target = organ_masks(bench, data_dir)
         gate_rate, gate_unc = gate_from_images(
-            case.isotope, target if case.cross else source, data_dir
+            case.isotope, target if case.cross else source, data_dir, gate_dir
         )
     gate_gy = gate_integrated_dose_gy(gate_rate, teff_h)
 

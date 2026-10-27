@@ -4,14 +4,15 @@ Read the OpenGATE dose-rate outputs (in data/) and write p142_<radionuclide>_ope
 for every p142_dose_rate_<radionuclide>.json configuration found next to this script.
 """
 import json
+import sys
 from pathlib import Path
 import numpy as np
 import SimpleITK as sitk
 from radot.db import get_physical_half_life_h
-from radot.dose import (
-    roi_dose_uncertainty_bounds,
-    roi_dose_uncertainty_estimate,
-)
+from radot.dose import roi_dose_uncertainty_bounds
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from benchmarks import gate_roi_uncertainty
 
 
 def process_single_benchmark(config_path: Path, p142_dir: Path, data_dir: Path) -> bool:
@@ -91,12 +92,15 @@ def process_single_benchmark(config_path: Path, p142_dir: Path, data_dir: Path) 
         "mean_dose_rate_gy_s": gate_mean_dose_rate_gy_s,
         "simulation_mode": mode,
     }
+    # Written by run_opengate (benchmarks.py); absent for older simulations
+    version_path = gate_dose_path.parent / "opengate_version.json"
+    if version_path.exists():
+        with open(version_path) as f:
+            opengate_dict["opengate"] = json.load(f)
     if gate_unc_path and gate_unc_path.exists():
         unc_img = sitk.ReadImage(str(gate_unc_path))
         unc_min, unc_max = roi_dose_uncertainty_bounds(gate_img, unc_img, mask)
-        unc_est = roi_dose_uncertainty_estimate(
-            gate_img, unc_img, mask, isotope=radionuclide
-        )
+        unc_est = gate_roi_uncertainty(gate_dose_path.parent, mask, radionuclide)
         opengate_dict["uncertainty_min_fraction"] = unc_min
         opengate_dict["uncertainty_max_fraction"] = unc_max
         opengate_dict["uncertainty_estimate_fraction"] = unc_est
@@ -145,9 +149,7 @@ def process_single_benchmark(config_path: Path, p142_dir: Path, data_dir: Path) 
             rk_unc_min, rk_unc_max = roi_dose_uncertainty_bounds(
                 gate_img, unc_img, mask_rk
             )
-            rk_unc_est = roi_dose_uncertainty_estimate(
-                gate_img, unc_img, mask_rk, isotope=radionuclide
-            )
+            rk_unc_est = gate_roi_uncertainty(gate_dose_path.parent, mask_rk, radionuclide)
             rk_opengate["uncertainty_min_fraction"] = rk_unc_min
             rk_opengate["uncertainty_max_fraction"] = rk_unc_max
             rk_opengate["uncertainty_estimate_fraction"] = rk_unc_est

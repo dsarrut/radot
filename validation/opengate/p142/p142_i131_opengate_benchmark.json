@@ -15,7 +15,7 @@
     "simulation_mode": "vrt",
     "uncertainty_min_fraction": 0.0012406444372879471,
     "uncertainty_max_fraction": 0.17576274960207644,
-    "uncertainty_estimate_fraction": 0.002510887800478621,
+    "uncertainty_estimate_fraction": 0.001463284962612755,
     "mean_voxel_uncertainty_fraction": 0.17576274960207644
   },
   "cross_dose": {
@@ -28,7 +28,7 @@
       "mean_dose_rate_gy_s": 7.789341228759554e-10,
       "uncertainty_min_fraction": 0.0022095664034530427,
       "uncertainty_max_fraction": 0.10284476797422248,
-      "uncertainty_estimate_fraction": 0.004471847984830816
+      "uncertainty_estimate_fraction": 0.006277522069788861
     }
   }
 }
