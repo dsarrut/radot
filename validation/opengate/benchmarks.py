@@ -83,7 +83,12 @@ class Case:
     accept: Optional[Tuple[float, float]]
     note: str = ""
     cascade: bool = False
-    cross: bool = False
+    # Cross-dose target organ (key of CROSS_TARGETS); "" = self-dose in the source organ
+    target: str = ""
+
+    @property
+    def cross(self) -> bool:
+        return bool(self.target)
 
     @property
     def label(self) -> str:
@@ -91,10 +96,24 @@ class Case:
         return label + " (cascade)" if self.cascade else label
 
     def __str__(self) -> str:
-        kind = "cross" if self.cross else "self"
+        kind = self.target if self.cross else "self"
         cascade = "-cascade" if self.cascade else ""
         return f"{self.isotope}-{self.method}{cascade}-{kind}"
 
+
+# Cross-dose targets: patient label (TG-263) -> OpenDose target organ(s). Whole organs entirely
+# inside the cropped CT. The stomach and the heart are segmented whole in the patient: OpenDose
+# wall + contents, with the mass-weighted S-value.
+CROSS_TARGETS = {
+    "Kidney_R": ["Right kidney C+M+P"],
+    "Kidney_L": ["Left kidney C+M+P"],
+    "Spleen": ["Spleen"],
+    "Pancreas": ["Pancreas"],
+    "Adrenal_R": ["Adrenal, right"],
+    "Adrenal_L": ["Adrenal, left"],
+    "Stomach": ["Stomach wall", "Stomach contents"],
+    "Heart": ["Heart wall", "Heart contents (blood)"],
+}
 
 H2018_NOTE = "t = T<sub>eff</sub> / 2: same as Madsen 2018 by construction"
 AC225_PARENT_NOTE = "parent only; GATE tracks the full decay chain"
@@ -112,15 +131,26 @@ CASES: List[Case] = [
     Case("Ac225", "madsen2018", None, AC225_PARENT_NOTE),
     Case("Ac225", "ldm", None, AC225_PARENT_NOTE),
     Case("Ac225", "ldm", (0, 5), "with daughters in secular equilibrium", cascade=True),
-    # Cross-dose (right kidney <- liver): photon dose, sensitive to phantom vs patient geometry
-    Case("Lu177", "madsen2018", (0, 50), cross=True),
-    Case("Lu177", "hanscheid2018", (0, 50), cross=True),
+    # Cross-dose (organ <- liver): photon dose, sensitive to phantom vs patient anatomy.
+    # Only the right kidney is checked; the other organs are shown.
+    Case("Lu177", "madsen2018", (0, 50), target="Kidney_R"),
+    Case("Lu177", "hanscheid2018", (0, 50), H2018_NOTE, target="Kidney_R"),
+    *[Case("Lu177", "madsen2018", None, target=t) for t in CROSS_TARGETS if t != "Kidney_R"],
+    *[Case("I131", "madsen2018", None, target=t) for t in CROSS_TARGETS],
 ]
 
 
 def load_benchmark(isotope: str, bench_dir: Path = BENCH_DIR) -> dict:
     with open(Path(bench_dir) / BENCHMARK_FILES[isotope]) as f:
         return json.load(f)
+
+
+def cross_dose(bench: dict, target: str) -> dict:
+    """Entry of the benchmark cross_doses list for this target organ."""
+    for entry in bench["cross_doses"]:
+        if entry["target_roi_name"] == target:
+            return entry
+    raise KeyError(f"no cross-dose to {target} in the {bench['radionuclide']} benchmark")
 
 
 def gate_output_dir(isotope: str, data_dir: Path, bench_dir: Path = BENCH_DIR) -> Path:
@@ -193,15 +223,12 @@ def organ_images(bench: dict, time_from_injection_h: float, data_dir: Path):
     return activity, labels, ct
 
 
-def organ_masks(bench: dict, data_dir: Path):
-    """Source (liver) and cross-dose target masks, as numpy arrays."""
+def organ_mask(data_dir: Path, target: str = "") -> np.ndarray:
+    """Mask of a target organ (patient label name), or of the source (liver activity) by default."""
     liver, _, labels, label_names = _read_images(str(data_dir))
-    source = sitk.GetArrayFromImage(liver) > 0
-    target = None
-    if "cross_dose" in bench:
-        target_id = label_names[bench["cross_dose"]["target_roi_name"]]
-        target = sitk.GetArrayFromImage(labels) == target_id
-    return source, target
+    if not target:
+        return sitk.GetArrayFromImage(liver) > 0
+    return sitk.GetArrayFromImage(labels) == label_names[target]
 
 
 def opengate_version() -> dict:
@@ -301,6 +328,9 @@ def gate_roi_uncertainty(out: Path, mask: np.ndarray, isotope: str) -> float:
         if mean > 0:
             u = roi_dose_uncertainty_estimate(dose, unc, mask, isotope=isotope, photons=photons)
             variance += (u * mean) ** 2
+    if total <= 0:
+        # no dose at all (e.g. Y90 in a distant organ): no meaningful value
+        return 1.0
     return float(np.sqrt(variance) / total)
 
 
@@ -404,15 +434,17 @@ def radot_self_dose_gy(
 
 
 def radot_cross_dose_gy(
-    bench: dict, isotope: str, method: str, data_dir: Optional[Path] = None
+    bench: dict, isotope: str, method: str, target: str, data_dir: Optional[Path] = None
 ) -> float:
-    cross = bench["cross_dose"]
+    cross = cross_dose(bench, target)
     teff_h = float(bench["teff_h"])
     phantom = bench.get("phantom", "male")
     od_source = resolve_organ_name(cross.get("source_roi_name", bench["roi_name"]), phantom)
-    od_target = resolve_organ_name(cross["target_roi_name"], phantom)
 
-    s_cross = get_s_value(phantom, isotope, od_source, od_target)
+    # Several OpenDose targets (e.g. wall + contents): mass-weighted S-value
+    od_masses = {t: get_reference_mass(phantom, t) for t in CROSS_TARGETS[target]}
+    ref_mass_g = sum(od_masses.values())
+    s_cross = sum(m * get_s_value(phantom, isotope, od_source, t) for t, m in od_masses.items()) / ref_mass_g
 
     if data_dir is None:
         # Two voxels: the source (all the activity) and the target
@@ -421,18 +453,18 @@ def radot_cross_dose_gy(
         source_mask = np.array([1, 0], dtype=np.uint8)
         target_mask = np.array([0, 1], dtype=np.uint8)
     else:
-        source, target = organ_masks(bench, data_dir)
+        source, target_arr = organ_mask(data_dir), organ_mask(data_dir, target)
         activity_img, _, ct = organ_images(bench, 0.0, data_dir)
         activity = sitk.GetArrayFromImage(activity_img)
         source_mask = source.astype(np.uint8)
-        target_mask = target.astype(np.uint8)
+        target_mask = target_arr.astype(np.uint8)
         spacing = ct.GetSpacing()
         voxel_volume_ml = spacing[0] * spacing[1] * spacing[2] / 1000.0
         ct_arr = sitk.GetArrayViewFromImage(ct)
-        density = np.maximum(0.0, 1.0 + ct_arr[target] / 1000.0)
+        density = np.maximum(0.0, 1.0 + ct_arr[target_arr] / 1000.0)
         target_mass_g = float(density.sum() * voxel_volume_ml)
 
-    mass_scaling = target_mass_g / get_reference_mass(phantom, od_target)
+    mass_scaling = target_mass_g / ref_mass_g
 
     if method == "hanscheid2018":
         return dose_hanscheid2018(
@@ -470,8 +502,8 @@ def evaluate(
     teff_h = float(bench["teff_h"])
 
     if case.cross:
-        radot_gy = radot_cross_dose_gy(bench, case.isotope, case.method, data_dir)
-        gate = bench["cross_dose"]["opengate"]
+        radot_gy = radot_cross_dose_gy(bench, case.isotope, case.method, case.target, data_dir)
+        gate = cross_dose(bench, case.target)["opengate"]
     else:
         radot_gy = radot_self_dose_gy(
             bench, case.isotope, case.method, case.cascade, data_dir
@@ -480,9 +512,8 @@ def evaluate(
     gate_rate = float(gate["mean_dose_rate_gy_s"])
     gate_unc = float(gate["uncertainty_estimate_fraction"])
     if data_dir is not None:
-        source, target = organ_masks(bench, data_dir)
         gate_rate, gate_unc = gate_from_images(
-            case.isotope, target if case.cross else source, data_dir, gate_dir
+            case.isotope, organ_mask(data_dir, case.target), data_dir, gate_dir
         )
     gate_gy = gate_integrated_dose_gy(gate_rate, teff_h)
 

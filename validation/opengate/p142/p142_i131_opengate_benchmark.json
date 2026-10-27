@@ -18,17 +18,118 @@
     "uncertainty_estimate_fraction": 0.001463284962612755,
     "mean_voxel_uncertainty_fraction": 0.17576274960207644
   },
-  "cross_dose": {
-    "target_roi_name": "Kidney_R",
-    "source_roi_name": "Liver",
-    "target_num_voxels": 2270,
-    "target_volume_ml": 145.28,
-    "target_mass_g": 161.4965362548828,
-    "opengate": {
-      "mean_dose_rate_gy_s": 7.789341228759554e-10,
-      "uncertainty_min_fraction": 0.0022095664034530427,
-      "uncertainty_max_fraction": 0.10284476797422248,
-      "uncertainty_estimate_fraction": 0.006277522069788861
+  "cross_doses": [
+    {
+      "target_roi_name": "Kidney_R",
+      "source_roi_name": "Liver",
+      "target_num_voxels": 2270,
+      "target_volume_ml": 145.28,
+      "target_mass_g": 161.4965362548828,
+      "min_distance_to_source_mm": 14.966629981994629,
+      "opengate": {
+        "mean_dose_rate_gy_s": 7.789341228759554e-10,
+        "uncertainty_min_fraction": 0.0022095664034530427,
+        "uncertainty_max_fraction": 0.10284476797422248,
+        "uncertainty_estimate_fraction": 0.006277522069788861
+      }
+    },
+    {
+      "target_roi_name": "Kidney_L",
+      "source_roi_name": "Liver",
+      "target_num_voxels": 2311,
+      "target_volume_ml": 147.904,
+      "target_mass_g": 165.00022888183594,
+      "min_distance_to_source_mm": 91.38927459716797,
+      "opengate": {
+        "mean_dose_rate_gy_s": 1.0212038128687363e-10,
+        "uncertainty_min_fraction": 0.005319950156849364,
+        "uncertainty_max_fraction": 0.246929796994339,
+        "uncertainty_estimate_fraction": 0.015324683848882071
+      }
+    },
+    {
+      "target_roi_name": "Spleen",
+      "source_roi_name": "Liver",
+      "target_num_voxels": 2733,
+      "target_volume_ml": 174.912,
+      "target_mass_g": 188.06117248535156,
+      "min_distance_to_source_mm": 62.60990524291992,
+      "opengate": {
+        "mean_dose_rate_gy_s": 1.3927516645576987e-10,
+        "uncertainty_min_fraction": 0.004384612021166012,
+        "uncertainty_max_fraction": 0.22128582694368168,
+        "uncertainty_estimate_fraction": 0.013370250876790663
+      }
+    },
+    {
+      "target_roi_name": "Pancreas",
+      "source_roi_name": "Liver",
+      "target_num_voxels": 1330,
+      "target_volume_ml": 85.12,
+      "target_mass_g": 88.86204528808594,
+      "min_distance_to_source_mm": 16.492422103881836,
+      "opengate": {
+        "mean_dose_rate_gy_s": 4.604548821711746e-10,
+        "uncertainty_min_fraction": 0.0036450512334406026,
+        "uncertainty_max_fraction": 0.12976555609105117,
+        "uncertainty_estimate_fraction": 0.008859611075945652
+      }
+    },
+    {
+      "target_roi_name": "Adrenal_R",
+      "source_roi_name": "Liver",
+      "target_num_voxels": 77,
+      "target_volume_ml": 4.928,
+      "target_mass_g": 5.010290145874023,
+      "min_distance_to_source_mm": 4.0,
+      "opengate": {
+        "mean_dose_rate_gy_s": 1.5798793806305127e-09,
+        "uncertainty_min_fraction": 0.010484587986365965,
+        "uncertainty_max_fraction": 0.0804199907004999,
+        "uncertainty_estimate_fraction": 0.016630165388347346
+      }
+    },
+    {
+      "target_roi_name": "Adrenal_L",
+      "source_roi_name": "Liver",
+      "target_num_voxels": 113,
+      "target_volume_ml": 7.232,
+      "target_mass_g": 7.232762336730957,
+      "min_distance_to_source_mm": 53.06599807739258,
+      "opengate": {
+        "mean_dose_rate_gy_s": 2.804423103267761e-10,
+        "uncertainty_min_fraction": 0.01542283595772578,
+        "uncertainty_max_fraction": 0.16169378796031914,
+        "uncertainty_estimate_fraction": 0.0270101071874307
+      }
+    },
+    {
+      "target_roi_name": "Stomach",
+      "source_roi_name": "Liver",
+      "target_num_voxels": 2990,
+      "target_volume_ml": 191.36,
+      "target_mass_g": 175.92388916015625,
+      "min_distance_to_source_mm": 4.0,
+      "opengate": {
+        "mean_dose_rate_gy_s": 7.236434804870162e-10,
+        "uncertainty_min_fraction": 0.0025112938679597795,
+        "uncertainty_max_fraction": 0.11150410272926996,
+        "uncertainty_estimate_fraction": 0.00617855741352412
+      }
+    },
+    {
+      "target_roi_name": "Heart",
+      "source_roi_name": "Liver",
+      "target_num_voxels": 9771,
+      "target_volume_ml": 625.344,
+      "target_mass_g": 689.3963012695312,
+      "min_distance_to_source_mm": 4.0,
+      "opengate": {
+        "mean_dose_rate_gy_s": 5.296085127742783e-10,
+        "uncertainty_min_fraction": 0.001311125126544595,
+        "uncertainty_max_fraction": 0.11935420568883055,
+        "uncertainty_estimate_fraction": 0.004372988121271686
+      }
     }
-  }
+  ]
 }

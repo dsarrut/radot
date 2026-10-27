@@ -23,12 +23,14 @@ import SimpleITK as sitk
 
 from benchmarks import (
     BENCH_DIR,
+    CROSS_TARGETS,
     DATA_DIR,
+    cross_dose,
     download_data,
     gate_output_dir,
     gate_roi_uncertainty,
     load_benchmark,
-    organ_masks,
+    organ_mask,
     run_opengate,
 )
 
@@ -50,7 +52,6 @@ def run_batches(isotope: str, n: int) -> None:
 
 def analyse(isotope: str) -> dict:
     bench = load_benchmark(isotope)
-    source, target = organ_masks(bench, DATA_DIR)
     outputs = [gate_output_dir(isotope, d) for d in sorted(BATCH_DIR.glob("run_*"))]
     outputs = [o for o in outputs if (o / "output_dose.mhd").exists()]
     n = len(outputs)
@@ -62,11 +63,13 @@ def analyse(isotope: str) -> dict:
         f"simulations of p142_dose_rate_{isotope.lower()}.json (batch method, see batch_uncertainty.py)",
         "radionuclide": isotope,
         "n_batches": n,
+        "organs": {},
     }
-    for kind, mask, ref in [
-        ("self", source, bench["opengate"]),
-        ("cross", target, bench["cross_dose"]["opengate"]),
-    ]:
+    # The source organ (self-dose), then the cross-dose targets
+    organs = [(bench["roi_name"], "", bench["opengate"])]
+    organs += [(t, t, cross_dose(bench, t)["opengate"]) for t in CROSS_TARGETS]
+    for organ, target, ref in organs:
+        mask = organ_mask(DATA_DIR, target)
         rates, estimates = [], []
         for out in outputs:
             dose = sitk.ReadImage(str(out / "output_dose.mhd"))
@@ -75,8 +78,7 @@ def analyse(isotope: str) -> dict:
         rates = np.array(rates)
         measured = float(rates.std(ddof=1) / rates.mean())
         mean = float(rates.mean())
-        result[kind] = {
-            "organ": bench["roi_name"] if kind == "self" else bench["cross_dose"]["target_roi_name"],
+        result["organs"][organ] = {
             "mean_dose_rate_gy_s": rates.tolist(),
             # uncertainty of one simulation, and the uncertainty of this std (n samples)
             "measured_uncertainty_fraction": measured,
@@ -109,10 +111,9 @@ def main():
     with open(batch_file(args.isotope), "w") as f:
         json.dump(result, f, indent=2)
     print(f"{result['n_batches']} batches, {args.isotope}")
-    for kind in ("self", "cross"):
-        r = result[kind]
+    for organ, r in result["organs"].items():
         print(
-            f"  {kind:5s} {r['organ']:9s} measured {r['measured_uncertainty_fraction']:.3%} "
+            f"  {organ:9s} measured {r['measured_uncertainty_fraction']:.3%} "
             f"(+/- {r['measured_uncertainty_precision_fraction']:.3%}), "
             f"estimated {r['estimated_uncertainty_fraction']:.3%}; "
             f"batch mean vs reference {r['batch_mean_vs_reference_fraction']:+.3%} "

@@ -12,7 +12,7 @@ from radot.db import get_physical_half_life_h
 from radot.dose import roi_dose_uncertainty_bounds
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from benchmarks import gate_roi_uncertainty
+from benchmarks import CROSS_TARGETS, gate_roi_uncertainty
 
 
 def process_single_benchmark(config_path: Path, p142_dir: Path, data_dir: Path) -> bool:
@@ -131,37 +131,45 @@ def process_single_benchmark(config_path: Path, p142_dir: Path, data_dir: Path) 
             sitk.WriteImage(lbl_crop, str(labels_crop_path))
 
     if labels_crop_path.exists():
-        lbl_crop = sitk.ReadImage(str(labels_crop_path))
-        lbl_crop_arr = sitk.GetArrayViewFromImage(lbl_crop)
-        mask_rk = lbl_crop_arr == 6
-        num_vox_rk = int(mask_rk.sum())
-
-        rk_vol_ml = float(num_vox_rk * voxel_volume_ml)
-        density_rk = np.maximum(0.0, 1.0 + (ct_arr[mask_rk] / 1000.0))
-        rk_mass_g = float(np.sum(density_rk) * voxel_volume_ml)
-
-        gate_rk_mean_rate = float(gate_arr[mask_rk].mean())
-        rk_opengate = {
-            "mean_dose_rate_gy_s": gate_rk_mean_rate,
-        }
-        if gate_unc_path and gate_unc_path.exists():
-            unc_img = sitk.ReadImage(str(gate_unc_path))
-            rk_unc_min, rk_unc_max = roi_dose_uncertainty_bounds(
-                gate_img, unc_img, mask_rk
+        with open(data_dir / "labels_all_4mm_cropped.json") as f:
+            label_ids = {name: int(i) for i, name in json.load(f).items()}
+        lbl_crop_arr = sitk.GetArrayFromImage(sitk.ReadImage(str(labels_crop_path)))
+        # Distance (mm) of each voxel to the source organ
+        source_distance = sitk.GetArrayFromImage(
+            sitk.SignedMaurerDistanceMap(
+                sitk.GetImageFromArray(mask.astype(np.uint8)),
+                insideIsPositive=False,
+                squaredDistance=False,
+                useImageSpacing=False,
             )
-            rk_unc_est = gate_roi_uncertainty(gate_dose_path.parent, mask_rk, radionuclide)
-            rk_opengate["uncertainty_min_fraction"] = rk_unc_min
-            rk_opengate["uncertainty_max_fraction"] = rk_unc_max
-            rk_opengate["uncertainty_estimate_fraction"] = rk_unc_est
+        ) * spacing[0]
+        unc_img = sitk.ReadImage(str(gate_unc_path)) if gate_unc_path and gate_unc_path.exists() else None
 
-        benchmark_data["cross_dose"] = {
-            "target_roi_name": "Kidney_R",
-            "source_roi_name": "Liver",
-            "target_num_voxels": num_vox_rk,
-            "target_volume_ml": rk_vol_ml,
-            "target_mass_g": rk_mass_g,
-            "opengate": rk_opengate,
-        }
+        cross_doses = []
+        for target in CROSS_TARGETS:
+            target_mask = lbl_crop_arr == label_ids[target]
+            target_num_voxels = int(target_mask.sum())
+            density_t = np.maximum(0.0, 1.0 + (ct_arr[target_mask] / 1000.0))
+            target_opengate = {"mean_dose_rate_gy_s": float(gate_arr[target_mask].mean())}
+            if unc_img is not None:
+                t_min, t_max = roi_dose_uncertainty_bounds(gate_img, unc_img, target_mask)
+                target_opengate["uncertainty_min_fraction"] = t_min
+                target_opengate["uncertainty_max_fraction"] = t_max
+                target_opengate["uncertainty_estimate_fraction"] = gate_roi_uncertainty(
+                    gate_dose_path.parent, target_mask, radionuclide
+                )
+            cross_doses.append(
+                {
+                    "target_roi_name": target,
+                    "source_roi_name": "Liver",
+                    "target_num_voxels": target_num_voxels,
+                    "target_volume_ml": float(target_num_voxels * voxel_volume_ml),
+                    "target_mass_g": float(np.sum(density_t) * voxel_volume_ml),
+                    "min_distance_to_source_mm": float(source_distance[target_mask].min()),
+                    "opengate": target_opengate,
+                }
+            )
+        benchmark_data["cross_doses"] = cross_doses
 
     output_json_path = p142_dir / f"p142_{rad_lower}_opengate_benchmark.json"
     with open(output_json_path, "w") as f:

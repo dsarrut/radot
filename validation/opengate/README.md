@@ -60,7 +60,11 @@ All commands run in `p142/data/`.
    ```bash
    ../prepare/crop_ct_liver.py
    ```
-4. One OpenGATE simulation per radionuclide (1 MBq in the liver, dose rate at t = 0):
+   The crop (34 cm along the body axis, the full 50 cm in the transverse plane) removes the head. A
+   Lu-177 simulation on the full-body CT changes the organ dose rates by less than 10 % (left kidney
+   +9 %, heart +3 %, liver +0.2 %, the other organs within the statistical uncertainty).
+4. One OpenGATE simulation per radionuclide (uniform activity in the liver, dose rate at t = 0; 1 MBq,
+   0.5 MBq for I-131 and 0.1 MBq for Ac-225, the results are given per MBq):
    ```bash
    opengate_dose_rate ../p142_dose_rate_lu177.json
    opengate_dose_rate ../p142_dose_rate_y90.json
@@ -68,7 +72,9 @@ All commands run in `p142/data/`.
    opengate_dose_rate ../p142_dose_rate_ac225.json
    ```
    Lu-177, Y-90 and I-131 use variance reduction (`"mode": "vrt"`); Ac-225 is simulated in analog mode.
-5. Mean dose rate and uncertainty in the liver (self-dose) and the right kidney (cross-dose, label 6):
+5. Mean dose rate and uncertainty in the liver (self-dose) and in the organs of `CROSS_TARGETS` in
+   `benchmarks.py` (cross-doses: kidneys, spleen, pancreas, adrenals, stomach, heart; whole organs entirely
+   inside the cropped CT), with their mass and closest distance to the liver:
    ```bash
    python ../create_benchmark_json.py
    ```
@@ -84,14 +90,22 @@ All commands run in `p142/data/`.
    ```bash
    python ../../batch_uncertainty.py --run   # batches in batches/run_NN/, result in p142_lu177_batch_uncertainty.json
    ```
-   | Lu-177 (20 batches) | Measured        | Estimated | Former estimate (β range only, merged map) |
-   |---------------------|-----------------|-----------|---------------------------------------------|
-   | Liver (self-dose)   | 0.127 % ± 0.021 | 0.126 %   | 0.20 % |
-   | Right kidney (cross-dose, photons) | 1.06 % ± 0.17 | 0.94 % | 0.58 % |
+   | Lu-177 (20 batches) | Measured | Estimated |
+   |-----------|-----------------|-----------|
+   | Liver     | 0.13 % ± 0.02 | 0.13 % |
+   | Kidney_R  | 1.06 % ± 0.17 | 0.94 % |
+   | Kidney_L  | 3.06 % ± 0.50 | 2.52 % |
+   | Spleen    | 2.45 % ± 0.40 | 2.07 % |
+   | Pancreas  | 1.82 % ± 0.30 | 1.31 % |
+   | Adrenal_R | 2.83 % ± 0.46 | 2.99 % |
+   | Adrenal_L | 4.60 % ± 0.75 | 4.11 % |
+   | Stomach   | 0.90 % ± 0.15 | 1.15 % |
+   | Heart     | 0.97 % ± 0.16 | 0.67 % |
 
-   The mean of the 20 batches agrees with the reference simulation: +0.23 % ± 0.13 (liver) and
-   −0.52 % ± 1.09 (kidney), including the uncertainty of the reference. `pytest` checks that the
-   estimates in the benchmark JSONs agree with the measured values.
+   The estimate is within 2 standard deviations of the measurement for all organs (0.7 to 1.3 times the
+   measured value); `pytest` checks it. The former estimate (cluster of the maximum β range on the merged
+   map) gave 0.20 % for the liver and 0.58 % for the right kidney. The mean of the 20 batches agrees with
+   the reference simulation within 1.2 %.
 
 ## Data
 

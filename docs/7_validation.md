@@ -10,7 +10,7 @@ radot organ doses are compared with full Monte Carlo simulations performed with 
 - **Activity**: uniform in the liver, 1 MBq at t = 0.
 - **OpenGATE**: mean dose rate in the organ at t = 0, integrated with a mono-exponential clearance of effective half-life T<sub>eff</sub>: D = Ḋ(0) · T<sub>eff</sub> / ln 2.
 - **radot**: same activity, same organ mass and the same T<sub>eff</sub>. Organ-level methods use the OpenDose ICRP-110 adult male S-values, scaled to the patient organ mass.
-- **GATE stat. unc.**: statistical uncertainty (one standard deviation) of the organ mean dose rate, estimated from the voxel uncertainty maps, taking into account that one history deposits in several voxels (mean β range for electrons, mean organ chord for photons). Checked with 20 independent Lu-177 simulations: liver 0.13 % measured vs 0.13 % estimated, right kidney 1.06 % vs 0.94 %.
+- **GATE stat. unc.**: statistical uncertainty (one standard deviation) of the organ mean dose rate, estimated from the voxel uncertainty maps, taking into account that one history deposits in several voxels (mean β range for electrons, mean organ chord for photons). Checked with 20 independent Lu-177 simulations: liver 0.13 % measured vs 0.13 % estimated, right kidney 1.06 % vs 0.94 %; for the 9 organs, the estimate is 0.7 to 1.3 times the measured value.
 - **Difference**: (radot − GATE) / GATE.
 - **Expected**: acceptance range for |difference| asserted in `validation/opengate/test_opengate.py`.
 
@@ -32,16 +32,31 @@ Doses in mGy per MBq present in the liver at t = 0.
 | Ac225 | 240.0 | LDM | 830 | 3921 | 0.6 % | -78.8 % | — | — | parent only; GATE tracks the full decay chain |
 | Ac225 | 240.0 | LDM (cascade) | 4028 | 3921 | 0.6 % | +2.7 % | < 5 % | ✓ | with daughters in secular equilibrium |
 
-## Cross-dose (right kidney ← liver)
+## Cross-dose (organ ← liver)
 
-Doses in mGy per MBq present in the liver at t = 0.
+Doses in mGy per MBq present in the liver at t = 0. Organs entirely inside the CT, sorted by their closest distance to the liver. Stomach and heart are segmented whole: OpenDose wall + contents (mass-weighted S-value). Only the right kidney is checked; the other organs are shown.
 
-| Radionuclide | Target ← source | Method | radot | GATE | GATE stat. unc. | Difference | Expected | |
-|---|---|---|--:|--:|--:|--:|--:|:-:|
-| Lu177 | Kidney_R ← Liver | Madsen 2018 | 0.0521 | 0.0361 | 0.9 % | +44.1 % | < 50 % | ✓ |
-| Lu177 | Kidney_R ← Liver | Hänscheid 2018 | 0.0521 | 0.0361 | 0.9 % | +44.1 % | < 50 % | ✓ |
+| Radionuclide | Organ ← liver | Mass (g) | Distance (mm) | Method | radot | GATE | GATE stat. unc. | Difference | Expected | |
+|---|---|--:|--:|---|--:|--:|--:|--:|--:|:-:|
+| Lu177 | Adrenal_R | 5 | 4 | Madsen 2018 | 0.140 | 0.0659 | 2.4 % | +112.9 % | — | — |
+| Lu177 | Heart | 689 | 4 | Madsen 2018 | 0.0282 | 0.0237 | 0.7 % | +19.3 % | — | — |
+| Lu177 | Stomach | 176 | 4 | Madsen 2018 | 0.0723 | 0.0315 | 1.1 % | +129.6 % | — | — |
+| Lu177 | Kidney_R | 161 | 15 | Madsen 2018 | 0.0521 | 0.0361 | 0.9 % | +44.1 % | < 50 % | ✓ |
+| Lu177 | Kidney_R | 161 | 15 | Hänscheid 2018 | 0.0521 | 0.0361 | 0.9 % | +44.1 % | < 50 % | ✓ |
+| Lu177 | Pancreas | 89 | 16 | Madsen 2018 | 0.0893 | 0.0207 | 1.3 % | +331.1 % | — | — |
+| Lu177 | Adrenal_L | 7 | 53 | Madsen 2018 | 0.0150 | 0.0121 | 4.1 % | +24.2 % | — | — |
+| Lu177 | Spleen | 188 | 63 | Madsen 2018 | 0.00777 | 0.00575 | 2.1 % | +35.1 % | — | — |
+| Lu177 | Kidney_L | 165 | 91 | Madsen 2018 | 0.0102 | 0.00486 | 2.5 % | +110.5 % | — | — |
+| I131 | Adrenal_R | 5 | 4 | Madsen 2018 | 5.07 | 3.16 | 1.7 % | +60.5 % | — | — |
+| I131 | Heart | 689 | 4 | Madsen 2018 | 1.17 | 1.06 | 0.4 % | +10.3 % | — | — |
+| I131 | Stomach | 176 | 4 | Madsen 2018 | 2.89 | 1.45 | 0.6 % | +99.5 % | — | — |
+| I131 | Kidney_R | 161 | 15 | Madsen 2018 | 2.09 | 1.56 | 0.6 % | +34.2 % | — | — |
+| I131 | Pancreas | 89 | 16 | Madsen 2018 | 3.59 | 0.921 | 0.9 % | +290.1 % | — | — |
+| I131 | Adrenal_L | 7 | 53 | Madsen 2018 | 0.639 | 0.561 | 2.7 % | +14.0 % | — | — |
+| I131 | Spleen | 188 | 63 | Madsen 2018 | 0.333 | 0.278 | 1.3 % | +19.7 % | — | — |
+| I131 | Kidney_L | 165 | 91 | Madsen 2018 | 0.436 | 0.204 | 1.5 % | +113.4 % | — | — |
 
-Cross-doses are about 100 times lower than self-doses and are mostly due to photons. They depend on the distance between organs, which differs between the reference phantom (used for the S-values) and the patient, hence the larger tolerance. With t = T<sub>eff</sub> / 2, Hänscheid 2018 is identical to Madsen 2018.
+Cross-doses are about 100 times lower than self-doses and are due to photons. They depend on the position of the organs and the tissue between them, which differ between the reference phantom (used for the S-values) and the patient: radot is higher than GATE for most organs of this patient, by tens of percent and more. The organ-level S-value methods give the order of magnitude of a cross-dose, not a patient-specific value. The CT is cropped around the liver (34 cm along the body axis): a simulation on the full-body CT changes the cross-doses by less than 10 % (left kidney +9 %, heart +3 %, the others within the statistical uncertainty). With t = T<sub>eff</sub> / 2, Hänscheid 2018 is identical to Madsen 2018.
 
 ## What this validates
 
@@ -52,7 +67,7 @@ Cross-doses are about 100 times lower than self-doses and are mostly due to phot
 
 - **Kinetics**: T<sub>eff</sub> is the same for radot and GATE, so the time-integration models (single-time-point assumptions, curve fitting) are not tested here.
 - **Non-uniform activity**: the activity is uniform in the liver; real SPECT distributions are not yet compared.
-- **Other organs and patients**: one patient, one source organ (liver), one cross-dose target.
+- **Other source organs and patients**: one patient, one source organ (liver).
 - **Image-based steps**: SPECT quantification, segmentation and registration are outside the scope of this comparison.
 
 ## How the reference was produced
