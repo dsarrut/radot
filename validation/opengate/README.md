@@ -96,9 +96,12 @@ All commands run in `p142/data/`.
 ## Data
 
 The images and OpenGATE outputs are not in git. They are published on Zenodo (CC-BY-4.0):
-[doi:10.5281/zenodo.23696023](https://doi.org/10.5281/zenodo.23696023) (all versions; version 1.0 is
-[10.5281/zenodo.23696024](https://doi.org/10.5281/zenodo.23696024)).
+[doi:10.5281/zenodo.23696023](https://doi.org/10.5281/zenodo.23696023) (all versions). The tests use
+version 1.1, [10.5281/zenodo.23702111](https://doi.org/10.5281/zenodo.23702111); version 1.0
+([10.5281/zenodo.23696024](https://doi.org/10.5281/zenodo.23696024)) lacks the electron and photon images.
 
 The zip contains the cropped trunk CT (4 mm), the liver and organ label images, the material tables and,
-for each radionuclide, the OpenGATE dose rate, its uncertainty and the simulation statistics.
+for each radionuclide, the OpenGATE dose rate, its uncertainty and the simulation statistics; for the
+VRT simulations (Lu-177, Y-90, I-131), also the electron (`e/`) and photon (`gamma_tle/`) parts, used to
+estimate the uncertainty of the organ means (step 6).
 Unzip the content of its top folder into `p142/data/`. The full-body CT and the acquisition metadata are not published.
