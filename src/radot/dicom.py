@@ -49,6 +49,70 @@ def combine_date_time(date_str: Optional[str], time_str: Optional[str]) -> Optio
         t = "00:00:00"
     return f"{d} {t}"
 
+# Element names and symbols of the radionuclides used in nuclear medicine
+ELEMENT_SYMBOLS = {
+    "actinium": "Ac", "astatine": "At", "bismuth": "Bi", "carbon": "C", "copper": "Cu",
+    "fluorine": "F", "gallium": "Ga", "holmium": "Ho", "indium": "In", "iodine": "I",
+    "lead": "Pb", "lutetium": "Lu", "nitrogen": "N", "oxygen": "O", "radium": "Ra",
+    "rubidium": "Rb", "samarium": "Sm", "technetium": "Tc", "terbium": "Tb",
+    "thorium": "Th", "yttrium": "Y", "zirconium": "Zr",
+}
+
+def parse_radionuclide(text: Optional[str]) -> Optional[str]:
+    """
+    Parse a DICOM radionuclide description into the radot name (e.g. 'Lu177', 'Tc99m').
+    Accepts code meanings such as '177 Lutetium', '^177^Lutetium', 'Fluorine^18^[^18^Fluorodeoxyglucose]',
+    and symbols such as 'Lu-177' or '177Lu'. Returns None if no radionuclide is recognized.
+    """
+    if not text:
+        return None
+    import re
+    tokens = re.findall(r"[A-Za-z]+|\d+m?", text)
+    symbols = set(ELEMENT_SYMBOLS.values())
+    for i, tok in enumerate(tokens):
+        symbol = ELEMENT_SYMBOLS.get(tok.lower())
+        if symbol is None and tok in symbols:
+            symbol = tok
+        if symbol is None:
+            continue
+        # Mass number just after or just before the element
+        for j in (i + 1, i - 1):
+            if 0 <= j < len(tokens) and tokens[j][0].isdigit():
+                return f"{symbol}{tokens[j]}"
+    return None
+
+def read_radiopharmaceutical(dicom_file: str) -> dict:
+    """
+    Read the Radiopharmaceutical Information Sequence (0054,0016) of a PET/SPECT DICOM file:
+    injected activity (Bq), injection date/time and radionuclide. These tags are inside the
+    sequence, where the SimpleITK header reader does not see them.
+    """
+    import pydicom
+
+    try:
+        ds = pydicom.dcmread(dicom_file, stop_before_pixels=True)
+    except Exception as e:
+        logger.debug(f"Could not read DICOM header with pydicom: {e}")
+        return {}
+    seq = ds.get("RadiopharmaceuticalInformationSequence")
+    if not seq:
+        return {}
+    item = seq[0]
+    info = {}
+    for key in ("RadionuclideTotalDose", "RadiopharmaceuticalStartDateTime", "RadiopharmaceuticalStartTime"):
+        val = item.get(key)
+        if val not in (None, ""):
+            info[key] = str(val)
+    nuclide = None
+    code_seq = item.get("RadionuclideCodeSequence")
+    if code_seq:
+        nuclide = parse_radionuclide(str(code_seq[0].get("CodeMeaning", "")))
+    if nuclide is None:
+        nuclide = parse_radionuclide(str(item.get("Radiopharmaceutical", "")))
+    if nuclide is not None:
+        info["radionuclide"] = nuclide
+    return info
+
 def convert_dicom(
     dicom_path: Path,
     output_path: Optional[Path] = None,
@@ -124,8 +188,32 @@ def convert_dicom(
         except ValueError:
             pass
 
+    # Radiopharmaceutical tags are in the sequence (0054,0016); top-level tags are a fallback
+    radio = read_radiopharmaceutical(header_file)
+
+    # Parse height (Patient's Size 0010|1020 is in m, we store in cm)
+    height_raw = get_tag("0010|1020")
+    height = None
+    if height_raw:
+        try:
+            height = round(float(height_raw) * 100.0, 2)
+        except ValueError:
+            pass
+        if height is not None and height <= 0:
+            height = None
+
+    # Parse sex (Patient's Sex 0010|0040: M, F or O)
+    sex_raw = get_tag("0010|0040")
+    sex = {"M": "male", "F": "female"}.get(sex_raw.upper()) if sex_raw else None
+
+    # Decay correction reference (0054|1102: NONE, START or ADMIN)
+    decay_raw = get_tag("0054|1102")
+    decay_correction = decay_raw.lower() if decay_raw else None
+
+    radionuclide = radio.get("radionuclide")
+
     # Parse activity (Radionuclide Total Dose 0018|1074 is in Bq, we store in MBq)
-    activity_raw = get_tag("0018|1074")
+    activity_raw = radio.get("RadionuclideTotalDose") or get_tag("0018|1074")
     activity = None
     if activity_raw:
         try:
@@ -150,11 +238,8 @@ def convert_dicom(
         if modality == "ct":
             unit = "hu"
         elif modality in ("pet", "spect"):
-            # If weight and activity are available, default to suv, otherwise bqml
-            if weight is not None and activity is not None:
-                unit = "suv"
-            else:
-                unit = "bqml"
+            # SUV images declare Units = GML; without Units, assume activity concentration
+            unit = "bqml"
 
     # Study/Series/Acquisition Dates and Times
     study_date = get_tag("0008|0020")
@@ -177,8 +262,8 @@ def convert_dicom(
         acquisition_date = combine_date_time(study_date, study_time)
 
     # Radiopharmaceutical details for injection_date
-    rad_datetime = get_tag("0018|1078")  # Radiopharmaceutical Start DateTime
-    rad_time = get_tag("0018|1072")      # Radiopharmaceutical Start Time
+    rad_datetime = radio.get("RadiopharmaceuticalStartDateTime") or get_tag("0018|1078")
+    rad_time = radio.get("RadiopharmaceuticalStartTime") or get_tag("0018|1072")
     
     injection_date = None
     if rad_datetime:
@@ -205,6 +290,9 @@ def convert_dicom(
             ("0010|0010", "Patient's Name"),
             ("0010|0020", "Patient ID"),
             ("0010|1030", "Patient's Weight"),
+            ("0010|1020", "Patient's Size"),
+            ("0010|0040", "Patient's Sex"),
+            ("0054|1102", "Decay Correction"),
             ("0008|0060", "Modality"),
             ("0008|1030", "Study Description"),
             ("0008|103e", "Series Description"),
@@ -225,10 +313,17 @@ def convert_dicom(
             ("0008|002a", "Acquisition DateTime"),
         ]
         import sys
+        # Tags read from the Radiopharmaceutical Information Sequence
+        seq_values = {
+            "0018|1074": radio.get("RadionuclideTotalDose"),
+            "0018|1078": radio.get("RadiopharmaceuticalStartDateTime"),
+            "0018|1072": radio.get("RadiopharmaceuticalStartTime"),
+        }
         for key, name in tags_to_print:
-            val = get_tag(key)
+            val = seq_values.get(key) or get_tag(key)
             tag_display = f"({key.replace('|', ',')})"
             sys.stdout.write(f"{tag_display} {name}: {val if val is not None else '(not set)'}\n")
+        sys.stdout.write(f"Radionuclide: {radionuclide if radionuclide else '(not set)'}\n")
         sys.stdout.write(f"Is Sinogram: {'yes' if is_sinogram else 'no'}\n")
         return
 
@@ -255,6 +350,14 @@ def convert_dicom(
         meta_dict["injection_date"] = injection_date
     if acquisition_date:
         meta_dict["acquisition_date"] = acquisition_date
+    if height is not None:
+        meta_dict["height"] = height
+    if sex:
+        meta_dict["sex"] = sex
+    if radionuclide:
+        meta_dict["radionuclide"] = radionuclide
+    if decay_correction:
+        meta_dict["decay_correction"] = decay_correction
     if is_sinogram:
         meta_dict["sinogram"] = True
 

@@ -209,6 +209,8 @@ def read_metadata(image_path: Path) -> dict:
     )
     height = get_metadata_case_insensitive(None, "height", image_path)
     sex = get_metadata_case_insensitive(None, "sex", image_path)
+    radionuclide = get_metadata_case_insensitive(None, "radionuclide", image_path)
+    decay_correction = get_metadata_case_insensitive(None, "decay_correction", image_path)
 
     # Convert numeric metadata types back if possible
     if weight is not None:
@@ -238,6 +240,8 @@ def read_metadata(image_path: Path) -> dict:
         "acquisition_date": acquisition_date,
         "height": height,
         "sex": sex,
+        "radionuclide": radionuclide,
+        "decay_correction": decay_correction,
     }
 
     # Compute time from injection if dates are set
@@ -358,8 +362,15 @@ def write_metadata(
             acq_dt = inj_dt + delta
             final_acquisition_date = acq_dt.strftime("%Y-%m-%d %H:%M:%S")
 
-    # Write to JSON sidecar
+    # Write to JSON sidecar, keeping the keys not managed here (e.g. radionuclide, decay_correction)
+    sidecar_path = get_sidecar_path(image_path)
     meta_dict = {}
+    if sidecar_path.exists():
+        try:
+            with open(sidecar_path, "r") as f:
+                meta_dict = json.load(f)
+        except Exception:
+            meta_dict = {}
     if final_modality is not None:
         meta_dict["modality"] = final_modality
     if final_unit is not None:
@@ -377,7 +388,6 @@ def write_metadata(
     if final_sex is not None:
         meta_dict["sex"] = final_sex
 
-    sidecar_path = get_sidecar_path(image_path)
     logger.info(f"Saving metadata to sidecar: {sidecar_path}")
     with open(sidecar_path, "w") as f:
         json.dump(meta_dict, f, indent=4)
@@ -448,6 +458,13 @@ def print_metadata(info_dict: dict) -> None:
 
     sex_val = metadata.get("sex")
     sys.stdout.write(f"Sex: {sex_val if sex_val else '(not set)'}\n")
+
+    nuclide_val = metadata.get("radionuclide")
+    sys.stdout.write(f"Radionuclide: {nuclide_val if nuclide_val else '(not set)'}\n")
+
+    decay_val = metadata.get("decay_correction")
+    if decay_val:
+        sys.stdout.write(f"Decay Correction: {decay_val}\n")
 
 
 def manage_metadata(

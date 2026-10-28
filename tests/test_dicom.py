@@ -329,3 +329,124 @@ def test_dicom_list_grouping(tmp_path):
 
 
 
+
+
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("177 Lutetium", "Lu177"),
+        ("^177^Lutetium", "Lu177"),
+        ("Fluorine^18^[^18^Fluorodeoxyglucose]", "F18"),
+        ("Lu-177", "Lu177"),
+        ("177Lu", "Lu177"),
+        ("^99m^Technetium", "Tc99m"),
+        ("Gallium-68 PSMA", "Ga68"),
+        ("Yttrium 90", "Y90"),
+        ("PSMA", None),
+        ("", None),
+        (None, None),
+    ],
+)
+def test_parse_radionuclide(text, expected):
+    from radot.dicom import parse_radionuclide
+
+    assert parse_radionuclide(text) == expected
+
+
+def write_pet_with_radiopharmaceutical_sequence(path: Path):
+    """PET slice whose radiopharmaceutical tags are in the sequence (0054,0016), as in real data."""
+    import numpy as np
+    import pydicom
+    from pydicom.dataset import Dataset, FileMetaDataset
+    from pydicom.sequence import Sequence
+    from pydicom.uid import ExplicitVRLittleEndian, generate_uid
+
+    meta = FileMetaDataset()
+    meta.MediaStorageSOPClassUID = "1.2.840.10008.5.1.4.1.1.128"  # PET Image Storage
+    meta.MediaStorageSOPInstanceUID = generate_uid()
+    meta.TransferSyntaxUID = ExplicitVRLittleEndian
+
+    ds = Dataset()
+    ds.file_meta = meta
+    ds.SOPClassUID = meta.MediaStorageSOPClassUID
+    ds.SOPInstanceUID = meta.MediaStorageSOPInstanceUID
+    ds.StudyInstanceUID = generate_uid()
+    ds.SeriesInstanceUID = generate_uid()
+    ds.Modality = "PT"
+    ds.PatientWeight = "92.987"
+    ds.PatientSize = "1.753"
+    ds.PatientSex = "M"
+    ds.Units = "BQML"
+    ds.DecayCorrection = "ADMIN"
+    ds.AcquisitionDate = "20181115"
+    ds.AcquisitionTime = "130628"
+
+    nuclide = Dataset()
+    nuclide.CodeValue = "C-101ED"
+    nuclide.CodingSchemeDesignator = "99SDM"
+    nuclide.CodeMeaning = "177 Lutetium"
+    radio = Dataset()
+    radio.RadiopharmaceuticalStartTime = "092200.000000"
+    radio.RadionuclideTotalDose = "7210425599.6395"
+    radio.RadiopharmaceuticalStartDateTime = "20181115092200.000000"
+    radio.RadionuclideCodeSequence = Sequence([nuclide])
+    ds.RadiopharmaceuticalInformationSequence = Sequence([radio])
+
+    ds.Rows, ds.Columns = 4, 4
+    ds.SamplesPerPixel = 1
+    ds.PhotometricInterpretation = "MONOCHROME2"
+    ds.BitsAllocated, ds.BitsStored, ds.HighBit = 16, 16, 15
+    ds.PixelRepresentation = 0
+    ds.PixelData = np.ones((4, 4), dtype=np.uint16).tobytes()
+    pydicom.dcmwrite(path, ds, enforce_file_format=True)
+
+
+def test_convert_dicom_radiopharmaceutical_sequence(tmp_path):
+    dcm_file = tmp_path / "spect.dcm"
+    write_pet_with_radiopharmaceutical_sequence(dcm_file)
+
+    output_nii = tmp_path / "spect.nii.gz"
+    convert_dicom(dcm_file, output_nii)
+    meta = json.loads((tmp_path / "spect.json").read_text())
+
+    assert meta["modality"] == "pet"
+    assert meta["unit"] == "bqml"
+    assert meta["activity"] == pytest.approx(7210.4256, rel=1e-6)
+    assert meta["injection_date"] == "2018-11-15 09:22:00"
+    assert meta["acquisition_date"] == "2018-11-15 13:06:28"
+    assert meta["radionuclide"] == "Lu177"
+    assert meta["height"] == pytest.approx(175.3)
+    assert meta["sex"] == "male"
+    assert meta["weight"] == pytest.approx(92.987)
+    assert meta["decay_correction"] == "admin"
+
+
+def test_convert_dicom_radiopharmaceutical_sequence_no_output(tmp_path):
+    dcm_file = tmp_path / "spect.dcm"
+    write_pet_with_radiopharmaceutical_sequence(dcm_file)
+
+    result = CliRunner().invoke(main, ["dicom", str(dcm_file)])
+    assert result.exit_code == 0
+    assert "Radionuclide Total Dose: 7210425599.6395" in result.output
+    assert "Radiopharmaceutical Start DateTime: 20181115092200.000000" in result.output
+    assert "Radionuclide: Lu177" in result.output
+
+
+def test_meta_keeps_dicom_keys(tmp_path):
+    """radot meta must not drop the keys it does not manage (radionuclide, decay_correction)."""
+    dcm_file = tmp_path / "spect.dcm"
+    write_pet_with_radiopharmaceutical_sequence(dcm_file)
+    output_nii = tmp_path / "spect.nii.gz"
+    convert_dicom(dcm_file, output_nii)
+
+    result = CliRunner().invoke(main, ["meta", str(output_nii), "--weight", "80"])
+    assert result.exit_code == 0
+    meta = json.loads((tmp_path / "spect.json").read_text())
+    assert meta["weight"] == 80.0
+    assert meta["radionuclide"] == "Lu177"
+    assert meta["decay_correction"] == "admin"
+    assert meta["activity"] == pytest.approx(7210.4256, rel=1e-6)
+
+    result = CliRunner().invoke(main, ["meta", str(output_nii)])
+    assert "Radionuclide: Lu177" in result.output
+    assert "Decay Correction: admin" in result.output
