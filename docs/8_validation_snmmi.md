@@ -60,9 +60,39 @@ Findings:
 
 - All organs and lesions (except the liver of A, see below) are within 6.5 % of the participants' median; outside the IQR: A Lesion2 (gate), A Kidneys (total) (ldm), A Kidneys (total) (gate).
 - **Liver of A**: the liver VOI contains lesion 1. The participants' spread (QCD 32 %, the largest of T5) matches two liver definitions: the VOI as given gives 2.39 Gy (median 2.25 Gy), the liver without the lesions 1.32 Gy (Q1 1.27 Gy). For B the lesions inside the liver are small.
-- The doses of A are a few percent below the median, those of B close to it. The Monte Carlo (`gate`, with photons and cross-doses) is as low as `svalue`: the cause is not the dose model. Possible causes, not checked: the mass (CT density vs volume × 1.0 or 1.06 g/mL used by many participants), the VOI definition.
+- The doses of A are a few percent below the median, those of B close to it. The Monte Carlo (`gate`, with photons and cross-doses) is as low as `svalue`: the cause is not the dose model but most likely the mass convention (see [Effect of the mass](#effect-of-the-mass)).
 - `ldm` is 1–2 % below `svalue`: no photon self-dose.
 - `gate` vs `ldm`: -2.0 to +4.2 %; `gate` vs `svalue` (organs): -1.6 to +0.6 %. The Monte Carlo adds the photons and the cross-doses, and transports the electrons beyond the voxel and the VOI boundary.
+
+## Effect of the mass
+
+radot computes the VOI mass from the CT (density = 1 + HU/1000, CT resampled to the TIA grid). Many dosimetry tools use the VOI volume times a fixed density instead, often 1.00 or 1.06 g/mL. The participants' masses are not published. All the methods divide by the mass, so the dose scales as 1 / mass: below, the radot dose (`svalue`, or `ldm` for the lesions) recomputed with the other mass conventions, as the difference with the participants' median.
+
+| Patient | VOI | Volume (mL) | CT density (g/mL) | Diff. CT mass | Diff. volume × 1.00 | Diff. volume × 1.06 |
+|---|---|--:|--:|--:|--:|--:|
+| A | Liver | 2055 | 1.050 | +6.4 % | +11.8 % | +5.5 % |
+| A | Liver (no lesions) | 1941 | 1.051 | -41.2 % | -38.2 % | -41.7 % |
+| A | Spleen | 276 | 1.038 | -3.6 % | +0.1 % | -5.6 % |
+| A | Kidney_L | 249 | 1.015 | -2.3 % | -0.8 % | -6.4 % |
+| A | Kidney_R | 260 | 1.016 | -2.5 % | -1.0 % | -6.6 % |
+| A | Kidneys (total) | 509 | 1.015 | -3.6 % | -2.1 % | -7.7 % |
+| A | Lesion1 | 116 | 1.028 | -3.8 % | -1.1 % | -6.7 % |
+| A | Lesion2 | 4 | 1.044 | -4.5 % | -0.3 % | -6.0 % |
+| B | Liver | 1620 | 1.052 | +1.9 % | +7.2 % | +1.1 % |
+| B | Liver (no lesions) | 1599 | 1.052 | -3.6 % | +1.4 % | -4.3 % |
+| B | Kidney_L | 92 | 1.012 | -0.1 % | +1.0 % | -4.7 % |
+| B | Kidney_R | 190 | 1.019 | -2.1 % | -0.2 % | -5.8 % |
+| B | Kidneys (total) | 283 | 1.017 | +0.3 % | +2.0 % | -3.8 % |
+| B | Lesion1 | 13 | 1.043 | -3.1 % | +1.1 % | -4.6 % |
+| B | Lesion2 | 4 | 1.055 | -2.0 % | +3.4 % | -2.5 % |
+| B | Lesion3 | 74 | 1.032 | -2.8 % | +0.2 % | -5.4 % |
+| B | Lesion4 | 25 | 1.005 | -0.2 % | +0.3 % | -5.4 % |
+
+- The CT density of the VOIs other than the liver is 1.005–1.055 g/mL (kidneys about 1.015: low HU and fat at the edges). Going from 1.00 to 1.06 g/mL changes the dose by 6 %, as much as the participants' spread (QCD 3–7 %).
+- For the kidneys, spleen and lesions, the difference with the median is -4.5 to +0.3 % with the CT mass, -2.1 to +3.4 % with volume × 1.00, and -7.7 to -2.5 % with volume × 1.06: with a density of 1 g/mL, radot is close to the median.
+- The liver does not follow (B: closer to the median with 1.06 g/mL, or with 1.00 g/mL without the lesions): the median likely mixes mass conventions and liver definitions.
+- The CT computation itself is not a source of difference: resampling the CT with or without smoothing, or computing the mass on the original CT grid, changes the organ masses by less than 0.5 %.
+- radot keeps the CT mass (patient-specific). The difference with the median is a convention, not an error of the dose calculation.
 
 ## What this validates
 

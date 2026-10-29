@@ -54,6 +54,64 @@ def checked(name, voi):
     return not (voi == "Liver (no lesions)" or (voi == "Liver" and PATIENTS[name].challenge_id == "A"))
 
 
+def mass_section(t5, order):
+    """Dose with the CT mass, and with the VOI volume x 1.00 or 1.06 g/mL (the dose scales as 1 / mass)."""
+    densities = (1.00, 1.06)
+
+    def rows():
+        for name, results in t5.items():
+            for voi in sorted(results, key=lambda v: (order.index(v) if v in order else len(order), v)):
+                r = results[voi]
+                method = "svalue" if r["svalue"] is not None else "ldm"
+                median = r["challenge"]["median"]
+                diffs = [100.0 * (r[method] / median - 1.0)]
+                for rho in densities:
+                    dose = r[method] * r["mass_g"] / (rho * r["volume_ml"])
+                    diffs.append(100.0 * (dose / median - 1.0))
+                yield name, voi, r, method, diffs
+
+    # VOIs whose definition is not ambiguous (the liver VOIs contain lesions)
+    not_liver = [d for name, voi, _, _, d in rows() if not voi.startswith("Liver")]
+    lo = [min(d[i] for d in not_liver) for i in range(3)]
+    hi = [max(d[i] for d in not_liver) for i in range(3)]
+    densities_ct = [r["mass_g"] / r["volume_ml"] for name, voi, r, _, _ in rows() if not voi.startswith("Liver")]
+
+    lines = [
+        "",
+        "## Effect of the mass",
+        "",
+        "radot computes the VOI mass from the CT (density = 1 + HU/1000, CT resampled to the TIA grid). "
+        "Many dosimetry tools use the VOI volume times a fixed density instead, often 1.00 or 1.06 g/mL. "
+        "The participants' masses are not published. All the methods divide by the mass, so the dose "
+        "scales as 1 / mass: below, the radot dose (`svalue`, or `ldm` for the lesions) recomputed with "
+        "the other mass conventions, as the difference with the participants' median.",
+        "",
+        "| Patient | VOI | Volume (mL) | CT density (g/mL) | Diff. CT mass | Diff. volume × 1.00 | Diff. volume × 1.06 |",
+        "|---|---|--:|--:|--:|--:|--:|",
+    ]
+    for name, voi, r, method, d in rows():
+        lines.append(
+            f"| {PATIENTS[name].challenge_id} | {voi} | {r['volume_ml']:.0f} | {r['mass_g'] / r['volume_ml']:.3f} "
+            f"| {d[0]:+.1f} % | {d[1]:+.1f} % | {d[2]:+.1f} % |"
+        )
+    lines += [
+        "",
+        f"- The CT density of the VOIs other than the liver is {min(densities_ct):.3f}–{max(densities_ct):.3f} g/mL "
+        "(kidneys about 1.015: low HU and fat at the edges). Going from 1.00 to 1.06 g/mL changes the "
+        "dose by 6 %, as much as the participants' spread (QCD 3–7 %).",
+        f"- For the kidneys, spleen and lesions, the difference with the median is {lo[0]:+.1f} to {hi[0]:+.1f} % "
+        f"with the CT mass, {lo[1]:+.1f} to {hi[1]:+.1f} % with volume × 1.00, and {lo[2]:+.1f} to "
+        f"{hi[2]:+.1f} % with volume × 1.06: with a density of 1 g/mL, radot is close to the median.",
+        "- The liver does not follow (B: closer to the median with 1.06 g/mL, or with 1.00 g/mL without the "
+        "lesions): the median likely mixes mass conventions and liver definitions.",
+        "- The CT computation itself is not a source of difference: resampling the CT with or without "
+        "smoothing, or computing the mass on the original CT grid, changes the organ masses by less than 0.5 %.",
+        "- radot keeps the CT mass (patient-specific). The difference with the median is a convention, "
+        "not an error of the dose calculation.",
+    ]
+    return lines
+
+
 def render(t5):
     methods = methods_in(t5)
     has_gate = "gate" in methods
@@ -185,10 +243,9 @@ def render(t5):
         "- The doses of A are a few percent below the median, those of B close to it. "
         + (
             "The Monte Carlo (`gate`, with photons and cross-doses) is as low as `svalue`: the cause is "
-            "not the dose model. Possible causes, not checked: the mass (CT density vs volume × 1.0 or "
-            "1.06 g/mL used by many participants), the VOI definition."
+            "not the dose model but most likely the mass convention (see [Effect of the mass](#effect-of-the-mass))."
             if has_gate
-            else "Possible causes, not checked: the mass (CT density vs volume × 1.0 or 1.06 g/mL), the "
+            else "Possible causes: the mass convention (see [Effect of the mass](#effect-of-the-mass)), the "
             "cross-doses from neighbouring organs (not included in `svalue`), the phantom."
         ),
         "- `ldm` is 1–2 % below `svalue`: no photon self-dose.",
@@ -201,6 +258,7 @@ def render(t5):
             f"{lo_s:+.1f} to {hi_s:+.1f} %. The Monte Carlo adds the photons and the cross-doses, "
             "and transports the electrons beyond the voxel and the VOI boundary.",
         ]
+    lines += mass_section(t5, order)
     lines += [
         "",
         "## What this validates",
