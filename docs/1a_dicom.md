@@ -48,10 +48,14 @@ radot dicom <input_path> -o <output_path> [--all-tags]
 1. Header Inspection: Inspects the primary header file.
 2. Metadata Extraction: Extracts key metadata:
    - Modality (e.g. `ct`, `pet`, `spect`)
-   - Unit (e.g. `hu` for CT; `suv` or `bqml` for PET/SPECT)
-   - Patient's weight (in kg)
+   - Unit from the DICOM Units tag (e.g. `hu` for CT; `bqml` or `suv` for PET/SPECT). Without a Units tag, PET/SPECT images are assumed to be in `bqml`.
+   - Patient's weight (in kg), height (Patient's Size, converted from m to cm) and sex (`male` / `female`)
    - Radionuclide injected activity (converted from Bq to MBq)
+   - Radionuclide (e.g. `Lu177`), parsed from the Radionuclide Code Sequence (e.g. "177 Lutetium") or the Radiopharmaceutical name
    - Acquisition and Injection date/time stamps
+   - Decay correction reference (`none`, `start` or `admin`, DICOM tag Decay Correction)
+
+   The injected activity, injection date/time and radionuclide are read from the Radiopharmaceutical Information Sequence (0054,0016), where PET and SPECT scanners store them; top-level tags are used as a fallback.
 3. JSON Sidecar Generation: Writes the extracted metadata to a companion `.json` sidecar matching the output image filename (e.g., converting `spect.dcm` to `spect.nii.gz` creates a `spect.json` sidecar).
 
 ---
@@ -108,7 +112,11 @@ When converted, a matching `.json` file is written containing fields such as:
     "weight": 70.0,
     "activity": 185.0,
     "injection_date": "2026-06-25 08:00:00",
-    "acquisition_date": "2026-06-25 09:00:00"
+    "acquisition_date": "2026-06-25 09:00:00",
+    "height": 175.0,
+    "sex": "male",
+    "radionuclide": "Lu177",
+    "decay_correction": "start"
 }
 ```
 These fields are automatically recognized by other `radot` modules (like `resample` and `dose`) to perform dosimetry calculation without requiring manual command options.
