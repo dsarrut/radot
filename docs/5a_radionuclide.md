@@ -107,14 +107,15 @@ Total Cascade Non-Penetrating Energy: 28.7043 MeV (Parent: 5.9168 MeV, Cascade F
 
 ## Application to Dosimetry (LDM)
 
-In Local Deposition Model (LDM) calculations, the decay cascade is accounted for automatically:
-- **CLI**: `radot dose ldm ... --cascade` (default is `--cascade`; use `--no-cascade` to isolate parent-only dose).
+In Local Deposition Model (LDM) calculations, the decay cascade is included with the cascade option:
+- **CLI**: `radot dose spect.nii.gz -m ldm --isotope Ac225 --ct ct.nii.gz --cascade -o dose.nii.gz` (default is `--no-cascade`, parent-only dose).
 - **Python**:
   ```python
-  from radot.dose import compute_dose_ldm
+  from radot.dose import compute_roi_dose
 
-  # Computes dose including full daughter cascade (default cascade=True)
-  dose_img = compute_dose_ldm(activity_img, "Ac-225", cascade=True)
+  # Without labels, ldm returns the dose image; cascade=True includes the daughters
+  dose_img = compute_roi_dose(activity_img, method="ldm", isotope="Ac225",
+                              ct_image=ct_img, cascade=True)
   ```
 
 ---
