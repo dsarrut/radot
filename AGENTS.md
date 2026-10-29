@@ -1,6 +1,17 @@
-# AI Developer Guide (AI.md)
+# AGENTS.md
 
-This document provides a high-level overview of the `radot` library architecture, core design rules, metadata guidelines, and module responsibilities to help future AI coding assistants develop and maintain this repository.
+Instructions for AI coding agents working on `radot`: setup, architecture, module responsibilities, and the design rules to follow.
+
+## 0. Quick Start
+
+```bash
+pip install -e ".[dev]"          # core + pytest/scipy; ".[seg]" adds TotalSegmentator
+pytest -q                         # unit tests + validation levels that need no data (CI: Python 3.11–3.14)
+```
+
+*   Never commit patient data or anything under `data/`. The SNMMI challenge data (CC BY-NC) and the outputs derived from it are never committed or redistributed.
+*   Commits use conventional prefixes (`feat:`, `fix:`, `docs:`, `test:`, ...).
+*   Planning and status notes are in `dev_docs/` (gitignored); start with `dev_docs/dev_readme_070_consolidate.md`.
 
 ---
 
