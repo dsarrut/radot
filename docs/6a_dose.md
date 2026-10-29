@@ -30,13 +30,15 @@ radot dose -c <config_json> [options]
 * -c, --config <config_path>: Path to a JSON configuration file containing dosimetry settings.
 * -l, --labels <labels_path>: Optional anatomical segmentation label map. Required for S-value methods. Optional for LDM.
 * --ct <ct_path>: Companion CT image used for physical density estimation and mass calibration.
-* -m, --method <hanscheid2017|hanscheid2018|madsen2018|jackson2013|ldm>: Dosimetry model to apply.
+* -m, --method <hanscheid2017|hanscheid2018|madsen2018|jackson2013|svalue|ldm>: Dosimetry model to apply. `svalue` needs a time-integrated activity image (see [TIA images](#time-integrated-activity-tia-images)).
 * --isotope <name>: Radionuclide identifier (e.g. Lu177, Y90) to retrieve physical yield constraints.
 * --rois <name>: ROI name to include. Can be specified multiple times or comma-separated.
 * --teff <ROI:value>: Effective half-life override per ROI in hours (e.g. --teff Liver:45.0 --teff Kidney_L:32.0).
 * --total-activity <float>: Global calibration activity override in MBq.
 * --hu-threshold <float>: Hounsfield Units cutoff (defaults to -800.0). Voxel doses corresponding to CT values below this limit are zeroed out (air masking).
 * --dose-rate: If set, computes instantaneous dose rate (in Gy/h) at the time of acquisition rather than integrated absorbed dose (in Gy). Only available for LDM.
+* --dose-rate-map <path>: External dose-rate image (e.g. OpenGATE), computed with the activity image as source. It replaces the S-value or the local deposition; the method selects the time integration (see [Dose-rate map](#external-dose-rate-map-monte-carlo)).
+* --dose-rate-map-activity <float>: Activity (MBq) that produced the dose-rate map (e.g. the simulated activity). Default: the map sidecar key `source_activity_mbq`, else the map is an absolute dose rate.
 * -o, --output <output_path>: Path to output NIfTI dose map or JSON summary results. Required for LDM if running without labels.
 * --resample <like_activity|like_labels|like_ct>: Specifies the grid alignment strategy if input image spaces differ.
 * --phantom <male|female>: Reference phantom model used for S-value calculations. Defaults to male.
@@ -325,6 +327,59 @@ Where:
     $$
     where $m_{\text{patient}}$ is the patient's organ mass and $m_{\text{reference}}$ is the reference phantom's organ mass.
 *   $10^{-3}$ converts the resulting dose from mGy to Gy.
+
+---
+
+### S-value on a TIA image (`svalue`)
+When the time-integrated activity is already known (for example a TIA map computed by another software, or the TIA maps of the SNMMI Dosimetry Challenge), the dose is the TIA in the ROI times the OpenDose self S-value, with the same mass scaling as `madsen2018`. No time point and no effective half-life are needed.
+
+**Equation:**
+
+$$
+D = \frac{\tilde{A} \cdot S}{\text{mass-scaling}} \cdot 10^{-3}
+$$
+
+Where $\tilde{A}$ is the sum of the TIA image in the ROI (in $\text{MBq}\cdot\text{s}$), and $S$, $\text{mass-scaling}$ are as for `madsen2018`. The result also reports the ROI TIA (`tia_mbq_s`, `tia_mbq_h`).
+
+---
+
+### Time-integrated activity (TIA) images
+An image whose unit (sidecar `unit`) is `bqs` (Bq·s per voxel) or `bqsml` (Bq·s/mL) is a TIA image. It can be used with:
+
+*   `svalue`: organ-level S-value dose (above);
+*   `ldm`: the voxel TIA is used directly, $D = \tilde{A} \cdot \Delta_{\text{local}} \cdot 1.60218 \times 10^{-10} / m$.
+
+The single-time-point methods (`hanscheid2017`, `hanscheid2018`, `madsen2018`) reject a TIA image, `svalue` rejects an activity image, and `--dose-rate` and `--total-activity` cannot be used with a TIA image.
+
+```bash
+radot meta tia.nii.gz --modality spect --unit bqsml
+radot dose tia.nii.gz -l labels.nii.gz --ct ct.nii.gz -m svalue --isotope lu177 --rois Liver --rois Kidney_L
+radot dose tia.nii.gz -l labels.nii.gz --ct ct.nii.gz -m ldm --isotope lu177
+```
+
+---
+
+### External dose-rate map (Monte Carlo)
+Every single-time-point method is a dose rate at the acquisition time multiplied by a time-integration factor. The dose rate comes from the S-value (`hanscheid2018`, `madsen2018`) or the local deposition (`ldm`). With `--dose-rate-map`, it comes from an external dose-rate image instead, for example a Monte Carlo simulation with [OpenGATE](https://github.com/OpenGATE/opengate) (`opengate_dose_rate`), which includes the photons, the cross-doses and the patient anatomy.
+
+*   The map is the dose rate produced by an activity $A_{\text{map}}$ (`--dose-rate-map-activity`, in MBq) distributed like the radot image. It is scaled to the image total: $\dot{D}(t) = \text{map} \cdot A_{\text{image}} / A_{\text{map}}$. One simulation (e.g. 1 MBq) is reused for any activity.
+*   Unit: sidecar `unit` `gy/s` or `gy/h`; without a sidecar, `gy/s` (OpenGATE output).
+*   The map must be on the grid of the activity image. ROI value: mass-weighted mean of the map in the ROI (CT density). No HU threshold.
+
+| Method | Image | Dose |
+|---|---|---|
+| `hanscheid2018` | activity | $\dot{D}(t) \cdot T_{\text{eff}} / \ln 2$, $T_{\text{eff}} = 2t$ by default |
+| `madsen2018` | activity | $\dot{D}(t) \cdot e^{kt} / k$, $k = \ln 2 / T_{\text{eff}}$ |
+| `ldm` | activity | $\dot{D}(t) \cdot e^{\lambda t} / \lambda$ (physical decay); with `--dose-rate`, $\dot{D}(t)$ in Gy/h |
+| `svalue`, `ldm` | TIA | $\text{map} \cdot \tilde{A}_{\text{image}} / A_{\text{map}}$ (no time model) |
+
+`hanscheid2017`, `jackson2013` and multiple time points reject a dose-rate map. The results add `mean_dose_rate_gys` (activity image) and `dose_engine: "map"`.
+
+```bash
+opengate_dose_rate config.json      # source: spect.nii.gz, CT: ct.nii.gz, activity_bq: 1e6
+radot dose spect.nii.gz -l labels.nii.gz --ct ct.nii.gz -m hanscheid2018 --isotope lu177 \
+    --dose-rate-map output/output_dose.mhd --dose-rate-map-activity 1
+```
 
 ---
 

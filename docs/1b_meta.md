@@ -49,7 +49,7 @@ Supported image metadata keys:
   - modality: Image modality type.
               Valid choices: ct, pet, spect, dose
   - unit: Physical unit of voxel values.
-          Valid choices: hu, suv, bqml, bq, gy, gy/h
+          Valid choices: hu, suv, bqml, bq, gy, gy/h, sul, bqs, bqsml
   - weight: Patient weight (in kg).
             Format: floating point number
   - activity: Injected activity (in MBq).
@@ -73,7 +73,7 @@ radot meta <image_path> [options]
 
 #### Options:
 * `--modality <ct|pet|spect|dose>`: Modality of the image.
-* `--unit <hu|suv|bqml|bq|gy|gy/h>`: Physical unit of voxel values (gy for dose map, gy/h for dose rate map).
+* `--unit <hu|suv|bqml|bq|gy|gy/h|sul|bqs|bqsml>`: Physical unit of voxel values (gy for dose map, gy/h for dose rate map, bqs / bqsml for a time-integrated activity map in Bq·s per voxel / Bq·s/mL).
 * `--weight <float>`: Patient weight in kg.
 * `--activity <float>`: Injected activity in MBq.
 * `--injection-date <YYYY-MM-DD HH:MM:SS>`: Injection timestamp.

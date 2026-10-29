@@ -434,9 +434,9 @@ def common_meta_options(f):
     f = click.option(
         "--unit",
         type=click.Choice(
-            ["hu", "suv", "bqml", "bq", "gy", "gy/h", "sul"], case_sensitive=False
+            ["hu", "suv", "bqml", "bq", "gy", "gy/h", "gy/s", "sul", "bqs", "bqsml"], case_sensitive=False
         ),
-        help="Physical unit of voxel values (hu, suv, bqml, bq, gy, gy/h, sul).",
+        help="Physical unit of voxel values (hu, suv, bqml, bq, gy, gy/h, gy/s, sul, bqs, bqsml).",
     )(f)
     f = click.option(
         "--weight",
@@ -487,7 +487,7 @@ def meta_list():
     sys.stdout.write("  - modality: Image modality type.\n")
     sys.stdout.write("              Valid choices: ct, pet, spect, dose\n")
     sys.stdout.write("  - unit: Physical unit of voxel values.\n")
-    sys.stdout.write("          Valid choices: hu, suv, bqml, bq, gy, gy/h, sul\n")
+    sys.stdout.write("          Valid choices: hu, suv, bqml, bq, gy, gy/h, gy/s, sul, bqs, bqsml\n")
     sys.stdout.write("  - weight: Patient weight (in kg).\n")
     sys.stdout.write("            Format: floating point number\n")
     sys.stdout.write("  - activity: Injected activity (in MBq).\n")
@@ -668,6 +668,13 @@ def dose_list():
         "         Equation: Dose Rate = (Activity * Delta_local * 1.60218e-10 * 3600) / mass\n"
     )
     sys.stdout.write(
+        "  - svalue: S-value method on a time-integrated activity (TIA) image (unit bqs or bqsml, OpenDose S-values)\n"
+    )
+    sys.stdout.write("            Equation: Dose = TIA * S / mass_scaling\n")
+    sys.stdout.write(
+        "         Note: ldm also accepts a TIA image (no time point, no Teff needed)\n"
+    )
+    sys.stdout.write(
         "  - jackson2013: Jackson 2013 3-timepoint method (multi-timepoint analytical tri-exponential clearance model with OpenDose S-values)\n"
     )
     sys.stdout.write(
@@ -675,6 +682,16 @@ def dose_list():
     )
     sys.stdout.write(
         "                 Fits decay-corrected biological clearance: A_bio(t) = A1*e^(k1*t) + A2*e^(k2*t) + A3*e^(k3*t)\n"
+    )
+    sys.stdout.write(
+        "Option --dose-rate-map: external dose-rate image (e.g. OpenGATE) replacing the S-value / local deposition\n"
+    )
+    sys.stdout.write(
+        "         hanscheid2018: Dose = Ddot(t) * Teff / ln2 (Teff = 2t by default)\n"
+        "         madsen2018:    Dose = Ddot(t) * exp(k t) / k\n"
+        "         ldm:           Dose = Ddot(t) * exp(lambda t) / lambda (physical decay)\n"
+        "         svalue, ldm on a TIA image: Dose = map * TIA / map activity\n"
+        "         Ddot(t) = map * (image total activity) / (map activity)\n"
     )
 
 
@@ -748,6 +765,20 @@ def dose_list():
     help="Compute instantaneous dose rate (in Gy/h) instead of absorbed dose (in Gy). Only available for LDM.",
 )
 @click.option(
+    "--dose-rate-map",
+    "dose_rate_map_path",
+    type=click.Path(exists=True, path_type=Path),
+    help="External dose-rate image (e.g. OpenGATE output, Gy/s) computed with the activity image as "
+    "source. Replaces the S-value / local deposition; the method selects the time integration.",
+)
+@click.option(
+    "--dose-rate-map-activity",
+    "dose_rate_map_activity",
+    type=float,
+    help="Activity (MBq) that produced the dose-rate map (e.g. the simulated activity). "
+    "Default: sidecar 'source_activity_mbq', else the map is an absolute dose rate.",
+)
+@click.option(
     "-o",
     "--output",
     "output_path",
@@ -794,6 +825,8 @@ def dose(
     hu_threshold,
     dose_rate,
     cascade,
+    dose_rate_map_path,
+    dose_rate_map_activity,
 ):
     """Compute absorbed doses for specified regions of interest (ROI)."""
     from radot.dose import compute_roi_dose_file, load_dose_config
@@ -890,6 +923,11 @@ def dose(
     if not param_from_cli("phantom") and "phantom" in config_dict:
         phantom = config_dict["phantom"]
 
+    if dose_rate_map_path is None:
+        dose_rate_map_path = config_dict.get("dose_rate_map_path")
+    if dose_rate_map_activity is None:
+        dose_rate_map_activity = config_dict.get("dose_rate_map_activity_mbq")
+
     method_key = method.lower()
     if dose_rate and method_key != "ldm":
         raise click.UsageError(
@@ -966,6 +1004,8 @@ def dose(
             cascade=cascade,
             config=config_path,
             timepoints=timepoints,
+            dose_rate_map_path=dose_rate_map_path,
+            dose_rate_map_activity_mbq=dose_rate_map_activity,
         )
     except Exception as e:
         handle_cli_exception(e)

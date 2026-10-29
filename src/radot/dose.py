@@ -20,13 +20,19 @@ def dose_ldm(
     hu_threshold: Optional[float] = -800.0,
     dose_rate: bool = False,
     cascade: bool = False,
+    tia: bool = False,
 ) -> np.ndarray:
     """
     Voxel-level physical Local Deposition Model (LDM).
-    - image_arr is physical activity in Bq per voxel
+    - image_arr is physical activity in Bq per voxel,
+      or time-integrated activity (TIA) in Bq.s per voxel if tia is True
+      (time_from_injection_h is then ignored)
     - returns 3D float numpy array of absorbed dose (in Gy) or dose rate (in Gy/h) per voxel
     """
     from radot.db import get_cascade_energy_constant_mev
+
+    if tia and dose_rate:
+        raise ValueError("Dose rate cannot be computed from a time-integrated activity image.")
 
     # Get Delta_local in MeV (accounting for decay cascade if requested)
     delta_local_mev, _ = get_cascade_energy_constant_mev(isotope, cascade=cascade)
@@ -53,6 +59,9 @@ def dose_ldm(
         dose_arr = (
             image_arr * delta_local_mev * mev_to_joules_per_g * 3600.0
         ) / voxel_mass_g
+    elif tia:
+        # Absorbed Dose (Gy) per voxel: TIA (Bq.s) * Delta_local (MeV) * conversions / mass (g)
+        dose_arr = (image_arr * delta_local_mev * mev_to_joules_per_g) / voxel_mass_g
     else:
         # Physical decay constant lambda = ln(2) / T_p (in hours)
         t_p_h = get_physical_half_life_h(isotope)
@@ -170,6 +179,30 @@ def dose_madsen2018(
 
     # S is in (mGy/MBq/s), so we get dose in mGy. Scale and convert to Gy.
     dose = integrated_activity * s_value / mass_scaling / 1000.0
+
+    return float(dose)
+
+
+def dose_svalue(
+    tia_bqs_a: np.ndarray,
+    roi_a: np.ndarray,
+    s_value: float,
+    mass_scaling: float,
+    source_roi_a: Optional[np.ndarray] = None,
+) -> float:
+    """
+    Absorbed dose from a time-integrated activity (TIA) image and an S-value.
+    - tia_bqs_a must be in Bq.s per voxel
+    - output is in Gray
+    - if source_roi_a is provided, TIA is summed in source_roi_a (source organ),
+      computing cross-dose to target organ roi_a using s_value S(target <- source)
+      and target mass_scaling.
+    """
+    source_mask = source_roi_a if source_roi_a is not None else roi_a
+    tia_mbq_s = np.sum(tia_bqs_a[source_mask == 1]) / 1e6
+
+    # S is in (mGy/MBq/s), so we get dose in mGy. Scale and convert to Gy.
+    dose = tia_mbq_s * s_value / mass_scaling / 1000.0
 
     return float(dose)
 
@@ -762,11 +795,82 @@ def strategy_madsen2018(
     return float(dose), float(teff)
 
 
+def strategy_svalue(
+    image_arr: np.ndarray,
+    mask: np.ndarray,
+    voxel_volume_ml: float,
+    roi_name: str,
+    time_from_injection_h: Optional[float],
+    isotope: str,
+    roi_mass_g: float,
+    roi_volume_ml: float,
+    method_params: Optional[Dict[str, Any]],
+    verbose: bool,
+    ct_arr: Optional[np.ndarray] = None,
+) -> tuple[float, None]:
+    """Strategy implementation for the S-value method on a TIA image (Bq.s per voxel)."""
+    from radot.db import resolve_organ_name, get_s_value, get_reference_mass
+
+    phantom = "male"
+    if method_params:
+        phantom = method_params.get("phantom", "male")
+
+    # Standardize phantom/organ/rad
+    opendose_organ = resolve_organ_name(roi_name, phantom)
+    s_value = get_s_value(phantom, isotope, opendose_organ, opendose_organ)
+    s_mass = get_reference_mass(phantom, opendose_organ)
+    mass_scaling = roi_mass_g / s_mass
+
+    dose = dose_svalue(
+        tia_bqs_a=image_arr,
+        roi_a=mask.astype(np.uint8),
+        s_value=s_value,
+        mass_scaling=mass_scaling,
+    )
+
+    if verbose or logger.isEnabledFor(logging.DEBUG):
+        voxels_in_roi = np.sum(mask)
+        tia_mbq_s = np.sum(image_arr[mask]) / 1e6
+        density_str = (
+            f"computed using companion CT, mean density: {roi_mass_g / roi_volume_ml:.3f} g/mL"
+            if ct_arr is not None
+            else "no companion CT, assuming water density 1.0 g/mL"
+        )
+
+        log_msg = (
+            f"\nDosimetry calculation log for ROI '{roi_name}' using S-value (TIA input):\n"
+            f"  - Radionuclide: {isotope}\n"
+            f"  - Phantom model: {phantom}\n"
+            f"  - OpenDose Organ Name: {opendose_organ}\n"
+            f"  - Reference Organ Mass: {s_mass:.3f} g\n"
+            f"  - ROI Volume: {roi_volume_ml:.3f} mL ({voxels_in_roi} voxels)\n"
+            f"  - ROI Mass: {roi_mass_g:.3f} g\n"
+            f"    ({density_str})\n"
+            f"  - Mass scaling factor: {mass_scaling:.4f}\n"
+            f"  - S-value (self): {s_value:.3e} mGy/MBq.s\n"
+            f"  - Time-Integrated Activity (TIA): {tia_mbq_s / 3600.0:.2f} MBq.h ({tia_mbq_s:.3e} MBq.s)\n"
+            f"  - Formula: TIA * S / mass_scaling / 1000\n"
+            f"  - Voxel-mean Absorbed Dose: {dose:.6f} Gy"
+        )
+        if verbose:
+            logger.info(log_msg)
+        else:
+            logger.debug(log_msg)
+
+    return float(dose), None
+
+
 DOSIMETRY_STRATEGIES = {
     "hanscheid2017": strategy_hanscheid2017,
     "hanscheid2018": strategy_hanscheid2018,
     "madsen2018": strategy_madsen2018,
+    "svalue": strategy_svalue,
 }
+
+# Units of time-integrated activity (TIA) images: Bq.s per voxel, Bq.s per mL
+TIA_UNITS = ("bqs", "bqsml")
+# Methods accepting a TIA image as input (they need no time point nor Teff)
+TIA_METHODS = ("svalue", "ldm")
 
 
 def compute_dose_generic(
@@ -835,8 +939,14 @@ def compute_dose_generic(
                 "mean_dose_gy": float(dose),
                 "roi_mass_g": float(roi_mass_g),
                 "roi_volume_ml": float(roi_volume_ml),
-                "roi_teff_h": float(teff),
             }
+            if teff is not None:
+                results[roi_name]["roi_teff_h"] = float(teff)
+            else:
+                # TIA input: report the ROI time-integrated activity
+                tia_mbq_s = float(np.sum(image_arr[mask]) / 1e6)
+                results[roi_name]["tia_mbq_s"] = tia_mbq_s
+                results[roi_name]["tia_mbq_h"] = tia_mbq_s / 3600.0
         except ValueError as e:
             if "not found in" in str(e) and (
                 "S-value matrix" in str(e) or "phantom" in str(e)
@@ -1293,6 +1403,188 @@ def compute_roi_dose_mtp(
     return results
 
 
+# Methods accepting an external dose-rate map (e.g. OpenGATE): the map replaces the S-value
+# or the local deposition, the method only selects the time integration
+DOSE_RATE_MAP_METHODS = ("hanscheid2018", "madsen2018", "ldm", "svalue")
+# Dose-rate map units, factor to Gy/s
+DOSE_RATE_MAP_UNITS = {"gy/s": 1.0, "gy/h": 1.0 / 3600.0}
+
+
+def dose_from_rate_map(
+    image: sitk.Image,
+    dose_rate_map: sitk.Image,
+    method: str,
+    isotope: str,
+    is_tia: bool,
+    time_from_injection_h: Optional[float],
+    labels: Optional[sitk.Image] = None,
+    labels_map: Optional[Dict[int, str]] = None,
+    rois: Optional[List[str]] = None,
+    ct_image: Optional[sitk.Image] = None,
+    method_params: Optional[Dict[str, Any]] = None,
+    dose_rate_map_path: Optional[Path] = None,
+    dose_rate_map_activity_mbq: Optional[float] = None,
+    dose_rate: bool = False,
+    verbose: bool = False,
+) -> Any:
+    """
+    Absorbed dose from an external dose-rate map (e.g. OpenGATE opengate_dose_rate output).
+    - image: activity in Bq per voxel, or TIA in Bq.s per voxel if is_tia
+    - dose_rate_map: dose rate (Gy/s or Gy/h, sidecar 'unit', default Gy/s) produced by
+      dose_rate_map_activity_mbq distributed like the image. It is scaled to the image total:
+      the result is the dose rate at the acquisition time (activity image), or the absorbed
+      dose (TIA image). Without the map activity (argument or sidecar 'source_activity_mbq'),
+      the map is taken as the absolute dose rate at the acquisition time.
+    - method: time integration, hanscheid2018 (Teff / ln2, Teff = 2t by default),
+      madsen2018 (exp(kt) / k), ldm (physical decay), or none for a TIA image (svalue, ldm)
+    - ROI value: mass-weighted mean of the map in the ROI
+    Returns the results dict, (results, dose image) for ldm, or the dose image for ldm
+    without labels.
+    """
+    from radot.meta import get_metadata_case_insensitive
+    from radot.stats import has_same_grid
+
+    method_key = method.lower()
+    if not has_same_grid(dose_rate_map, image):
+        raise ValueError(
+            "Dose-rate map grid does not match the activity image grid "
+            "(the map must be computed with the activity image as source)."
+        )
+
+    # Map unit
+    unit = get_metadata_case_insensitive(dose_rate_map, "unit", dose_rate_map_path)
+    if unit is None:
+        unit = "gy/s"
+        logger.info("Dose-rate map unit not specified: assuming gy/s (OpenGATE output).")
+    if unit.lower() not in DOSE_RATE_MAP_UNITS:
+        raise ValueError(
+            f"Dose-rate map unit must be one of {', '.join(DOSE_RATE_MAP_UNITS)}, got '{unit}'."
+        )
+
+    # Normalisation to the image total (Bq, or Bq.s for a TIA image)
+    if dose_rate_map_activity_mbq is None:
+        a = get_metadata_case_insensitive(dose_rate_map, "source_activity_mbq", dose_rate_map_path)
+        dose_rate_map_activity_mbq = float(a) if a is not None else None
+    image_arr = sitk.GetArrayFromImage(image)
+    image_total = float(np.sum(image_arr))
+    if dose_rate_map_activity_mbq is not None:
+        if dose_rate_map_activity_mbq <= 0:
+            raise ValueError("Dose-rate map activity must be positive.")
+        scale = image_total / (dose_rate_map_activity_mbq * 1e6)
+    elif is_tia:
+        raise ValueError(
+            "With a time-integrated activity image, the activity of the dose-rate map is "
+            "required (--dose-rate-map-activity or sidecar key 'source_activity_mbq')."
+        )
+    else:
+        scale = 1.0
+        logger.info("No dose-rate map activity: the map is used as the absolute dose rate.")
+    # Gy/s at the acquisition time (activity image), or Gy (TIA image)
+    rate_arr = (
+        sitk.GetArrayFromImage(dose_rate_map).astype(np.float64)
+        * DOSE_RATE_MAP_UNITS[unit.lower()]
+        * scale
+    )
+
+    ln2 = np.log(2)
+    t_s = None if is_tia else time_from_injection_h * 3600.0
+
+    def time_factor_s(roi_name: Optional[str]) -> Tuple[float, Optional[float]]:
+        """Time-integration factor (s) and Teff (h) for one ROI."""
+        if is_tia:
+            return 1.0, None
+        if method_key == "ldm":
+            teff = get_physical_half_life_h(isotope)
+            k = ln2 / (teff * 3600.0)
+            return float(np.exp(k * t_s) / k), teff
+        teff = None
+        if method_params and roi_name in method_params:
+            teff = method_params[roi_name].get("teff")
+        if method_key == "hanscheid2018":
+            if teff is None:
+                teff = 2.0 * time_from_injection_h
+            return teff * 3600.0 / ln2, teff
+        if teff is None:
+            raise ValueError(
+                f"Effective half-life (teff) must be provided for ROI '{roi_name}' when using the madsen2018 method."
+            )
+        k = ln2 / (teff * 3600.0)
+        return float(np.exp(k * t_s) / k), teff
+
+    spacing = image.GetSpacing()
+    voxel_volume_ml = (spacing[0] * spacing[1] * spacing[2]) / 1000.0
+    if ct_image is not None:
+        density_arr = np.clip(1.0 + (sitk.GetArrayFromImage(ct_image) / 1000.0), 1e-3, None)
+    else:
+        density_arr = np.ones_like(rate_arr)
+    voxel_mass_g = voxel_volume_ml * density_arr
+
+    dose_image = None
+    if method_key == "ldm":
+        if dose_rate:
+            dose_arr = rate_arr * 3600.0
+        else:
+            dose_arr = rate_arr * time_factor_s(None)[0]
+        dose_image = sitk.GetImageFromArray(dose_arr.astype(np.float32))
+        dose_image.CopyInformation(image)
+        dose_image.SetMetaData("unit", "gy/h" if dose_rate else "gy")
+        dose_image.SetMetaData("modality", "dose")
+        if labels is None:
+            return dose_image
+
+    labels_arr = sitk.GetArrayFromImage(labels)
+    results = {}
+    for label_val, roi_name in (labels_map or {}).items():
+        if rois and roi_name not in rois:
+            continue
+        mask = labels_arr == label_val
+        if not np.any(mask):
+            continue
+        roi_mass_g = float(np.sum(voxel_mass_g[mask]))
+        roi_volume_ml = float(np.sum(mask) * voxel_volume_ml)
+        mean_rate = float(np.sum(rate_arr[mask] * voxel_mass_g[mask]) / roi_mass_g)
+        res = {"roi_mass_g": roi_mass_g, "roi_volume_ml": roi_volume_ml}
+        if dose_rate:
+            res["mean_dose_rate_gyh"] = mean_rate * 3600.0
+        else:
+            factor, teff = time_factor_s(roi_name)
+            res["mean_dose_gy"] = mean_rate * factor
+            if is_tia:
+                tia_mbq_s = float(np.sum(image_arr[mask]) / 1e6)
+                res["tia_mbq_s"] = tia_mbq_s
+                res["tia_mbq_h"] = tia_mbq_s / 3600.0
+            else:
+                res["mean_dose_rate_gys"] = mean_rate
+                res["roi_teff_h"] = float(teff)
+        res["dose_engine"] = "map"
+        results[roi_name] = res
+
+        if verbose or logger.isEnabledFor(logging.DEBUG):
+            log_msg = (
+                f"\nDosimetry calculation log for ROI '{roi_name}' using {method} with a dose-rate map:\n"
+                f"  - Radionuclide: {isotope}\n"
+                f"  - Map unit: {unit}, map activity: "
+                f"{'absolute' if dose_rate_map_activity_mbq is None else f'{dose_rate_map_activity_mbq:.3e} MBq'}\n"
+                f"  - Image total: {image_total:.3e} {'Bq.s' if is_tia else 'Bq'} (map scale factor {scale:.4e})\n"
+                f"  - ROI Volume: {roi_volume_ml:.3f} mL ({int(np.sum(mask))} voxels)\n"
+                f"  - ROI Mass: {roi_mass_g:.3f} g\n"
+                + (
+                    f"  - Dose: mass-weighted mean of the scaled map\n"
+                    if is_tia
+                    else f"  - Mean dose rate at {time_from_injection_h:.3f} h: {mean_rate:.4e} Gy/s\n"
+                )
+                + "\n".join(f"  - {k}: {v}" for k, v in res.items() if k.startswith(("mean_dose", "roi_teff")))
+            )
+            if verbose:
+                logger.info(log_msg)
+            else:
+                logger.debug(log_msg)
+
+    if method_key == "ldm":
+        return results, dose_image
+    return results
+
+
 def compute_roi_dose(
     image: Any,
     method: str,
@@ -1311,12 +1603,19 @@ def compute_roi_dose(
     hu_threshold: Optional[float] = -800.0,
     dose_rate: bool = False,
     cascade: bool = False,
+    dose_rate_map: Optional[Any] = None,
+    dose_rate_map_path: Optional[Path] = None,
+    dose_rate_map_activity_mbq: Optional[float] = None,
 ) -> Any:
     """
     Computes average/voxel absorbed doses for specified regions of interest.
+    With dose_rate_map (an external Monte Carlo dose-rate image), the map replaces the S-value
+    or the local deposition and the method selects the time integration (see dose_from_rate_map).
     """
     # Check if multiple images (MTP) were passed
     if isinstance(image, (list, tuple)):
+        if dose_rate_map is not None or dose_rate_map_path is not None:
+            raise ValueError("A dose-rate map cannot be used with multiple time points.")
         return compute_roi_dose_mtp(
             images=list(image),
             labels=labels,
@@ -1362,8 +1661,20 @@ def compute_roi_dose(
                 method_params[roi] = {}
             method_params[roi]["teff"] = teff
 
+    if dose_rate_map is None and dose_rate_map_path is not None:
+        dose_rate_map = dose_rate_map_path
+    if isinstance(dose_rate_map, (str, Path)):
+        if dose_rate_map_path is None:
+            dose_rate_map_path = Path(dose_rate_map)
+        dose_rate_map = sitk.ReadImage(str(dose_rate_map))
+
     # 1. Fast-Fail Boundary Checks
     method_key = method.lower()
+    if dose_rate_map is not None and method_key not in DOSE_RATE_MAP_METHODS:
+        raise ValueError(
+            f"Method '{method}' cannot be used with a dose-rate map. "
+            f"Methods with a dose-rate map: {', '.join(DOSE_RATE_MAP_METHODS)}."
+        )
     if labels_map is None:
         if method_key == "ldm":
             if labels_path is not None:
@@ -1401,15 +1712,45 @@ def compute_roi_dose(
                     "CT image grid does not match activity image grid. Please resample CT first."
                 )
 
-    # 3. Timing Extraction
-    time_from_injection_h = get_time_from_injection_h(image, image_path)
-
-    # 4. Calibrated Activity Scaling
+    # 3. Unit and timing extraction
     unit = get_metadata_case_insensitive(image, "unit", image_path)
     if unit is None:
         raise ValueError("Image unit is not specified and was not found in metadata.")
 
-    if unit.lower() != "bq":
+    is_tia = unit.lower() in TIA_UNITS
+    if is_tia and method_key not in TIA_METHODS:
+        raise ValueError(
+            f"Method '{method}' cannot be used with a time-integrated activity image "
+            f"(unit '{unit}'). Methods for TIA images: {', '.join(TIA_METHODS)}."
+        )
+    if not is_tia and method_key == "svalue":
+        raise ValueError(
+            f"Method 'svalue' requires a time-integrated activity image "
+            f"(unit {' or '.join(TIA_UNITS)}), got unit '{unit}'."
+        )
+
+    if is_tia:
+        if total_activity_mbq is not None:
+            raise ValueError(
+                "--total-activity cannot be used with a time-integrated activity image."
+            )
+        if dose_rate:
+            raise ValueError(
+                "Dose rate cannot be computed from a time-integrated activity image."
+            )
+        # No time point: the image is already integrated over time
+        time_from_injection_h = None
+    else:
+        time_from_injection_h = get_time_from_injection_h(image, image_path)
+
+    # 4. Calibrated Activity Scaling
+    if unit.lower() == "bqsml":
+        # Bq.s/mL -> Bq.s per voxel
+        sp = image.GetSpacing()
+        image = image * ((sp[0] * sp[1] * sp[2]) / 1000.0)
+    elif is_tia:
+        pass
+    elif unit.lower() != "bq":
         logger.info(
             f"Converting image units on-the-fly from {unit} to bq for dose computation..."
         )
@@ -1428,6 +1769,25 @@ def compute_roi_dose(
                 f"Normalizing total image activity to {total_activity_mbq} MBq (scale factor: {scale_factor:.6f})"
             )
             image = image * scale_factor
+
+    if dose_rate_map is not None:
+        return dose_from_rate_map(
+            image=image,
+            dose_rate_map=dose_rate_map,
+            method=method,
+            isotope=isotope,
+            is_tia=is_tia,
+            time_from_injection_h=time_from_injection_h,
+            labels=labels,
+            labels_map=labels_map,
+            rois=rois,
+            ct_image=ct_image,
+            method_params=method_params,
+            dose_rate_map_path=dose_rate_map_path,
+            dose_rate_map_activity_mbq=dose_rate_map_activity_mbq,
+            dose_rate=dose_rate,
+            verbose=verbose,
+        )
 
     # 5. Extract 3D data and volumes
     spacing = image.GetSpacing()
@@ -1451,6 +1811,7 @@ def compute_roi_dose(
             hu_threshold=hu_threshold,
             dose_rate=dose_rate,
             cascade=cascade,
+            tia=is_tia,
         )
 
         # Create SimpleITK image matching activity image space
@@ -1492,6 +1853,15 @@ def compute_roi_dose(
                     "mean_dose_rate_gyh": float(mean_dose_gy),
                     "roi_mass_g": float(roi_mass_g),
                     "roi_volume_ml": float(roi_volume_ml),
+                }
+            elif is_tia:
+                tia_mbq_s = float(np.sum(image_arr[mask]) / 1e6)
+                results[roi_name] = {
+                    "mean_dose_gy": float(mean_dose_gy),
+                    "roi_mass_g": float(roi_mass_g),
+                    "roi_volume_ml": float(roi_volume_ml),
+                    "tia_mbq_s": tia_mbq_s,
+                    "tia_mbq_h": tia_mbq_s / 3600.0,
                 }
             else:
                 results[roi_name] = {
@@ -1593,6 +1963,13 @@ def load_dose_config(
     ct = raw_data.get("ct_path") or raw_data.get("ct")
     if ct is not None:
         res["ct_path"] = resolve_path(ct)
+
+    # Dose-rate map (external Monte Carlo) and its activity
+    drm = raw_data.get("dose_rate_map_path") or raw_data.get("dose_rate_map")
+    if drm is not None:
+        res["dose_rate_map_path"] = resolve_path(drm)
+    if raw_data.get("dose_rate_map_activity_mbq") is not None:
+        res["dose_rate_map_activity_mbq"] = float(raw_data["dose_rate_map_activity_mbq"])
 
     # Output path
     out = raw_data.get("output_path") or raw_data.get("output")
@@ -1745,6 +2122,8 @@ def compute_roi_dose_file(
     cascade: bool = False,
     config: Optional[Union[str, Path, Dict[str, Any]]] = None,
     timepoints: Optional[List[Any]] = None,
+    dose_rate_map_path: Optional[Union[str, Path]] = None,
+    dose_rate_map_activity_mbq: Optional[float] = None,
 ) -> Any:
     # 0. Check if image_path is actually a JSON config file
     if (
@@ -1789,6 +2168,10 @@ def compute_roi_dose_file(
             dose_rate = True
         if not cascade and cfg.get("cascade"):
             cascade = True
+        if dose_rate_map_path is None:
+            dose_rate_map_path = cfg.get("dose_rate_map_path")
+        if dose_rate_map_activity_mbq is None:
+            dose_rate_map_activity_mbq = cfg.get("dose_rate_map_activity_mbq")
 
         cfg_mp = cfg.get("method_params", {})
         if method_params is not None:
@@ -1797,6 +2180,8 @@ def compute_roi_dose_file(
 
     # Multi-timepoint (MTP) dispatch
     if timepoints is not None or isinstance(image_path, (list, tuple)):
+        if dose_rate_map_path is not None:
+            raise ValueError("A dose-rate map cannot be used with multiple time points.")
         tp_list = timepoints if timepoints is not None else image_path
         extracted_paths = []
         extracted_labels = []
@@ -1963,6 +2348,10 @@ def compute_roi_dose_file(
 
     if not image_path.exists():
         raise FileNotFoundError(f"Activity image not found: {image_path}")
+    if dose_rate_map_path is not None:
+        dose_rate_map_path = Path(dose_rate_map_path)
+        if not dose_rate_map_path.exists():
+            raise FileNotFoundError(f"Dose-rate map not found: {dose_rate_map_path}")
     if labels_path is not None and not labels_path.exists():
         raise FileNotFoundError(f"Labels image not found: {labels_path}")
 
@@ -1991,7 +2380,8 @@ def compute_roi_dose_file(
             get_metadata_case_insensitive(image, "modality", image_path) or "spect"
         )
         unit = get_metadata_case_insensitive(image, "unit", image_path)
-        preserve_total = unit is not None and unit.lower() == "bq"
+        # Per-voxel quantities (Bq, Bq.s) keep their total when resampled
+        preserve_total = unit is not None and unit.lower() in ("bq", "bqs")
 
         if resample_target == "like_activity":
             if labels is not None:
@@ -2060,6 +2450,8 @@ def compute_roi_dose_file(
         hu_threshold=hu_threshold,
         dose_rate=dose_rate,
         cascade=cascade,
+        dose_rate_map_path=dose_rate_map_path,
+        dose_rate_map_activity_mbq=dose_rate_map_activity_mbq,
     )
 
     if method_key == "ldm":
@@ -2168,7 +2560,7 @@ def pretty_print_dose(results: dict) -> None:
                     f"{data['mean_dose_gy']:.3f}",
                     f"{data['roi_mass_g']:.3f}",
                     f"{data['roi_volume_ml']:.3f}",
-                    f"{data['roi_teff_h']:.1f}",
+                    f"{data['roi_teff_h']:.1f}" if "roi_teff_h" in data else "-",
                     f"{data.get('tia_mbq_h', 0.0):.2f}",
                 ]
             )
