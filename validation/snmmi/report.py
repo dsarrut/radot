@@ -151,12 +151,12 @@ def render(t5):
         "- **Difference**: (radot − participants' median) / median; ✗ when radot is outside the "
         "participants' interquartile range [Q1–Q3].",
         "",
-        "Doses in Gy.",
+        "Absorbed doses in Gy for the whole treatment cycle (the TIA map is integrated over time).",
         "",
         "| Patient | VOI | Mass (g) | TIA (MBq·h) | "
-        + " | ".join(f"`{m}` | Diff." for m in methods)
+        + " | ".join(f"`{m}` (Gy) | Diff." for m in methods)
         + (" | GATE unc." if has_gate else "")
-        + " | Participants: median [Q1–Q3] | QCD |",
+        + " | Participants: median [Q1–Q3] (Gy) | QCD |",
         "|---|---|--:|--:|" + "--:|--:|" * len(methods) + ("--:|" if has_gate else "") + "--:|--:|",
     ]
     order = ["Liver", "Liver (no lesions)", "Spleen", "Kidney_L", "Kidney_R", "Kidneys (total)"]

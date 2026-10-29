@@ -34,9 +34,9 @@ Tasks:
 - **Total kidney**: mass-weighted mean of the left and right kidney doses.
 - **Difference**: (radot − participants' median) / median; ✗ when radot is outside the participants' interquartile range [Q1–Q3].
 
-Doses in Gy.
+Absorbed doses in Gy for the whole treatment cycle (the TIA map is integrated over time).
 
-| Patient | VOI | Mass (g) | TIA (MBq·h) | `svalue` | Diff. | `ldm` | Diff. | `gate` | Diff. | GATE unc. | Participants: median [Q1–Q3] | QCD |
+| Patient | VOI | Mass (g) | TIA (MBq·h) | `svalue` (Gy) | Diff. | `ldm` (Gy) | Diff. | `gate` (Gy) | Diff. | GATE unc. | Participants: median [Q1–Q3] (Gy) | QCD |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
 | A | Liver | 2158 | 58181 | 2.39 | +6.4 % | 2.30 | +2.2 % | 2.37 | +5.4 % | 0.1 % | 2.25 [1.27–2.45] | 32 % |
 | A | Liver (no lesions) | 2039 | 30395 | 1.32 | -41.2 % | 1.27 | -43.5 % | 1.35 | -39.9 % | 0.1 % | 2.25 [1.27–2.45] | 32 % |
