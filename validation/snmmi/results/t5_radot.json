@@ -1,0 +1,349 @@
+{
+  "patient_4": {
+    "Liver": {
+      "svalue": 2.3947006775674504,
+      "mass_g": 2158.44921875,
+      "volume_ml": 2055.1391277593575,
+      "tia_mbq_h": 58180.92118516082,
+      "ldm": 2.2997925747116312,
+      "gate": 2.3711285013828283,
+      "gate_unc_pct": 0.06034924179139755,
+      "challenge": {
+        "q1": 1.27,
+        "median": 2.25,
+        "q3": 2.45,
+        "qcd_pct": 31.66
+      },
+      "svalue_diff_pct": 6.431141225220016,
+      "svalue_in_iqr": true,
+      "ldm_diff_pct": 2.2130033205169486,
+      "ldm_in_iqr": true,
+      "gate_diff_pct": 5.3834889503479255,
+      "gate_in_iqr": true
+    },
+    "Kidney_L": {
+      "svalue": 2.6191194167394505,
+      "mass_g": 252.530517578125,
+      "volume_ml": 248.8512905122738,
+      "tia_mbq_h": 7668.023856087996,
+      "ldm": 2.590714145066441,
+      "gate": 2.5898571367767937,
+      "gate_unc_pct": 0.16849139759739437,
+      "challenge": {
+        "q1": 2.48,
+        "median": 2.68,
+        "q3": 2.75,
+        "qcd_pct": 5.08
+      },
+      "svalue_diff_pct": -2.2716635544981267,
+      "svalue_in_iqr": true,
+      "ldm_diff_pct": -3.33156175125221,
+      "ldm_in_iqr": true,
+      "gate_diff_pct": -3.3635396725076983,
+      "gate_in_iqr": true
+    },
+    "Kidney_R": {
+      "svalue": 2.436312549869729,
+      "mass_g": 264.39825439453125,
+      "volume_ml": 260.28801898342175,
+      "tia_mbq_h": 7458.750595171853,
+      "ldm": 2.406896480112545,
+      "gate": 2.41114209481032,
+      "gate_unc_pct": 0.17008297506181808,
+      "challenge": {
+        "q1": 2.31,
+        "median": 2.5,
+        "q3": 2.57,
+        "qcd_pct": 5.33
+      },
+      "svalue_diff_pct": -2.5474980052108465,
+      "svalue_in_iqr": true,
+      "ldm_diff_pct": -3.7241407954981987,
+      "ldm_in_iqr": true,
+      "gate_diff_pct": -3.554316207587205,
+      "gate_in_iqr": true
+    },
+    "Spleen": {
+      "svalue": 3.047393954616632,
+      "mass_g": 286.6163635253906,
+      "volume_ml": 276.15787673165954,
+      "tia_mbq_h": 10128.168375887757,
+      "ldm": 3.0149481031473098,
+      "gate": 3.0455027935396277,
+      "gate_unc_pct": 0.1470925645815498,
+      "challenge": {
+        "q1": 2.97,
+        "median": 3.16,
+        "q3": 3.3,
+        "qcd_pct": 5.33
+      },
+      "svalue_diff_pct": -3.56348244884076,
+      "svalue_in_iqr": true,
+      "ldm_diff_pct": -4.5902499004015995,
+      "ldm_in_iqr": true,
+      "gate_diff_pct": -3.6233293183662196,
+      "gate_in_iqr": true
+    },
+    "Liver (no lesions)": {
+      "svalue": 1.3240548057074957,
+      "mass_g": 2039.4573974609375,
+      "volume_ml": 1941.3976965928791,
+      "tia_mbq_h": 30395.418176406463,
+      "ldm": 1.2715791401988565,
+      "gate": 1.3525048488135674,
+      "gate_unc_pct": 0.08146402340830483,
+      "challenge": {
+        "q1": 1.27,
+        "median": 2.25,
+        "q3": 2.45,
+        "qcd_pct": 31.66
+      },
+      "svalue_diff_pct": -41.15311974633352,
+      "svalue_in_iqr": true,
+      "ldm_diff_pct": -43.48537154671749,
+      "ldm_in_iqr": true,
+      "gate_diff_pct": -39.88867338606368,
+      "gate_in_iqr": true
+    },
+    "Lesion1": {
+      "ldm": 19.612395427252046,
+      "mass_g": 119.057861328125,
+      "volume_ml": 115.85741219957659,
+      "tia_mbq_h": 27377.182365813966,
+      "gate": 19.534936198245983,
+      "gate_unc_pct": 0.09122307916418666,
+      "svalue": null,
+      "challenge": {
+        "q1": 19.5,
+        "median": 20.38,
+        "q3": 21.21,
+        "qcd_pct": 4.19
+      },
+      "ldm_diff_pct": -3.7664601214325466,
+      "ldm_in_iqr": true,
+      "gate_diff_pct": -4.146534846683103,
+      "gate_in_iqr": true
+    },
+    "Lesion2": {
+      "ldm": 28.571703729192446,
+      "mass_g": 3.726552963256836,
+      "volume_ml": 3.5688553339933877,
+      "tia_mbq_h": 1247.9394855269786,
+      "gate": 27.99948236080332,
+      "gate_unc_pct": 0.4284646212776802,
+      "svalue": null,
+      "challenge": {
+        "q1": 28.06,
+        "median": 29.93,
+        "q3": 30.48,
+        "qcd_pct": 4.13
+      },
+      "ldm_diff_pct": -4.538243470790359,
+      "ldm_in_iqr": true,
+      "gate_diff_pct": -6.450109051776409,
+      "gate_in_iqr": false
+    },
+    "Kidneys (total)": {
+      "svalue": 2.525617528060976,
+      "ldm": 2.496695254310521,
+      "gate": 2.498448130948655,
+      "mass_g": 516.9287719726562,
+      "volume_ml": 509.13930949569556,
+      "tia_mbq_h": 15126.77445125985,
+      "challenge": {
+        "q1": 2.51,
+        "median": 2.62,
+        "q3": 2.69,
+        "qcd_pct": 3.37
+      },
+      "svalue_diff_pct": -3.602384425153593,
+      "svalue_in_iqr": true,
+      "ldm_diff_pct": -4.706288003415238,
+      "ldm_in_iqr": false,
+      "gate_diff_pct": -4.639384314936845,
+      "gate_in_iqr": false
+    }
+  },
+  "patient_6": {
+    "Liver": {
+      "svalue": 1.5385164358989452,
+      "mass_g": 1704.3115234375,
+      "volume_ml": 1620.2230684457957,
+      "tia_mbq_h": 29678.273254257856,
+      "ldm": 1.4857288567029774,
+      "gate": 1.5479713829085324,
+      "gate_unc_pct": 0.08582171811564801,
+      "challenge": {
+        "q1": 1.38,
+        "median": 1.51,
+        "q3": 1.6,
+        "qcd_pct": 7.32
+      },
+      "svalue_diff_pct": 1.888505688671871,
+      "svalue_in_iqr": true,
+      "ldm_diff_pct": -1.6073604832465338,
+      "ldm_in_iqr": true,
+      "gate_diff_pct": 2.514661119770367,
+      "gate_in_iqr": true
+    },
+    "Kidney_L": {
+      "svalue": 3.6650280407297555,
+      "mass_g": 93.21034240722656,
+      "volume_ml": 92.1345825890652,
+      "tia_mbq_h": 3959.7174211009474,
+      "ldm": 3.624515829245071,
+      "gate": 3.633336044227038,
+      "gate_unc_pct": 0.23962129297080814,
+      "challenge": {
+        "q1": 3.43,
+        "median": 3.67,
+        "q3": 3.79,
+        "qcd_pct": 5.03
+      },
+      "svalue_diff_pct": -0.1354757294344533,
+      "svalue_in_iqr": true,
+      "ldm_diff_pct": -1.2393507017691818,
+      "ldm_in_iqr": true,
+      "gate_diff_pct": -0.9990178684730844,
+      "gate_in_iqr": true
+    },
+    "Kidney_R": {
+      "svalue": 4.681462037764384,
+      "mass_g": 194.17694091796875,
+      "volume_ml": 190.4680955286158,
+      "tia_mbq_h": 10545.194888980765,
+      "ldm": 4.633475440614227,
+      "gate": 4.6066014235819885,
+      "gate_unc_pct": 0.14715925957999046,
+      "challenge": {
+        "q1": 4.4,
+        "median": 4.78,
+        "q3": 4.9,
+        "qcd_pct": 5.33
+      },
+      "svalue_diff_pct": -2.061463645096573,
+      "svalue_in_iqr": true,
+      "ldm_diff_pct": -3.0653673511668145,
+      "ldm_in_iqr": true,
+      "gate_diff_pct": -3.6275852807115427,
+      "gate_in_iqr": true
+    },
+    "Liver (no lesions)": {
+      "svalue": 1.455296796618411,
+      "mass_g": 1681.670166015625,
+      "volume_ml": 1598.5342628565372,
+      "tia_mbq_h": 27700.00816406065,
+      "ldm": 1.4053645272336825,
+      "gate": 1.4686321249488168,
+      "gate_unc_pct": 0.08859541867247166,
+      "challenge": {
+        "q1": 1.38,
+        "median": 1.51,
+        "q3": 1.6,
+        "qcd_pct": 7.32
+      },
+      "svalue_diff_pct": -3.6227287007674858,
+      "svalue_in_iqr": true,
+      "ldm_diff_pct": -6.92950150770314,
+      "ldm_in_iqr": true,
+      "gate_diff_pct": -2.7395943742505424,
+      "gate_in_iqr": true
+    },
+    "Lesion1": {
+      "ldm": 3.0242334964854796,
+      "mass_g": 13.354028701782227,
+      "volume_ml": 12.800195122757078,
+      "tia_mbq_h": 473.3449137530861,
+      "gate": 3.0509363885430916,
+      "gate_unc_pct": 0.6936634074377186,
+      "svalue": null,
+      "challenge": {
+        "q1": 2.92,
+        "median": 3.12,
+        "q3": 3.2,
+        "qcd_pct": 4.57
+      },
+      "ldm_diff_pct": -3.069439215208991,
+      "ldm_in_iqr": true,
+      "gate_diff_pct": -2.213577290285529,
+      "gate_in_iqr": true
+    },
+    "Lesion2": {
+      "ldm": 29.311587575039265,
+      "mass_g": 3.993351459503174,
+      "volume_ml": 3.784923819767518,
+      "tia_mbq_h": 1371.9142469641151,
+      "gate": 29.066144275939873,
+      "gate_unc_pct": 0.41682994308474586,
+      "svalue": null,
+      "challenge": {
+        "q1": 27.9,
+        "median": 29.92,
+        "q3": 31.2,
+        "qcd_pct": 5.58
+      },
+      "ldm_diff_pct": -2.033463987168238,
+      "ldm_in_iqr": true,
+      "gate_diff_pct": -2.8537958691849163,
+      "gate_in_iqr": true
+    },
+    "Lesion3": {
+      "ldm": 2.8758274634015213,
+      "mass_g": 75.82157897949219,
+      "volume_ml": 73.50053835040663,
+      "tia_mbq_h": 2555.6756864761032,
+      "gate": 2.9124648777229067,
+      "gate_unc_pct": 0.2949618673060867,
+      "svalue": null,
+      "challenge": {
+        "q1": 2.76,
+        "median": 2.96,
+        "q3": 3.06,
+        "qcd_pct": 5.09
+      },
+      "ldm_diff_pct": -2.8436667769756285,
+      "ldm_in_iqr": true,
+      "gate_diff_pct": -1.6059162931450377,
+      "gate_in_iqr": true
+    },
+    "Lesion4": {
+      "ldm": 4.070969530785353,
+      "mass_g": 24.79558563232422,
+      "volume_ml": 24.67651120289374,
+      "tia_mbq_h": 1183.102336854899,
+      "gate": 4.0079200902694785,
+      "gate_unc_pct": 0.4426982530911743,
+      "svalue": null,
+      "challenge": {
+        "q1": 3.88,
+        "median": 4.08,
+        "q3": 4.28,
+        "qcd_pct": 4.93
+      },
+      "ldm_diff_pct": -0.2213350297707528,
+      "ldm_in_iqr": true,
+      "gate_diff_pct": -1.7666644541794452,
+      "gate_in_iqr": true
+    },
+    "Kidneys (total)": {
+      "svalue": 4.351794838152294,
+      "ldm": 4.306232461166304,
+      "gate": 4.2909354058893365,
+      "mass_g": 287.3872833251953,
+      "volume_ml": 282.602678117681,
+      "tia_mbq_h": 14504.912310081712,
+      "challenge": {
+        "q1": 4.11,
+        "median": 4.34,
+        "q3": 4.48,
+        "qcd_pct": 4.28
+      },
+      "svalue_diff_pct": 0.2717704643385721,
+      "svalue_in_iqr": true,
+      "ldm_diff_pct": -0.7780538901773215,
+      "ldm_in_iqr": true,
+      "gate_diff_pct": -1.1305206016281821,
+      "gate_in_iqr": true
+    }
+  }
+}

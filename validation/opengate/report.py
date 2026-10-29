@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Generate docs/7_validation.md: radot organ doses compared with OpenGATE Monte Carlo.
+Generate docs/7_validation_opengate.md: radot organ doses compared with OpenGATE Monte Carlo.
 
 The cases and computations are in benchmarks.py; the same comparisons (with the
 same acceptance ranges) are asserted in test_opengate.py.
 
 Usage:
-    python validation/opengate/report.py          # write docs/7_validation.md
+    python validation/opengate/report.py          # write docs/7_validation_opengate.md
     python validation/opengate/report.py --check  # exit 1 if the page is out of date
 """
 
@@ -21,7 +21,7 @@ import radot
 from benchmarks import CASES, CROSS_TARGETS, cross_dose, evaluate
 
 ROOT = Path(__file__).resolve().parents[2]
-OUTPUT = ROOT / "docs" / "7_validation.md"
+OUTPUT = ROOT / "docs" / "7_validation_opengate.md"
 V_CONFIG = Path(__file__).resolve().parent / "p142" / "p142_dose_rate_lu177.json"
 V_BATCHES = Path(__file__).resolve().parent / "p142" / "p142_lu177_batch_uncertainty.json"
 REPO_URL = "https://github.com/dsarrut/radot/tree/main/validation/opengate"

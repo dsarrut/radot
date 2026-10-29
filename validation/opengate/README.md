@@ -1,13 +1,13 @@
 # OpenGATE validation
 
 Comparison of radot organ doses with OpenGATE Monte Carlo simulations on a patient CT (p142).
-The results are published in [docs/7_validation.md](../../docs/7_validation.md).
+The results are published in [docs/7_validation_opengate.md](../../docs/7_validation_opengate.md).
 
 | File | Role |
 |---|---|
 | `benchmarks.py` | Cases, acceptance ranges and computations (single source of truth) |
 | `test_opengate.py` | The same comparisons as tests (collected by `pytest`) |
-| `report.py` | Writes `docs/7_validation.md` |
+| `report.py` | Writes `docs/7_validation_opengate.md` |
 | `p142/prepare/` | Preparation of the simulation inputs |
 | `p142/p142_dose_rate_*.json` | OpenGATE configuration, one per radionuclide |
 | `p142/create_benchmark_json.py` | OpenGATE outputs → `p142/p142_*_opengate_benchmark.json` |
@@ -23,7 +23,7 @@ The results are published in [docs/7_validation.md](../../docs/7_validation.md).
 pytest validation                            # radot vs the stored OpenGATE values (no download)
 pytest validation --opengate=images          # radot on the real images vs the OpenGATE images
 pytest validation --opengate=simulate        # rerun the 4 OpenGATE simulations, then compare
-python validation/opengate/report.py         # regenerate docs/7_validation.md
+python validation/opengate/report.py         # regenerate docs/7_validation_opengate.md
 ```
 
 - Default level: the organ is modelled as a single voxel with the volume, mass and activity of the
@@ -39,7 +39,7 @@ python validation/opengate/report.py         # regenerate docs/7_validation.md
   and `opengate_version.json` (version and git commit), which `create_benchmark_json.py` copies into the
   benchmark JSON.
 
-`pytest` fails if `docs/7_validation.md` is not up to date.
+`pytest` fails if `docs/7_validation_opengate.md` is not up to date.
 
 ## How the reference was produced
 

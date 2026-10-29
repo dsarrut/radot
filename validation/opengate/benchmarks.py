@@ -2,7 +2,7 @@
 Comparison of radot organ doses with OpenGATE Monte Carlo benchmarks.
 
 Single source of truth for the validation: the cases and acceptance ranges below
-are used by both test_opengate.py and report.py (docs/7_validation.md).
+are used by both test_opengate.py and report.py (docs/7_validation_opengate.md).
 
 A benchmark JSON (see p142/p142_*_opengate_benchmark.json) gives the mean
 OpenGATE dose rate at t=0 in a source organ (self-dose) and in one target organ

@@ -15,7 +15,10 @@ from benchmarks import (
     download_data,
     evaluate,
     gate_from_images,
+    gate_integrated_dose_gy,
+    gate_output_dir,
     load_benchmark,
+    organ_images,
     organ_mask,
     run_opengate,
     SIM_DIR,
@@ -81,6 +84,45 @@ def test_benchmark_json_matches_opengate_images(isotope, data_dir):
         assert rate == pytest.approx(stored_gate(bench, organ)["mean_dose_rate_gy_s"], rel=1e-12), organ
 
 
+@pytest.mark.parametrize("isotope", list(BENCHMARK_FILES))
+def test_radot_with_opengate_dose_rate_map(isotope, data_dir):
+    # radot --dose-rate-map with the OpenGATE map gives back the GATE dose, D = Ddot * Teff / ln2,
+    # for the liver and the cross-dose organs (mass-weighted mean in radot, plain mean in GATE)
+    if data_dir is None:
+        pytest.skip("needs --opengate=images")
+    import numpy as np
+    import SimpleITK as sitk
+    from radot.dose import compute_roi_dose
+
+    bench = load_benchmark(isotope)
+    activity, _, ct = organ_images(bench, 0.0, data_dir)
+    rate_map = sitk.ReadImage(str(gate_output_dir(isotope, data_dir) / "output_dose.mhd"))
+    rate_arr = sitk.GetArrayViewFromImage(rate_map)
+    density = np.clip(1.0 + sitk.GetArrayViewFromImage(ct) / 1000.0, 1e-3, None)
+    for organ in ORGANS:
+        name = organ or "Liver"
+        mask = organ_mask(data_dir, organ)
+        labels = sitk.GetImageFromArray(mask.astype(np.uint16))
+        labels.CopyInformation(activity)
+        res = compute_roi_dose(
+            image=activity,
+            labels=labels,
+            labels_map={1: name},
+            ct_image=ct,
+            method="madsen2018",
+            isotope=isotope,
+            method_params={name: {"teff": bench["teff_h"]}},
+            dose_rate_map=rate_map,
+            dose_rate_map_activity_mbq=bench["total_activity_bq"] / 1e6,
+        )[name]
+        weighted = float(np.sum(rate_arr[mask] * density[mask]) / np.sum(density[mask]))
+        assert res["mean_dose_gy"] == pytest.approx(gate_integrated_dose_gy(weighted, bench["teff_h"]), rel=1e-6)
+        stored = stored_gate(bench, organ)
+        if stored["uncertainty_estimate_fraction"] < 0.1:
+            gate = gate_integrated_dose_gy(stored["mean_dose_rate_gy_s"], bench["teff_h"])
+            assert res["mean_dose_gy"] == pytest.approx(gate, rel=0.02), name
+
+
 @pytest.mark.parametrize("organ", ORGANS, ids=lambda o: o or "Liver")
 @pytest.mark.parametrize("isotope", list(BENCHMARK_FILES))
 def test_new_simulation_matches_stored(isotope, organ, data_dir, gate_dir):
@@ -114,7 +156,7 @@ def test_uncertainty_estimate_matches_batches(organ):
 
 
 def test_validation_page_is_up_to_date():
-    # docs/7_validation.md is generated: python validation/opengate/report.py
+    # docs/7_validation_opengate.md is generated: python validation/opengate/report.py
     report = Path(__file__).resolve().parent / "report.py"
     result = subprocess.run(
         [sys.executable, str(report), "--check"], capture_output=True, text=True
