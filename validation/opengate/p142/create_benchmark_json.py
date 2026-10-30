@@ -12,7 +12,7 @@ from radot.db import get_physical_half_life_h
 from radot.dose import roi_dose_uncertainty_bounds
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from benchmarks import CROSS_TARGETS, gate_roi_uncertainty
+from benchmarks import CROSS_TARGETS, ELECTRON_REACH_MM, gate_roi_uncertainty
 
 
 def process_single_benchmark(config_path: Path, p142_dir: Path, data_dir: Path) -> bool:
@@ -64,6 +64,11 @@ def process_single_benchmark(config_path: Path, p142_dir: Path, data_dir: Path) 
             print(f"      {c}")
         return False
 
+    # Written by create_campaigns.py: the simulated activity may differ from the configuration
+    reference_path = gate_dose_path.parent / "reference.json"
+    reference = json.loads(reference_path.read_text()) if reference_path.exists() else {}
+    total_activity_bq = float(reference.get("activity_bq", total_activity_bq))
+
     liver_path = data_dir / "liver_4mm_cropped.nii.gz"
     ct_path = data_dir / "ct_4mm_cropped.nii.gz"
     if not liver_path.exists() or not ct_path.exists():
@@ -97,6 +102,8 @@ def process_single_benchmark(config_path: Path, p142_dir: Path, data_dir: Path) 
     if version_path.exists():
         with open(version_path) as f:
             opengate_dict["opengate"] = json.load(f)
+    if "bremsstrahlung" in reference:
+        opengate_dict["bremsstrahlung"] = reference["bremsstrahlung"]
     if gate_unc_path and gate_unc_path.exists():
         unc_img = sitk.ReadImage(str(gate_unc_path))
         unc_min, unc_max = roi_dose_uncertainty_bounds(gate_img, unc_img, mask)
@@ -150,13 +157,14 @@ def process_single_benchmark(config_path: Path, p142_dir: Path, data_dir: Path) 
             target_mask = lbl_crop_arr == label_ids[target]
             target_num_voxels = int(target_mask.sum())
             density_t = np.maximum(0.0, 1.0 + (ct_arr[target_mask] / 1000.0))
+            distance_mm = float(source_distance[target_mask].min())
             target_opengate = {"mean_dose_rate_gy_s": float(gate_arr[target_mask].mean())}
             if unc_img is not None:
                 t_min, t_max = roi_dose_uncertainty_bounds(gate_img, unc_img, target_mask)
                 target_opengate["uncertainty_min_fraction"] = t_min
                 target_opengate["uncertainty_max_fraction"] = t_max
                 target_opengate["uncertainty_estimate_fraction"] = gate_roi_uncertainty(
-                    gate_dose_path.parent, target_mask, radionuclide
+                    gate_dose_path.parent, target_mask, radionuclide, distance_mm > ELECTRON_REACH_MM
                 )
             cross_doses.append(
                 {
@@ -165,7 +173,7 @@ def process_single_benchmark(config_path: Path, p142_dir: Path, data_dir: Path) 
                     "target_num_voxels": target_num_voxels,
                     "target_volume_ml": float(target_num_voxels * voxel_volume_ml),
                     "target_mass_g": float(np.sum(density_t) * voxel_volume_ml),
-                    "min_distance_to_source_mm": float(source_distance[target_mask].min()),
+                    "min_distance_to_source_mm": distance_mm,
                     "opengate": target_opengate,
                 }
             )

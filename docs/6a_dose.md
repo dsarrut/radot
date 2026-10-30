@@ -381,6 +381,8 @@ radot dose spect.nii.gz -l labels.nii.gz --ct ct.nii.gz -m hanscheid2018 --isoto
     --dose-rate-map output/output_dose.mhd --dose-rate-map-activity 1
 ```
 
+For a pure β emitter such as $^{90}\text{Y}$, the dose outside the source comes only from the bremsstrahlung: the electron run of `opengate_dose_rate` (VRT mode) must create it (option `bremsstrahlung`, on by default since OpenGATE PR #1223; older versions give cross-doses 10 to 100 times too low). For $^{177}\text{Lu}$ and $^{131}\text{I}$ it is less than 1 % of the cross-doses (γ lines dominate) and not required.
+
 ---
 
 ### Jackson 2013 (`jackson2013`)
@@ -524,38 +526,16 @@ For example, for $^{225}\text{Ac}$, $\Delta_{\text{local, cascade}} \approx 28.7
 
 ## 4. Tests
 
-Dosimetry models (LDM, Madsen 2018, Hänscheid 2017/2018) are validated against reference OpenGate Monte Carlo simulations (`opengate_dose_rate`) on patient CT data (`p142`) across multiple radionuclides ($^{177}\text{Lu}$, $^{90}\text{Y}$, $^{131}\text{I}$, $^{225}\text{Ac}$), covering self-dose, cross-dose, and decay chain cascades. Tests compare computed doses against precomputed benchmark JSON files (`tests/data/p142_*_opengate_benchmark.json`).
-
-### Create / Update Benchmarks
-
-Run OpenGate simulations and generate the benchmark JSON files (in `data/p142/`):
+Unit tests of the dosimetry models (no patient data):
 ```bash
-opengate_dose_rate p142_dose_rate_lu177.json
-opengate_dose_rate p142_dose_rate_y90.json
-opengate_dose_rate p142_dose_rate_i131.json
-opengate_dose_rate p142_dose_rate_ac225.json
-
-./create_benchmark_json.py
+pytest -q tests/test_dose.py tests/test_dose_jackson.py tests/test_dose_config.py \
+    tests/test_dose_tia.py tests/test_dose_rate_map.py
 ```
 
-### Run Validation Tests
+The dosimetry models (LDM, Madsen 2018, Hänscheid 2017/2018, dose-rate map) are validated against OpenGATE Monte Carlo simulations (`opengate_dose_rate`) on a patient CT (p142), for $^{177}\text{Lu}$, $^{90}\text{Y}$, $^{131}\text{I}$ and $^{225}\text{Ac}$: self-dose, cross-doses and decay chain cascade. The reference values are in `validation/opengate/p142/p142_*_opengate_benchmark.json`; the results are in [OpenGATE validation](7_validation_opengate.md), and how the references were produced (with the bremsstrahlung, see above) in `validation/opengate/README.md`.
 
 ```bash
-# Run all dose validation tests
-pytest -s tests/test_dose.py -k "dose"
-
-# Run Jackson 2013 MTP tests
-pytest -v tests/test_dose_jackson.py
-
-# Run individual tests
-pytest -s tests/test_dose.py -k "test_ldm_self_dose"
-pytest -s tests/test_dose.py -k "test_madsen2018_self_dose"
-pytest -s tests/test_dose.py -k "test_hanscheid2017_self_dose"
-pytest -s tests/test_dose.py -k "test_hanscheid2018_self_dose"
-pytest -s tests/test_dose.py -k "test_hanscheid2018_custom_teff"
-pytest -s tests/test_dose.py -k "test_y90_self_dose"
-pytest -s tests/test_dose.py -k "test_i131_self_dose"
-pytest -s tests/test_dose.py -k "test_ac225_self_dose"
-pytest -s tests/test_dose.py -k "test_madsen2018_cross_dose"
-pytest -s tests/test_dose.py -k "test_hanscheid2018_cross_dose"
+pytest -q validation                       # stored reference values, no data needed (CI)
+pytest -q validation --opengate=images     # radot on the real images (data from Zenodo)
+pytest -q validation --opengate=simulate   # reruns the OpenGATE simulations (hours of CPU)
 ```

@@ -2,6 +2,7 @@
   "description": "Uncertainty of the organ mean OpenGATE dose rate, measured with 20 independent simulations of p142_dose_rate_lu177.json (batch method, see batch_uncertainty.py)",
   "radionuclide": "Lu177",
   "n_batches": 20,
+  "activity_bq_per_batch": 1000000.0,
   "organs": {
     "Liver": {
       "mean_dose_rate_gy_s": [
@@ -29,7 +30,7 @@
       "measured_uncertainty_fraction": 0.0012721327848313512,
       "measured_uncertainty_precision_fraction": 0.00020636718822237638,
       "estimated_uncertainty_fraction": 0.0012566437932416017,
-      "batch_mean_vs_reference_fraction": 0.002327406021081403,
+      "batch_mean_vs_reference_fraction": 0.0006856167727913309,
       "batch_mean_uncertainty_fraction": 0.0002844575383289014
     },
     "Kidney_R": {
@@ -58,7 +59,7 @@
       "measured_uncertainty_fraction": 0.010577202425015347,
       "measured_uncertainty_precision_fraction": 0.0017158488089737375,
       "estimated_uncertainty_fraction": 0.009441774460389492,
-      "batch_mean_vs_reference_fraction": -0.005208064422151871,
+      "batch_mean_vs_reference_fraction": -0.006792035304559962,
       "batch_mean_uncertainty_fraction": 0.0023651343634109936
     },
     "Kidney_L": {
@@ -87,7 +88,7 @@
       "measured_uncertainty_fraction": 0.030566387073335154,
       "measured_uncertainty_precision_fraction": 0.004958522749869398,
       "estimated_uncertainty_fraction": 0.02518143847724662,
-      "batch_mean_vs_reference_fraction": 0.006606252562102266,
+      "batch_mean_vs_reference_fraction": 0.002559294122197908,
       "batch_mean_uncertainty_fraction": 0.006834851932254825
     },
     "Spleen": {
@@ -116,7 +117,7 @@
       "measured_uncertainty_fraction": 0.024486368798840773,
       "measured_uncertainty_precision_fraction": 0.003972213544879913,
       "estimated_uncertainty_fraction": 0.020711392852993525,
-      "batch_mean_vs_reference_fraction": 0.010976723570118623,
+      "batch_mean_vs_reference_fraction": -0.0005009170130659824,
       "batch_mean_uncertainty_fraction": 0.005475318515633784
     },
     "Pancreas": {
@@ -145,7 +146,7 @@
       "measured_uncertainty_fraction": 0.01822791197557712,
       "measured_uncertainty_precision_fraction": 0.0029569577849245655,
       "estimated_uncertainty_fraction": 0.013112236425939802,
-      "batch_mean_vs_reference_fraction": -0.0091559125128578,
+      "batch_mean_vs_reference_fraction": 9.943841165815925e-05,
       "batch_mean_uncertainty_fraction": 0.004075885026527292
     },
     "Adrenal_R": {
@@ -174,7 +175,7 @@
       "measured_uncertainty_fraction": 0.028332830719921362,
       "measured_uncertainty_precision_fraction": 0.0045961920640429695,
       "estimated_uncertainty_fraction": 0.02994357562655231,
-      "batch_mean_vs_reference_fraction": 0.006196199942644087,
+      "batch_mean_vs_reference_fraction": -0.0066779053399722565,
       "batch_mean_uncertainty_fraction": 0.006335413548473847
     },
     "Adrenal_L": {
@@ -203,7 +204,7 @@
       "measured_uncertainty_fraction": 0.04597914702944573,
       "measured_uncertainty_precision_fraction": 0.007458802573496966,
       "estimated_uncertainty_fraction": 0.041102868710578916,
-      "batch_mean_vs_reference_fraction": -0.0070340371182229895,
+      "batch_mean_vs_reference_fraction": -0.004488698908664879,
       "batch_mean_uncertainty_fraction": 0.010281249830529816
     },
     "Stomach": {
@@ -232,7 +233,7 @@
       "measured_uncertainty_fraction": 0.009014901540709467,
       "measured_uncertainty_precision_fraction": 0.0014624101392877906,
       "estimated_uncertainty_fraction": 0.01149910404871805,
-      "batch_mean_vs_reference_fraction": 0.011911887822270862,
+      "batch_mean_vs_reference_fraction": -0.0030334311903293942,
       "batch_mean_uncertainty_fraction": 0.0020157932655493955
     },
     "Heart": {
@@ -261,7 +262,7 @@
       "measured_uncertainty_fraction": 0.009733990801094019,
       "measured_uncertainty_precision_fraction": 0.0015790618210272415,
       "estimated_uncertainty_fraction": 0.006722682130003453,
-      "batch_mean_vs_reference_fraction": -0.0011130856539115427,
+      "batch_mean_vs_reference_fraction": -0.0029372979157332724,
       "batch_mean_uncertainty_fraction": 0.0021765865123603858
     }
   },

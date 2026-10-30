@@ -20,14 +20,14 @@ Doses in mGy per MBq present in the liver at t = 0.
 
 | Radionuclide | T<sub>eff</sub> (h) | Method | radot | GATE | GATE stat. unc. | Difference | Expected | | Note |
 |---|--:|---|--:|--:|--:|--:|--:|:-:|---|
-| Lu177 | 45.0 | Madsen 2018 | 4.05 | 3.90 | 0.1 % | +3.9 % | < 5 % | ✓ |  |
-| Lu177 | 45.0 | Hänscheid 2017 | 4.27 | 3.90 | 0.1 % | +9.6 % | < 15 % | ✓ | assumes density 1 g/mL and a fixed 0.125 factor |
-| Lu177 | 45.0 | Hänscheid 2018 | 4.05 | 3.90 | 0.1 % | +3.9 % | < 5 % | ✓ | t = T<sub>eff</sub> / 2: same as Madsen 2018 by construction |
-| Lu177 | 45.0 | LDM | 3.89 | 3.90 | 0.1 % | -0.2 % | < 1 % | ✓ |  |
-| Y90 | 64.1 | Madsen 2018 | 33.4 | 35.6 | 0.2 % | -6.2 % | < 10 % | ✓ |  |
-| Y90 | 64.1 | LDM | 35.0 | 35.6 | 0.2 % | -1.8 % | < 5 % | ✓ | edge effect: β range ~11 mm |
-| I131 | 192.5 | Madsen 2018 | 28.8 | 28.6 | 0.1 % | +0.5 % | < 5 % | ✓ |  |
-| I131 | 192.5 | LDM | 21.6 | 28.6 | 0.1 % | -24.6 % | 15–35 % | ✓ | LDM ignores the 364 keV photon self-dose (expected) |
+| Lu177 | 45.0 | Madsen 2018 | 4.05 | 3.91 | 0.0 % | +3.7 % | < 5 % | ✓ |  |
+| Lu177 | 45.0 | Hänscheid 2017 | 4.27 | 3.91 | 0.0 % | +9.4 % | < 15 % | ✓ | assumes density 1 g/mL and a fixed 0.125 factor |
+| Lu177 | 45.0 | Hänscheid 2018 | 4.05 | 3.91 | 0.0 % | +3.7 % | < 5 % | ✓ | t = T<sub>eff</sub> / 2: same as Madsen 2018 by construction |
+| Lu177 | 45.0 | LDM | 3.89 | 3.91 | 0.0 % | -0.4 % | < 1 % | ✓ |  |
+| Y90 | 64.1 | Madsen 2018 | 33.4 | 35.5 | 0.0 % | -6.1 % | < 10 % | ✓ |  |
+| Y90 | 64.1 | LDM | 35.0 | 35.5 | 0.0 % | -1.6 % | < 5 % | ✓ | edge effect: β range ~11 mm |
+| I131 | 192.5 | Madsen 2018 | 28.8 | 28.7 | 0.0 % | +0.2 % | < 5 % | ✓ |  |
+| I131 | 192.5 | LDM | 21.6 | 28.7 | 0.0 % | -24.7 % | 15–35 % | ✓ | LDM ignores the 364 keV photon self-dose (expected) |
 | Ac225 | 240.0 | Madsen 2018 | 831 | 3921 | 0.6 % | -78.8 % | — | — | parent only; GATE tracks the full decay chain |
 | Ac225 | 240.0 | LDM | 830 | 3921 | 0.6 % | -78.8 % | — | — | parent only; GATE tracks the full decay chain |
 | Ac225 | 240.0 | LDM (cascade) | 4028 | 3921 | 0.6 % | +2.7 % | < 5 % | ✓ | with daughters in secular equilibrium |
@@ -38,25 +38,33 @@ Doses in mGy per MBq present in the liver at t = 0. Organs entirely inside the C
 
 | Radionuclide | Organ ← liver | Mass (g) | Distance (mm) | Method | radot | GATE | GATE stat. unc. | Difference | Expected | |
 |---|---|--:|--:|---|--:|--:|--:|--:|--:|:-:|
-| Lu177 | Adrenal_R | 5 | 4 | Madsen 2018 | 0.140 | 0.0659 | 2.4 % | +112.9 % | — | — |
-| Lu177 | Heart | 689 | 4 | Madsen 2018 | 0.0282 | 0.0237 | 0.7 % | +19.3 % | — | — |
-| Lu177 | Stomach | 176 | 4 | Madsen 2018 | 0.0723 | 0.0315 | 1.1 % | +129.6 % | — | — |
-| Lu177 | Kidney_R | 161 | 15 | Madsen 2018 | 0.0521 | 0.0361 | 0.9 % | +44.1 % | < 50 % | ✓ |
-| Lu177 | Kidney_R | 161 | 15 | Hänscheid 2018 | 0.0521 | 0.0361 | 0.9 % | +44.1 % | < 50 % | ✓ |
-| Lu177 | Pancreas | 89 | 16 | Madsen 2018 | 0.0893 | 0.0207 | 1.3 % | +331.1 % | — | — |
-| Lu177 | Adrenal_L | 7 | 53 | Madsen 2018 | 0.0150 | 0.0121 | 4.1 % | +24.2 % | — | — |
-| Lu177 | Spleen | 188 | 63 | Madsen 2018 | 0.00777 | 0.00575 | 2.1 % | +35.1 % | — | — |
-| Lu177 | Kidney_L | 165 | 91 | Madsen 2018 | 0.0102 | 0.00486 | 2.5 % | +110.5 % | — | — |
-| I131 | Adrenal_R | 5 | 4 | Madsen 2018 | 5.07 | 3.16 | 1.7 % | +60.5 % | — | — |
-| I131 | Heart | 689 | 4 | Madsen 2018 | 1.17 | 1.06 | 0.4 % | +10.3 % | — | — |
-| I131 | Stomach | 176 | 4 | Madsen 2018 | 2.89 | 1.45 | 0.6 % | +99.5 % | — | — |
-| I131 | Kidney_R | 161 | 15 | Madsen 2018 | 2.09 | 1.56 | 0.6 % | +34.2 % | — | — |
-| I131 | Pancreas | 89 | 16 | Madsen 2018 | 3.59 | 0.921 | 0.9 % | +290.1 % | — | — |
-| I131 | Adrenal_L | 7 | 53 | Madsen 2018 | 0.639 | 0.561 | 2.7 % | +14.0 % | — | — |
-| I131 | Spleen | 188 | 63 | Madsen 2018 | 0.333 | 0.278 | 1.3 % | +19.7 % | — | — |
-| I131 | Kidney_L | 165 | 91 | Madsen 2018 | 0.436 | 0.204 | 1.5 % | +113.4 % | — | — |
+| Lu177 | Adrenal_R | 5 | 4 | Madsen 2018 | 0.140 | 0.0668 | 1.1 % | +110.2 % | — | — |
+| Lu177 | Heart | 689 | 4 | Madsen 2018 | 0.0282 | 0.0237 | 0.2 % | +19.1 % | — | — |
+| Lu177 | Stomach | 176 | 4 | Madsen 2018 | 0.0723 | 0.0320 | 0.4 % | +126.2 % | — | — |
+| Lu177 | Kidney_R | 161 | 15 | Madsen 2018 | 0.0521 | 0.0362 | 0.3 % | +43.9 % | < 50 % | ✓ |
+| Lu177 | Kidney_R | 161 | 15 | Hänscheid 2018 | 0.0521 | 0.0362 | 0.3 % | +43.9 % | < 50 % | ✓ |
+| Lu177 | Pancreas | 89 | 16 | Madsen 2018 | 0.0893 | 0.0205 | 0.4 % | +335.1 % | — | — |
+| Lu177 | Adrenal_L | 7 | 53 | Madsen 2018 | 0.0150 | 0.0120 | 1.3 % | +24.6 % | — | — |
+| Lu177 | Spleen | 188 | 63 | Madsen 2018 | 0.00777 | 0.00582 | 0.7 % | +33.5 % | — | — |
+| Lu177 | Kidney_L | 165 | 91 | Madsen 2018 | 0.0102 | 0.00488 | 0.8 % | +109.6 % | — | — |
+| I131 | Adrenal_R | 5 | 4 | Madsen 2018 | 5.07 | 3.11 | 0.5 % | +63.1 % | — | — |
+| I131 | Heart | 689 | 4 | Madsen 2018 | 1.17 | 1.06 | 0.1 % | +10.0 % | — | — |
+| I131 | Stomach | 176 | 4 | Madsen 2018 | 2.89 | 1.45 | 0.2 % | +99.5 % | — | — |
+| I131 | Kidney_R | 161 | 15 | Madsen 2018 | 2.09 | 1.54 | 0.2 % | +35.3 % | — | — |
+| I131 | Pancreas | 89 | 16 | Madsen 2018 | 3.59 | 0.929 | 0.3 % | +286.4 % | — | — |
+| I131 | Adrenal_L | 7 | 53 | Madsen 2018 | 0.639 | 0.555 | 0.9 % | +15.1 % | — | — |
+| I131 | Spleen | 188 | 63 | Madsen 2018 | 0.333 | 0.274 | 0.4 % | +21.9 % | — | — |
+| I131 | Kidney_L | 165 | 91 | Madsen 2018 | 0.436 | 0.212 | 0.5 % | +105.5 % | — | — |
+| Y90 | Adrenal_R | 5 | 4 | Madsen 2018 | 2.22 | 0.194 | 9.3 % | +1046.8 % | — | — |
+| Y90 | Heart | 689 | 4 | Madsen 2018 | 0.0154 | 0.0182 | 2.3 % | -15.3 % | — | — |
+| Y90 | Stomach | 176 | 4 | Madsen 2018 | 0.453 | 0.149 | 2.7 % | +203.3 % | — | — |
+| Y90 | Kidney_R | 161 | 15 | Madsen 2018 | 0.228 | 0.00752 | 0.6 % | +2924.5 % | — | — |
+| Y90 | Pancreas | 89 | 16 | Madsen 2018 | 0.267 | 0.00393 | 0.9 % | +6702.4 % | — | — |
+| Y90 | Adrenal_L | 7 | 53 | Madsen 2018 | 0.00208 | 0.00208 | 3.0 % | -0.1 % | — | — |
+| Y90 | Spleen | 188 | 63 | Madsen 2018 | 0.00109 | 0.000997 | 1.6 % | +9.5 % | — | — |
+| Y90 | Kidney_L | 165 | 91 | Madsen 2018 | 0.00143 | 0.000773 | 1.8 % | +84.5 % | — | — |
 
-Cross-doses are about 100 times lower than self-doses and are due to photons. They depend on the position of the organs and the tissue between them, which differ between the reference phantom (used for the S-values) and the patient: radot is higher than GATE for most organs of this patient, by tens of percent and more. The organ-level S-value methods give the order of magnitude of a cross-dose, not a patient-specific value. The CT is cropped around the liver (34 cm along the body axis): a simulation on the full-body CT changes the cross-doses by less than 10 % (left kidney +9 %, heart +3 %, the others within the statistical uncertainty). With t = T<sub>eff</sub> / 2, Hänscheid 2018 is identical to Madsen 2018.
+Cross-doses are about 100 times lower than self-doses and are due to photons (γ lines, and the bremsstrahlung of the β particles, the only photons of Y-90). The bremsstrahlung is included in all references, but it is less than 1 % of the cross-dose of Lu-177 and about 0.1 % for I-131 (organs not touching the liver): it is only needed for pure β emitters such as Y-90. They depend on the position of the organs and the tissue between them, which differ between the reference phantom (used for the S-values) and the patient: radot is higher than GATE for most organs of this patient, by tens of percent and more. The organ-level S-value methods give the order of magnitude of a cross-dose, not a patient-specific value. For Y-90, the right kidney and the pancreas touch the liver in the reference phantom, and receive β particles crossing the boundary; in this patient they are 15 mm away, out of reach, hence radot 30 to 70 times higher. The CT is cropped around the liver (34 cm along the body axis): a simulation on the full-body CT changes the cross-doses by less than 10 % (left kidney +9 %, heart +3 %, the others within the statistical uncertainty). With t = T<sub>eff</sub> / 2, Hänscheid 2018 is identical to Madsen 2018.
 
 ## What this validates
 
@@ -80,13 +88,14 @@ The scripts and configurations are in [`validation/opengate/`](https://github.co
 - `batch_uncertainty.py`: repeats the Lu-177 simulation with different random seeds to measure the uncertainty of the organ mean (`p142/p142_lu177_batch_uncertainty.json`).
 - `benchmarks.py`: the cases and acceptance ranges shown above; `test_opengate.py`: the same comparisons as tests; `report.py`: this page.
 
-Each simulation is run with the `opengate_dose_rate` command of OpenGATE, for example:
+Each simulation is defined by a configuration of the `opengate_dose_rate` command of OpenGATE, for example `p142_dose_rate_lu177.json` below. Lu-177, Y-90 and I-131 use variance reduction (an electron run and a photon run with the track-length estimator); their references are run with `opengate_jobs` in parallel jobs, with more activity (Y-90 30 MBq, Lu-177 10 MBq, I-131 5 MBq; results per MBq), and with the bremsstrahlung of the electron run (`bremsstrahlung` option of `opengate_dose_rate`; `p142/run_references.zsh`, `p142/create_campaigns.py`). Ac-225 is simulated in analog mode with `opengate_dose_rate`.
 
 ```bash
-opengate_dose_rate p142_dose_rate_lu177.json
+p142/run_references.zsh 12                    # Lu-177, Y-90, I-131 (12 parallel jobs)
+opengate_dose_rate p142_dose_rate_ac225.json  # Ac-225
 ```
 
-with `p142_dose_rate_lu177.json`:
+`p142_dose_rate_lu177.json`:
 
 ```json
 {

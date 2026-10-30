@@ -99,16 +99,16 @@ pytest -q                         # unit tests + validation levels that need no 
 ## 3. OpenGATE Validation (`validation/opengate/`)
 
 *   **Single source of truth**: `benchmarks.py` holds the cases, acceptance ranges and computations. `test_opengate.py` and `report.py` both import it. Do not duplicate benchmark values or tolerances in `tests/`.
-*   **Case**: patient p142, CT cropped and resampled to 4 mm, uniform activity in the liver (1 MBq at t = 0; I131 0.5 MBq, Ac225 0.1 MBq in the configs). Radionuclides Lu177, Y90, I131, Ac225. Self-dose liver ← liver, and cross-doses to 8 organs (`CROSS_TARGETS`; only Kidney_R is asserted). Male OpenDose phantom, S-values scaled to the patient organ mass (mass scaling of cross-doses kept on purpose).
+*   **Case**: patient p142, CT cropped and resampled to 4 mm, uniform activity in the liver (1 MBq at t = 0; I131 0.5 MBq, Ac225 0.1 MBq in the configs; the Lu177, Y90 and I131 references were run with more activity, `reference.json`, and all results are per MBq). Radionuclides Lu177, Y90, I131, Ac225. Self-dose liver ← liver, and cross-doses to 8 organs (`CROSS_TARGETS`; only Kidney_R is asserted). Male OpenDose phantom, S-values scaled to the patient organ mass (mass scaling of cross-doses kept on purpose).
 *   **Reference values**: `p142/p142_*_opengate_benchmark.json`, produced from the OpenGATE outputs by `p142/create_benchmark_json.py` (with the opengate version/commit). OpenGATE configs: `p142/p142_dose_rate_*.json`; input preparation: `p142/prepare/`.
 *   **Test levels** (option defined in `validation/conftest.py`; `testpaths = ["tests", "validation"]`):
     *   `pytest` (default, CI): single-voxel proxy of each organ (benchmark volume, mass, activity) vs the stored GATE values. Needs no images.
-    *   `pytest --opengate=images`: radot on the real images vs the GATE dose images. Data downloaded from Zenodo (record 23702111, v1.1) into `p142/data/` (gitignored) by `download_data.py`, checked by SHA-256.
+    *   `pytest --opengate=images`: radot on the real images vs the GATE dose images. Data downloaded from Zenodo (record 23809698, v1.2) into `p142/data/` (gitignored) by `download_data.py`, checked by SHA-256.
     *   `pytest --opengate=simulate`: reruns the OpenGATE simulations (needs opengate, hours of CPU) into `p142/data/simulated/`, checks them against the stored values within 3 combined standard uncertainties, then compares radot.
 *   **Uncertainty**: GATE organ-mean uncertainty uses a per-part model (electrons: mean β range; photons: mean organ chord 4V/S). Checked with 20 Lu177 batches (`batch_uncertainty.py`, `p142/p142_lu177_batch_uncertainty.json`).
 *   **Report**: `python validation/opengate/report.py` writes `docs/7_validation_opengate.md`; a test fails when the page is out of date.
 *   **Trap**: under pytest, `import opengate` resolves to the `validation/opengate/` folder (namespace package). Never `import opengate` directly in validation code; the opengate version is read from the install record.
-*   **Known open points**: large cross-dose differences except heart/stomach (phantom vs patient geometry, mass scaling); Y90 GATE kidney dose far below OpenDose (bremsstrahlung, to check on the opengate side). Details in `dev_docs/dev_readme_080_opengate_validation.md`.
+*   **Known open points**: large cross-dose differences except heart/stomach (phantom vs patient geometry, mass scaling); Y90 needs opengate with the `bremsstrahlung` option of `opengate_dose_rate` (OpenGATE PR #1223); without it the cross-doses are 10 to 140 times too low. Details in `dev_docs/dev_readme_080_opengate_validation.md`.
 
 ## 4. SNMMI Challenge Evaluation (`validation/snmmi/`)
 

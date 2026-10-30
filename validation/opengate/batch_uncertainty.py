@@ -29,9 +29,11 @@ from benchmarks import (
     download_data,
     gate_output_dir,
     gate_roi_uncertainty,
+    is_distant,
     load_benchmark,
     organ_mask,
     run_opengate,
+    simulated_activity_bq,
 )
 
 BATCH_DIR = DATA_DIR / "batches"
@@ -57,12 +59,19 @@ def analyse(isotope: str) -> dict:
     n = len(outputs)
     if n < 2:
         raise RuntimeError(f"need at least 2 batches in {BATCH_DIR}, found {n}")
+    activities = {simulated_activity_bq(o, isotope) for o in outputs}
+    if len(activities) != 1:
+        raise RuntimeError(f"batches with different activities: {activities}")
+    batch_activity = activities.pop()
+    # the reference (benchmark JSON) per batch activity
+    ref_scale = batch_activity / float(bench["total_activity_bq"])
 
     result = {
         "description": f"Uncertainty of the organ mean OpenGATE dose rate, measured with {n} independent "
         f"simulations of p142_dose_rate_{isotope.lower()}.json (batch method, see batch_uncertainty.py)",
         "radionuclide": isotope,
         "n_batches": n,
+        "activity_bq_per_batch": batch_activity,
         "organs": {},
     }
     # The source organ (self-dose), then the cross-dose targets
@@ -74,7 +83,7 @@ def analyse(isotope: str) -> dict:
         for out in outputs:
             dose = sitk.ReadImage(str(out / "output_dose.mhd"))
             rates.append(float(sitk.GetArrayViewFromImage(dose)[mask].mean()))
-            estimates.append(gate_roi_uncertainty(out, mask, isotope))
+            estimates.append(gate_roi_uncertainty(out, mask, isotope, is_distant(bench, target)))
         rates = np.array(rates)
         measured = float(rates.std(ddof=1) / rates.mean())
         mean = float(rates.mean())
@@ -86,7 +95,7 @@ def analyse(isotope: str) -> dict:
             # estimate from the voxel maps (gate_roi_uncertainty), mean over the batches
             "estimated_uncertainty_fraction": float(np.mean(estimates)),
             # mean of the batches vs the reference simulation (benchmark JSON)
-            "batch_mean_vs_reference_fraction": (mean - ref["mean_dose_rate_gy_s"]) / ref["mean_dose_rate_gy_s"],
+            "batch_mean_vs_reference_fraction": mean / (ref["mean_dose_rate_gy_s"] * ref_scale) - 1,
             "batch_mean_uncertainty_fraction": measured / np.sqrt(n),
         }
     versions = []

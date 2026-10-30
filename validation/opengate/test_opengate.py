@@ -3,6 +3,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from benchmarks import (
@@ -12,6 +13,7 @@ from benchmarks import (
     CROSS_TARGETS,
     Case,
     cross_dose,
+    is_distant,
     download_data,
     evaluate,
     gate_from_images,
@@ -118,7 +120,11 @@ def test_radot_with_opengate_dose_rate_map(isotope, data_dir):
         weighted = float(np.sum(rate_arr[mask] * density[mask]) / np.sum(density[mask]))
         assert res["mean_dose_gy"] == pytest.approx(gate_integrated_dose_gy(weighted, bench["teff_h"]), rel=1e-6)
         stored = stored_gate(bench, organ)
-        if stored["uncertainty_estimate_fraction"] < 0.1:
+        # the stored GATE value is a plain voxel mean: close to the mass-weighted one where the dose is
+        # smooth (liver, organs beyond the electron reach), not in an organ touching the liver, whose
+        # electron dose is in the border voxels (Y90: stomach -12 % with its gas, heart -2 %)
+        smooth = not organ or is_distant(bench, organ)
+        if stored["uncertainty_estimate_fraction"] < 0.1 and smooth:
             gate = gate_integrated_dose_gy(stored["mean_dose_rate_gy_s"], bench["teff_h"])
             assert res["mean_dose_gy"] == pytest.approx(gate, rel=0.02), name
 
@@ -129,12 +135,17 @@ def test_new_simulation_matches_stored(isotope, organ, data_dir, gate_dir):
     # A new Monte Carlo run agrees with the stored one within 3 combined standard uncertainties
     if gate_dir is None:
         pytest.skip("needs --opengate=simulate")
-    stored = stored_gate(load_benchmark(isotope), organ)
+    bench = load_benchmark(isotope)
+    stored = stored_gate(bench, organ)
     name = organ or "Liver"
     if stored["uncertainty_estimate_fraction"] >= 0.5:
         # e.g. Y90 cross-doses: almost no photons, the stored value is noise
         pytest.skip(f"{isotope} {name}: stored uncertainty {stored['uncertainty_estimate_fraction']:.0%}, not meaningful")
-    rate, unc = gate_from_images(isotope, organ_mask(data_dir, organ), data_dir, gate_dir)
+    # the new simulation may have another activity: compared at the benchmark activity
+    rate, unc = gate_from_images(
+        isotope, organ_mask(data_dir, organ), data_dir, gate_dir, is_distant(bench, organ),
+        activity_bq=float(bench["total_activity_bq"]),
+    )
     ref = stored["mean_dose_rate_gy_s"]
     sigma = (unc**2 + stored["uncertainty_estimate_fraction"] ** 2) ** 0.5
     diff = abs(rate - ref) / ref
@@ -148,7 +159,9 @@ def test_uncertainty_estimate_matches_batches(organ):
     bench = load_benchmark("Lu177")
     batches = json.loads((BENCH_DIR / "p142_lu177_batch_uncertainty.json").read_text())
     measured = batches["organs"][organ or bench["roi_name"]]
-    estimate = stored_gate(bench, organ)["uncertainty_estimate_fraction"]
+    # the uncertainty scales as 1/sqrt(activity): the estimate at the activity of one batch
+    scale = np.sqrt(float(bench["total_activity_bq"]) / batches["activity_bq_per_batch"])
+    estimate = stored_gate(bench, organ)["uncertainty_estimate_fraction"] * scale
     m, precision = measured["measured_uncertainty_fraction"], measured["measured_uncertainty_precision_fraction"]
     assert abs(estimate - m) < 2 * precision, (
         f"Lu177 {organ or 'Liver'}: estimated {estimate:.3%}, measured {m:.3%} +/- {precision:.3%}"
