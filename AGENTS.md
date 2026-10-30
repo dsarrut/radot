@@ -144,7 +144,6 @@ Refer to these Markdown documents in the `docs/` directory for detailed specific
 *   [8_validation_snmmi.md](docs/8_validation_snmmi.md): Generated comparison with the SNMMI challenge participants (do not edit).
 *   [validation/opengate/README.md](validation/opengate/README.md): How the OpenGATE reference was produced and how to run each validation level.
 *   [validation/snmmi/README.md](validation/snmmi/README.md): SNMMI challenge data, how to prepare them and run T5.
-*   [dev_docs/dev_readme_020_db_api.md](dev_docs/dev_readme_020_db_api.md): Developer reference for database and phantom layers.
 *   [dev_docs/dev_readme_070_consolidate.md](dev_docs/dev_readme_070_consolidate.md): Status of the work towards v0.1 (start here for planning).
 *   [dev_docs/old/dev_readme_080_opengate_validation.md](dev_docs/old/dev_readme_080_opengate_validation.md): OpenGATE validation history and decisions (done).
 *   [dev_docs/dev_readme_090_dose_engine_time_model.md](dev_docs/dev_readme_090_dose_engine_time_model.md): `--dose-rate-map` (external Monte Carlo dose rate) and the planned dose-rate engine × time model refactor.
