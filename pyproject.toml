@@ -11,9 +11,19 @@ authors = [
     { name = "David Sarrut" }
 ]
 classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Healthcare Industry",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Topic :: Scientific/Engineering :: Physics",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
 ]
+keywords = ["dosimetry", "radionuclide therapy", "SPECT", "PET", "theranostics", "OpenDose", "Monte Carlo"]
 requires-python = ">=3.11"
 license = "LGPL-3.0-or-later"
 license-files = ["LICENSE.md"]
@@ -37,6 +47,12 @@ dev = [
 docs = [
     "mkdocs-material>=9.5",
 ]
+
+[project.urls]
+Homepage = "https://github.com/dsarrut/radot"
+Source = "https://github.com/dsarrut/radot"
+Issues = "https://github.com/dsarrut/radot/issues"
+Documentation = "https://github.com/dsarrut/radot/tree/main/docs"
 
 [project.scripts]
 radot = "radot.cli:main"
