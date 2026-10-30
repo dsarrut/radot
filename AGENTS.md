@@ -29,7 +29,14 @@ pytest -q                         # unit tests + validation levels that need no 
 *   **`src/radot/nomenclature.py`**: Encapsulates the 3-stage cascading mapping dictionary logic between segmentations (TotalSegmentator), clinical naming standards (AAPM TG-263), and reference phantoms (OpenDose).
 *   **`src/radot/convert.py`**: Handles conversion of image voxel values and files between radioactivity units (`bq`, `bqml`, `suv`, `sul`), using patient weight, injected activity, height, sex, and Lean Body Mass (LBM) calculation methods.
 *   **`src/radot/log.py`**: Configures package-level logging levels (`QUIET`, `INFO`, `DEBUG`) and formats standard outputs.
-*   **`src/radot/dose.py`**: Implements voxel-level (Local Deposition Model / LDM with optional secular equilibrium daughter cascade support) and organ-level (Hänscheid 2017/2018, Madsen 2018) dosimetry models using a Strategy registry pattern, the multi-time-point Jackson 2013 model (exactly 3 time points), JSON dose configs, and ROI dose uncertainty (`roi_dose_uncertainty_estimate`, also used by the validation).
+*   **`src/radot/dose/`**: Dosimetry sub-package. The public API is re-exported by `radot/dose/__init__.py`: always import from `radot.dose`, and add any new public name there.
+    *   `models.py`: dose formulas, voxel-level Local Deposition Model (LDM, with optional secular-equilibrium daughter cascade) and organ-level Hänscheid 2017/2018, Madsen 2018, S-value (TIA).
+    *   `strategies.py`: per-ROI strategies (S-value lookup, mass scaling, log), the `DOSIMETRY_STRATEGIES` registry, `TIA_UNITS` / `TIA_METHODS`, and the loop over labels.
+    *   `rate_map.py`: `dose_from_rate_map`, external Monte Carlo dose-rate map.
+    *   `mtp.py`: multi-time-point Jackson 2013 (exactly 3 time points), fit and `compute_roi_dose_mtp`.
+    *   `uncertainty.py`: ROI dose uncertainty (`roi_dose_uncertainty_estimate`, also used by the validation).
+    *   `compute.py`: input checks and `compute_roi_dose` (SimpleITK images, dispatch to the above).
+    *   `config.py`: JSON dose configs (`load_dose_config`); `files.py`: `compute_roi_dose_file` (files, resampling, output) and the results table.
 *   **`src/radot/data/`**: Packaged JSON data (mapping dictionaries, decay chains) and the OpenDose cache `data/opendose/icrp_110_{male,female}/` (declared in `[tool.setuptools.package-data]`).
 
 ### Repository Layout (outside the package)
@@ -69,7 +76,7 @@ pytest -q                         # unit tests + validation levels that need no 
 *   **Cascade Dosimetry**: LDM calculations support multi-generation cascades under secular equilibrium (`cascade=True` / `--cascade`). Total non-penetrating energy is summed over all progeny weighted by cumulative yield $Y_i$.
 *   **Dosimetry Model Registration**: Use the strategy registry pattern to route dosimetry methods (`hanscheid2017`, `hanscheid2018`, `madsen2018`, `ldm`; `jackson2013` for multi-time-point; `svalue` for a time-integrated activity image). New models register dynamically.
 *   **TIA Images**: Units `bqs` (Bq·s per voxel) and `bqsml` (Bq·s/mL) mark a time-integrated activity image. Only the methods in `TIA_METHODS` (`svalue`, `ldm`) accept it; no time point, Teff, dose rate or total-activity override is used. Results then report `tia_mbq_s` / `tia_mbq_h` instead of `roi_teff_h`.
-*   **Dose-rate Map**: `--dose-rate-map` (`dose_from_rate_map` in `dose.py`) takes an external dose-rate image (e.g. OpenGATE, Gy/s) computed with the activity image as source, scaled to the image total with the map activity (`--dose-rate-map-activity` or sidecar `source_activity_mbq`). It replaces the S-value / local deposition; the method only selects the time integration (`DOSE_RATE_MAP_METHODS`). radot never runs GATE. Planned engine × time-model refactor: `dev_docs/dev_readme_090_dose_engine_time_model.md`.
+*   **Dose-rate Map**: `--dose-rate-map` (`dose_from_rate_map` in `dose/rate_map.py`) takes an external dose-rate image (e.g. OpenGATE, Gy/s) computed with the activity image as source, scaled to the image total with the map activity (`--dose-rate-map-activity` or sidecar `source_activity_mbq`). It replaces the S-value / local deposition; the method only selects the time integration (`DOSE_RATE_MAP_METHODS`). radot never runs GATE. Planned engine × time-model refactor: `dev_docs/dev_readme_090_dose_engine_time_model.md`.
 *   **Validation**: Any change to a dosimetry model, S-values, masses or decay data must keep `pytest validation` passing, then regenerate `docs/7_validation_opengate.md` and `docs/8_validation_snmmi.md` (see sections 3 and 4).
 
 ### ROI Nomenclature & OpenDose Mapping
