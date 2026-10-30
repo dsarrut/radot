@@ -1028,52 +1028,14 @@ def dose(
     is_flag=True,
     help="Force overwrite existing local S-value and mass JSON files.",
 )
-@click.option(
-    "--upload",
-    is_flag=True,
-    help="Upload local database to a remote server using SCP.",
-)
-@click.option(
-    "--upload-dest",
-    help="SCP destination path (e.g. user@server:public_html/radot/opendose).",
-)
 @click.pass_context
-def opendose(ctx, model, radionuclide, force, upload, upload_dest):
-    """Download and maintain OpenDose reference masses and S-values."""
+def opendose(ctx, model, radionuclide, force):
+    """OpenDose reference masses and S-values (CC BY-SA 4.0, research use only).
+
+    With -m and -r: download one radionuclide from the OpenDose website into the cache
+    (for a radionuclide not in the radot archive; see 'radot opendose download').
+    """
     if ctx.invoked_subcommand is not None:
-        return
-
-    if upload:
-        if not upload_dest:
-            raise click.UsageError(
-                "Destination path (--upload-dest) is required when using --upload."
-            )
-
-        # Normalize protocol separator if user wrote host://path instead of host:path
-        if "://" in upload_dest:
-            upload_dest = upload_dest.replace("://", ":")
-
-        import subprocess
-        import importlib.resources
-        from pathlib import Path
-
-        db_dir = (
-            importlib.resources.files("radot").joinpath("data").joinpath("opendose")
-        )
-        db_path = Path(str(db_dir))
-
-        # Get all subdirectories and files inside the database folder to upload them directly
-        src_paths = [str(p) for p in db_path.iterdir() if not p.name.startswith(".")]
-        if not src_paths:
-            raise click.ClickException("No database files found to upload.")
-
-        cmd = ["scp", "-r"] + src_paths + [upload_dest]
-        click.echo(f"RADOT: Uploading local database contents using: {' '.join(cmd)}")
-        try:
-            subprocess.run(cmd, check=True)
-            click.echo("RADOT: Database upload completed successfully!")
-        except Exception as e:
-            raise click.ClickException(f"Failed to upload database via SCP: {e}")
         return
 
     # Normal downloading validation
@@ -1094,6 +1056,19 @@ def opendose(ctx, model, radionuclide, force, upload, upload_dest):
         handle_cli_exception(e)
 
 
+@opendose.command(name="download")
+@click.option("--force", is_flag=True, help="Overwrite the files already in the cache.")
+def opendose_download(force):
+    """Download the OpenDose data archive (Zenodo, all phantoms and radionuclides) into the cache."""
+    from radot.db import download_opendose_archive
+
+    try:
+        dest = download_opendose_archive(force=force)
+    except Exception as e:
+        handle_cli_exception(e)
+    click.echo(f"OpenDose data in {dest}")
+
+
 @opendose.command(name="status")
 @click.option(
     "-m",
@@ -1107,14 +1082,16 @@ def opendose(ctx, model, radionuclide, force, upload, upload_dest):
 )
 def opendose_status(model, radionuclide):
     """List local OpenDose database inventory or print downloaded values."""
-    import importlib.resources
-    from pathlib import Path
     import json
     import gzip
-    from radot.db import normalize_phantom, normalize_isotope
+    from radot.db import (
+        normalize_phantom,
+        normalize_isotope,
+        opendose_package_dir,
+        opendose_cache_dir,
+    )
 
-    db_dir = importlib.resources.files("radot").joinpath("data").joinpath("opendose")
-    db_path = Path(str(db_dir))
+    db_paths = [opendose_package_dir(), opendose_cache_dir()]
 
     # If model is provided, check if we just want to print details of that model/radionuclide
     if model:
@@ -1123,21 +1100,11 @@ def opendose_status(model, radionuclide):
         except ValueError as e:
             handle_cli_exception(e)
 
-        phantom_path = db_path / norm_phantom
-        if not phantom_path.exists():
-            click.echo(f"Phantom '{norm_phantom}' is not downloaded/present locally.")
-            return
+        from radot.db import _find_opendose_file
 
         if radionuclide:
             norm_iso = normalize_isotope(radionuclide)
-            file_gz = phantom_path / f"{norm_iso}.json.gz"
-            file_json = phantom_path / f"{norm_iso}.json"
-
-            target_file = None
-            if file_gz.exists():
-                target_file = file_gz
-            elif file_json.exists():
-                target_file = file_json
+            target_file = _find_opendose_file(norm_phantom, f"{norm_iso}.json.gz")
 
             if not target_file:
                 click.echo(
@@ -1167,8 +1134,8 @@ def opendose_status(model, radionuclide):
                     click.echo(f"{src:<25} {tgt:<25} {val:<20.4e}")
             return
         else:
-            masses_file = phantom_path / "masses.json"
-            if not masses_file.exists():
+            masses_file = _find_opendose_file(norm_phantom, "masses.json")
+            if not masses_file:
                 click.echo(
                     f"Reference masses for phantom '{norm_phantom}' are not downloaded/present locally."
                 )
@@ -1195,86 +1162,87 @@ def opendose_status(model, radionuclide):
         )
 
     # Print header
-    click.echo("Local OpenDose Database Inventory:")
-    click.echo(f"Path: {db_path}\n")
-
-    if not db_path.exists():
-        click.echo("Total space used: 0 B (0 Radionuclides, 0 Phantoms)")
-        return
-
-    # Find phantoms (subdirectories)
-    phantoms = sorted(
-        [p for p in db_path.iterdir() if p.is_dir() and not p.name.startswith(".")]
-    )
+    click.echo("Local OpenDose Database Inventory (shipped with radot, then downloaded cache):")
 
     total_bytes = 0
     phantom_count = 0
     radionuclide_count = 0
 
-    for i, phantom in enumerate(phantoms):
-        is_last_phantom = i == len(phantoms) - 1
-        phantom_prefix = "└── " if is_last_phantom else "├── "
-        click.echo(f"{phantom_prefix}{phantom.name}/")
+    for db_path in db_paths:
+        click.echo(f"\nPath: {db_path}")
+        if not db_path.exists():
+            click.echo("(empty)")
+            continue
 
-        # Find files in phantom
-        files = sorted(
-            [f for f in phantom.iterdir() if f.is_file() and not f.name.startswith(".")]
+        # Find phantoms (subdirectories)
+        phantoms = sorted(
+            [p for p in db_path.iterdir() if p.is_dir() and not p.name.startswith(".")]
         )
-        # Filter to only masses.json and S-value matrices
-        files = [
-            f
-            for f in files
-            if f.name == "masses.json"
-            or f.name.endswith(".json.gz")
-            or f.name.endswith(".json")
-        ]
 
-        file_indent = "    " if is_last_phantom else "│   "
+        for i, phantom in enumerate(phantoms):
+            is_last_phantom = i == len(phantoms) - 1
+            phantom_prefix = "└── " if is_last_phantom else "├── "
+            click.echo(f"{phantom_prefix}{phantom.name}/")
 
-        phantom_has_files = False
-        for j, file in enumerate(files):
-            is_last_file = j == len(files) - 1
-            file_prefix = "└── " if is_last_file else "├── "
+            # Find files in phantom
+            files = sorted(
+                [f for f in phantom.iterdir() if f.is_file() and not f.name.startswith(".")]
+            )
+            # Filter to only masses.json and S-value matrices
+            files = [
+                f
+                for f in files
+                if f.name == "masses.json"
+                or f.name.endswith(".json.gz")
+                or f.name.endswith(".json")
+            ]
 
-            # Read details of the file
-            details = ""
-            try:
-                if file.name == "masses.json":
-                    import json
+            file_indent = "    " if is_last_phantom else "│   "
 
-                    with open(file, "r", encoding="utf-8") as f:
-                        data = json.load(f)
-                    details = f" ({len(data)} organs)"
-                elif file.name.endswith(".json.gz"):
-                    import gzip
-                    import json
+            phantom_has_files = False
+            for j, file in enumerate(files):
+                is_last_file = j == len(files) - 1
+                file_prefix = "└── " if is_last_file else "├── "
 
-                    with gzip.open(file, "rt", encoding="utf-8") as f:
-                        data = json.load(f)
-                    num_sources = len(data)
-                    num_svalues = sum(len(v) for v in data.values())
-                    details = f" ({num_sources} source organs, {num_svalues} S-values)"
-                elif file.name.endswith(".json"):
-                    import json
+                # Read details of the file
+                details = ""
+                try:
+                    if file.name == "masses.json":
+                        import json
 
-                    with open(file, "r", encoding="utf-8") as f:
-                        data = json.load(f)
-                    num_sources = len(data)
-                    num_svalues = sum(len(v) for v in data.values())
-                    details = f" ({num_sources} source organs, {num_svalues} S-values)"
-            except Exception as e:
-                details = f" (error: {e})"
+                        with open(file, "r", encoding="utf-8") as f:
+                            data = json.load(f)
+                        details = f" ({len(data)} organs)"
+                    elif file.name.endswith(".json.gz"):
+                        import gzip
+                        import json
 
-            click.echo(f"{file_indent}{file_prefix}[OK] {file.name}{details}")
+                        with gzip.open(file, "rt", encoding="utf-8") as f:
+                            data = json.load(f)
+                        num_sources = len(data)
+                        num_svalues = sum(len(v) for v in data.values())
+                        details = f" ({num_sources} source organs, {num_svalues} S-values)"
+                    elif file.name.endswith(".json"):
+                        import json
 
-            # Track statistics
-            total_bytes += file.stat().st_size
-            if file.name != "masses.json":
-                radionuclide_count += 1
-            phantom_has_files = True
+                        with open(file, "r", encoding="utf-8") as f:
+                            data = json.load(f)
+                        num_sources = len(data)
+                        num_svalues = sum(len(v) for v in data.values())
+                        details = f" ({num_sources} source organs, {num_svalues} S-values)"
+                except Exception as e:
+                    details = f" (error: {e})"
 
-        if phantom_has_files:
-            phantom_count += 1
+                click.echo(f"{file_indent}{file_prefix}[OK] {file.name}{details}")
+
+                # Track statistics
+                total_bytes += file.stat().st_size
+                if file.name != "masses.json":
+                    radionuclide_count += 1
+                phantom_has_files = True
+
+            if phantom_has_files:
+                phantom_count += 1
 
     # Format space used
     if total_bytes >= 1024 * 1024:

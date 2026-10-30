@@ -1,113 +1,59 @@
-# OpenDose Database Module Documentation
+# OpenDose Database
 
-The radot opendose module maintains and queries the local cache of reference organ masses and S-value matrices from the OpenDose project. It handles lazy on-demand downloads from a central Creatis server and manages the ICRP-107 radionuclide decay database.
+radot uses the reference organ masses and S-values of the [OpenDose](https://opendose.org) collaboration for its organ-level dosimetry (S-value methods: `madsen2018`, `svalue`, and the cross-doses). The ICRP 110 adult male (AM) and female (AF) phantoms are available.
 
----
+## Data, licence and disclaimer
 
-## 1. CLI Commands
+- **Source**: OpenDose collaboration. Please cite: Chauvin M. et al., "OpenDose: open-access resource for nuclear medicine dosimetry", J Nucl Med 2020, [doi:10.2967/jnumed.119.240366](https://doi.org/10.2967/jnumed.119.240366).
+- **Licence**: the OpenDose data are under [Creative Commons Attribution-ShareAlike 4.0](https://creativecommons.org/licenses/by-sa/4.0/) (CC BY-SA 4.0). The copy used by radot is published on Zenodo under the same licence: [doi:10.5281/zenodo.ZENODO_RECORD_OPENDOSE](https://doi.org/10.5281/zenodo.ZENODO_RECORD_OPENDOSE). The radot code is under LGPL-3.0.
+- **Disclaimer (OpenDose)**: the data are intended for the nuclear medicine research community, for educational and research purposes only. They are not intended to be used in the clinical management of patients.
 
-### Downloading and Managing: radot opendose
+## Where the data come from
 
-Downloads and caches reference masses and S-values for a specified phantom and radionuclide.
+1. **Shipped with radot**: the organ masses of both phantoms and the Lu-177 S-values.
+2. **Downloaded on first use**: the other radionuclides (Ac-225, At-211, Ho-166, I-125, I-131, Pb-212, Ra-223, Sm-153, Tb-161, Y-90). The whole archive (3.6 MB) is downloaded once from Zenodo, its SHA-256 is checked, and it is extracted into the cache folder.
+3. **OpenDose website** (fallback): if the archive cannot be downloaded, or for a radionuclide it does not contain, radot reads the S-values from the OpenDose website (one radionuclide at a time, slower).
 
-```bash
-radot opendose -m <phantom_model> -r <radionuclide> [options]
-```
+The cache folder is `$RADOT_DATA_DIR/opendose/` if the environment variable is set, else the user cache: `~/.cache/radot/opendose/` (Linux), `~/Library/Caches/radot/opendose/` (macOS), `%LOCALAPPDATA%\radot\opendose\` (Windows). radot never writes into its installation folder. Without network access, download the archive by hand from Zenodo and unzip the content of its top folder into the cache folder.
 
-#### Options:
-* -m, --model <AM|AF|male|female>: Shortcut for the target phantom. normalized to icrp_110_male or icrp_110_female.
-* -r, --radionuclide <isotope_name>: Name of the radionuclide (e.g., Lu177, Y90, I131).
-* --force: Forcefully overwrites any existing local JSON files.
-* --upload: Uploads the local database contents to a remote server.
-* --upload-dest <scp_path>: Target destination path for scp (e.g. user@server:public_html/radot/opendose).
+S-values are in mGy/(MBq·s), masses in g.
 
----
+## CLI commands
 
-### Database Status and Inventory: radot opendose status
-
-Displays the locally cached database status, phantoms, radionuclides, and file sizes.
+### Download the archive: `radot opendose download`
 
 ```bash
-radot opendose status [options]
+radot opendose download            # all phantoms and radionuclides of the archive, into the cache
+radot opendose download --force    # overwrite the files already in the cache
 ```
 
-#### Options:
-* -m, --model <phantom_model>: If specified, prints the list of organs and their cached reference masses.
-* -r, --radionuclide <isotope_name>: If specified along with --model, prints the entire S-value matrix (Source Organ, Target Organ, S-value in mGy/MBq.s).
+### Download one radionuclide from the OpenDose website: `radot opendose -m -r`
 
-#### Example Inventory Output:
-```text
-Local OpenDose Database Inventory:
-Path: /usr/local/lib/python3.14/site-packages/radot/data/opendose
+For a radionuclide not in the archive:
 
-├── icrp_110_female/
-│   ├── [OK] masses.json (41 organs)
-│   └── [OK] lu177.json.gz (41 source organs, 1681 S-values)
-└── icrp_110_male/
-    ├── [OK] masses.json (41 organs)
-    └── [OK] lu177.json.gz (41 source organs, 1681 S-values)
-
-Total space used: 184.2 KB (2 Radionuclides, 2 Phantoms)
+```bash
+radot opendose -m <AM|AF|male|female> -r <radionuclide> [--force]
 ```
 
----
+### Inventory: `radot opendose status` (or `list`)
 
-## 2. Python API
+```bash
+radot opendose status                  # files shipped with radot, then the cache
+radot opendose status -m AM            # organs and reference masses of the phantom
+radot opendose status -m AM -r lu177   # S-value matrix (source organ, target organ, mGy/MBq.s)
+```
 
-You can programmatically query phantoms, half-lives, and retrieve S-value files.
-
-### get_physical_half_life_h
-
-Retrieves the physical half-life of any radionuclide in hours from the ICRP-107 database.
+## Python API
 
 ```python
-from radot.db import get_physical_half_life_h
+from radot.db import get_s_value, get_reference_mass, resolve_organ_name, get_physical_half_life_h
 
-# Look up Lu177 decay half-life in hours
-tp_hours = get_physical_half_life_h("Lu177")
-print(f"Lu177 Half-Life: {tp_hours:.2f} hours")  # Prints: 159.36 hours
+get_s_value("male", "lu177", "Liver", "Liver")     # mGy/(MBq.s), self-dose S-value
+get_reference_mass("female", "Kidney_L")           # g
+resolve_organ_name("Kidney_L")                     # 'Left kidney' (TG-263 -> OpenDose name)
+get_physical_half_life_h("Lu177")                  # h, from ICRP 107
 ```
 
----
+Other functions: `download_opendose_archive(force=False)` (the Zenodo archive), `download_opendose_data(phantom, isotope, force=False)` (one radionuclide from the OpenDose website), `data_dir()` and `opendose_cache_dir()` (cache location).
 
-### resolve_organ_name
-
-Resolves custom or AAPM TG-263 organ name strings to standard OpenDose names.
-
-```python
-from radot.db import resolve_organ_name
-
-# Map Kidney_L to standard OpenDose organ name
-name = resolve_organ_name("Kidney_L")
-print(name)  # Prints: Left kidney
-
-# Map a custom spelling
-name_2 = resolve_organ_name("stomach_wall")
-print(name_2)  # Prints: Stomach wall
-```
-
----
-
-### download_opendose_data
-
-Triggers an explicit download of the reference masses and S-values.
-
-```python
-from radot.db import download_opendose_data
-
-download_opendose_data(
-    phantom="male",
-    isotope="Lu-177",
-    force=False
-)
-```
-
----
-
-## 3. Storage and Caching Behavior
-
-1. Lazy Loading: The dosimetry calculation module automatically calls the lazy-downloading mechanism on-the-fly. If an S-value file or masses file is missing locally during a calculation, radot retrieves it from the central repository (https://www.creatis.insa-lyon.fr/~dsarrut/radot/opendose/) and saves it in the local package data path.
-2. In-Memory Caching: Downloaded masses and S-values are cached in-memory (using _masses_cache and _s_values_cache) so that subsequent calculations or lookups do not read from disk repeatedly.
-3. Direct OpenDose Fallback: If downloading from the central Creatis registry fails, radot attempts to query and rebuild the required data by scraping the official OpenDose registry. If both sources are unavailable, a clear error is raised.
-
-DEFAULT_DATABASE_URL = "https://www.creatis.insa-lyon.fr/~dsarrut/radot/opendose/"
+Masses and S-values are loaded on demand and kept in memory for the following lookups.

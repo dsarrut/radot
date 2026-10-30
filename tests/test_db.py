@@ -85,94 +85,141 @@ def test_cli_opendose(monkeypatch):
     from click.testing import CliRunner
     from radot.cli import main
     import radot.db
-    
+
     # Mock download_opendose_data to prevent live network calls during tests
     def mock_download(phantom, isotope=None, force=False):
         import gzip
-        import importlib.resources
-        from radot.db import normalize_phantom
+        from radot.db import normalize_phantom, opendose_cache_dir
         norm_phantom = normalize_phantom(phantom)
         print(f"Mock downloading for phantom: {norm_phantom}")
-        
-        dest_dir = Path(str(importlib.resources.files("radot").joinpath("data").joinpath("opendose").joinpath(norm_phantom)))
+
+        dest_dir = opendose_cache_dir() / norm_phantom
         dest_dir.mkdir(parents=True, exist_ok=True)
-        
+
         if isotope:
             norm_iso = isotope.lower()
             with gzip.open(dest_dir / f"{norm_iso}.json.gz", "wt", encoding="utf-8") as f:
                 json.dump({"Left kidney": {"Left kidney": 1.5e-4}}, f)
-        
+
         with open(dest_dir / "masses.json", "w", encoding="utf-8") as f:
             json.dump({"Left kidney": 150.0}, f)
-            
+
     monkeypatch.setattr(radot.db, "download_opendose_data", mock_download)
-    
+
     runner = CliRunner()
-    
-    # Test single isotope download (which runs either real or fallback offline downloader)
+
+    # Test single isotope download (website, mocked)
     result = runner.invoke(main, ["opendose", "-m", "AM", "-r", "Lu177", "--force"])
     assert result.exit_code == 0
     assert "icrp_110_male" in result.output
-    
+
     # Test error cases
     result = runner.invoke(main, ["opendose", "-m", "AM"])
     assert result.exit_code != 0
     assert "Missing option '-r' / '--radionuclide'" in result.output
 
-    # Test upload error case (missing destination)
-    result = runner.invoke(main, ["opendose", "--upload"])
-    assert result.exit_code != 0
-    assert "Destination path (--upload-dest) is required" in result.output
 
-    # Test upload success case (mocking subprocess.run)
-    import subprocess
-    def mock_run(cmd, check=True):
-        assert cmd[0] == "scp"
-        assert cmd[1] == "-r"
-        # Since it lists all subfolders of opendose, verify the destination is the last argument
-        assert cmd[-1] == "user@server:path"
-        return
-    monkeypatch.setattr(subprocess, "run", mock_run)
-    result = runner.invoke(main, ["opendose", "--upload", "--upload-dest", "user@server://path"])
-    assert result.exit_code == 0
-    assert "Uploading local database contents using" in result.output
-
-def test_ondemand_downloader(monkeypatch, tmp_path):
+def _mock_archive(tmp_path, monkeypatch, sha256=None):
+    """A small OpenDose archive (as on Zenodo), served by a mocked urlopen."""
+    import gzip
+    import hashlib
+    import io
     import urllib.request
-    from radot.db import _ensure_file_downloaded, DEFAULT_DATABASE_URL
-    
-    # Temporarily set packaging resource directories to a temporary test directory
-    import importlib.resources
-    def mock_files(package):
-        class MockTraversable:
-            def joinpath(self, *parts):
-                path = tmp_path
-                for p in parts:
-                    path = path / p
-                return path
-        return MockTraversable()
-    monkeypatch.setattr(importlib.resources, "files", mock_files)
-    
+    import zipfile
+    import radot.db
+
+    top = radot.db.OPENDOSE_DATA_TOP_FOLDER
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr(f"{top}/icrp_110_female/masses.json", json.dumps({"Liver": 1400.0}))
+        z.writestr(
+            f"{top}/icrp_110_female/y90.json.gz",
+            gzip.compress(json.dumps({"Liver": {"Liver": 7.0e-5}}).encode()),
+        )
+        z.writestr(f"{top}/README.txt", "test")
+    content = buf.getvalue()
+    monkeypatch.setattr(
+        radot.db, "OPENDOSE_DATA_SHA256", sha256 or hashlib.sha256(content).hexdigest()
+    )
+
     requested_urls = []
+
     def mock_urlopen(req, timeout=None):
         requested_urls.append(req.full_url)
-        class MockResponse:
-            def read(self):
-                return b'{"mock_key": 12.3}'
-            def __enter__(self):
-                return self
-            def __exit__(self, exc_type, exc_val, exc_tb):
-                pass
-        return MockResponse()
+        return io.BytesIO(content)
+
     monkeypatch.setattr(urllib.request, "urlopen", mock_urlopen)
-    
-    # Trigger on-demand download of masses.json
-    local_file = _ensure_file_downloaded("icrp_110_male", "masses.json")
-    
-    assert local_file.name == "masses.json"
-    assert local_file.exists()
+    return requested_urls
+
+
+def test_data_dir(monkeypatch, tmp_path):
+    from radot.db import data_dir, opendose_cache_dir
+
+    monkeypatch.setenv("RADOT_DATA_DIR", str(tmp_path / "radot_data"))
+    assert data_dir() == tmp_path / "radot_data"
+    assert opendose_cache_dir() == tmp_path / "radot_data" / "opendose"
+    monkeypatch.delenv("RADOT_DATA_DIR")
+    assert data_dir().name == "radot"
+
+
+def test_ondemand_downloader(monkeypatch, tmp_path):
+    """A file not shipped with radot comes from the Zenodo archive, extracted into the cache."""
+    import radot.db
+    from radot.db import _ensure_file_downloaded, OPENDOSE_DATA_URL
+
+    monkeypatch.setenv("RADOT_DATA_DIR", str(tmp_path))
+    requested_urls = _mock_archive(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        radot.db, "download_opendose_data", lambda *a, **k: pytest.fail("website used")
+    )
+
+    local_file = _ensure_file_downloaded("icrp_110_female", "y90.json.gz")
+    assert local_file == tmp_path / "opendose" / "icrp_110_female" / "y90.json.gz"
+    assert (tmp_path / "opendose" / "icrp_110_female" / "masses.json").exists()
+    assert requested_urls == [OPENDOSE_DATA_URL]
+
+    # Second call: from the cache, no download
+    assert _ensure_file_downloaded("icrp_110_female", "y90.json.gz") == local_file
     assert len(requested_urls) == 1
-    assert requested_urls[0] == f"{DEFAULT_DATABASE_URL}icrp_110_male/masses.json"
+
+
+def test_ondemand_downloader_checksum_and_fallback(monkeypatch, tmp_path):
+    """A wrong archive checksum is refused; the OpenDose website is then used for the file."""
+    import radot.db
+    from radot.db import _ensure_file_downloaded, download_opendose_archive
+
+    monkeypatch.setenv("RADOT_DATA_DIR", str(tmp_path))
+    _mock_archive(tmp_path, monkeypatch, sha256="0" * 64)
+    with pytest.raises(RuntimeError, match="Checksum mismatch"):
+        download_opendose_archive()
+    assert not (tmp_path / "opendose" / "icrp_110_female" / "y90.json.gz").exists()
+
+    calls = []
+
+    def mock_website(phantom, isotope=None, force=False):
+        import gzip
+        calls.append((phantom, isotope))
+        d = tmp_path / "opendose" / phantom
+        d.mkdir(parents=True, exist_ok=True)
+        with gzip.open(d / f"{isotope}.json.gz", "wt") as f:
+            json.dump({"Liver": {"Liver": 7.0e-5}}, f)
+
+    monkeypatch.setattr(radot.db, "download_opendose_data", mock_website)
+    local_file = _ensure_file_downloaded("icrp_110_female", "y90.json.gz")
+    assert local_file.exists()
+    assert calls == [("icrp_110_female", "y90")]
+
+
+def test_shipped_data_found_first(monkeypatch, tmp_path):
+    """masses.json is shipped with radot: no download."""
+    import urllib.request
+    from radot.db import _ensure_file_downloaded, opendose_package_dir
+
+    monkeypatch.setenv("RADOT_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **k: pytest.fail("downloaded"))
+    f = _ensure_file_downloaded("icrp_110_male", "masses.json")
+    assert f == opendose_package_dir() / "icrp_110_male" / "masses.json"
+
 
 def test_cli_opendose_status():
     from click.testing import CliRunner
@@ -181,7 +228,7 @@ def test_cli_opendose_status():
     runner = CliRunner()
     result = runner.invoke(main, ["opendose", "status"])
     assert result.exit_code == 0
-    assert "Local OpenDose Database Inventory:" in result.output
+    assert "Local OpenDose Database Inventory" in result.output
     assert "Total space used:" in result.output
 
     # Test printing downloaded values for a given model and radionuclide

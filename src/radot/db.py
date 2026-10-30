@@ -1,8 +1,15 @@
 import json
 import re
 import gzip
+import hashlib
 import importlib.resources
 import logging
+import os
+import shutil
+import sys
+import tempfile
+import urllib.request
+import zipfile
 
 logger = logging.getLogger("radot")
 import icrp107_database
@@ -136,56 +143,119 @@ def resolve_organ_name(user_name: str, phantom: Optional[str] = None) -> str:
     return resolved
 
 
-DEFAULT_DATABASE_URL = "https://www.creatis.insa-lyon.fr/~dsarrut/radot/opendose/"
+# OpenDose S-values and masses (CC BY-SA 4.0), Zenodo doi:10.5281/zenodo.ZENODO_RECORD_OPENDOSE
+OPENDOSE_DATA_URL = "https://zenodo.org/records/ZENODO_RECORD_OPENDOSE/files/radot_opendose_v1.0.zip?download=1"
+OPENDOSE_DATA_SHA256 = "c0477438aef8033533a17909e8a8e4fd0a9608eda88dfd94aab052298e365bcc"
+OPENDOSE_DATA_TOP_FOLDER = "radot_opendose_v1.0"
+
+
+def data_dir() -> Path:
+    """
+    Folder of the downloaded radot data (writable): $RADOT_DATA_DIR, else the user cache
+    (~/.cache/radot on Linux, ~/Library/Caches/radot on macOS, %LOCALAPPDATA%\\radot on Windows).
+    """
+    env = os.environ.get("RADOT_DATA_DIR")
+    if env:
+        return Path(env).expanduser()
+    if sys.platform == "win32":
+        base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+    elif sys.platform == "darwin":
+        base = Path.home() / "Library" / "Caches"
+    else:
+        base = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
+    return base / "radot"
+
+
+def opendose_cache_dir() -> Path:
+    """Downloaded OpenDose data: <data_dir>/opendose/<phantom>/."""
+    return data_dir() / "opendose"
+
+
+def opendose_package_dir() -> Path:
+    """OpenDose data shipped with radot (read-only: masses and Lu177)."""
+    return Path(str(importlib.resources.files("radot").joinpath("data").joinpath("opendose")))
+
+
+def _find_opendose_file(phantom: str, filename: str) -> Optional[Path]:
+    for folder in (opendose_package_dir(), opendose_cache_dir()):
+        f = folder / phantom / filename
+        if f.exists():
+            return f
+    return None
+
+
+def download_opendose_archive(force: bool = False) -> Path:
+    """
+    Download the OpenDose data archive (Zenodo, all phantoms and radionuclides) into the cache,
+    after checking its SHA-256. Returns the cache folder.
+    """
+    dest = opendose_cache_dir()
+    with tempfile.TemporaryDirectory() as tmp:
+        zip_path = Path(tmp) / "opendose.zip"
+        logger.info(f"Downloading the OpenDose data from {OPENDOSE_DATA_URL} ...")
+        req = urllib.request.Request(OPENDOSE_DATA_URL, headers={"User-Agent": "radot"})
+        with urllib.request.urlopen(req, timeout=60) as response, open(zip_path, "wb") as f:
+            shutil.copyfileobj(response, f)
+        sha256 = hashlib.sha256(zip_path.read_bytes()).hexdigest()
+        if sha256 != OPENDOSE_DATA_SHA256:
+            raise RuntimeError(f"Checksum mismatch for {OPENDOSE_DATA_URL}: {sha256}")
+        with zipfile.ZipFile(zip_path) as z:
+            for info in z.infolist():
+                if info.is_dir():
+                    continue
+                rel = Path(info.filename).relative_to(OPENDOSE_DATA_TOP_FOLDER)
+                if ".." in rel.parts or rel.is_absolute():
+                    raise RuntimeError(f"Unexpected path in archive: {info.filename}")
+                target = dest / rel
+                if target.exists() and not force:
+                    continue
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with z.open(info) as src, open(target, "wb") as dst:
+                    shutil.copyfileobj(src, dst)
+    logger.info(f"OpenDose data in {dest}")
+    return dest
 
 
 def _ensure_file_downloaded(phantom: str, filename: str) -> Path:
-    """Ensure the requested file is present locally, downloading it on-demand if missing."""
-    p_dir = (
-        importlib.resources.files("radot")
-        .joinpath("data")
-        .joinpath("opendose")
-        .joinpath(phantom)
-    )
-    dest_dir = Path(str(p_dir))
-    dest_dir.mkdir(parents=True, exist_ok=True)
+    """
+    Path of an OpenDose file: shipped with radot, else in the cache, else downloaded (Zenodo
+    archive, then the OpenDose website for this file only).
+    """
+    local_file = _find_opendose_file(phantom, filename)
+    if local_file is not None:
+        return local_file
 
-    local_file = dest_dir / filename
-    if not local_file.exists():
-        url = f"{DEFAULT_DATABASE_URL}{phantom}/{filename}"
-        logger.info(
-            f"On-demand download of {filename} for {phantom} from web registry..."
+    try:
+        download_opendose_archive()
+    except Exception as e:
+        archive_error = e
+        logger.warning(
+            f"Download of the OpenDose archive failed: {e}. Trying the OpenDose website..."
         )
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=20) as response:
-                content = response.read()
-            with open(local_file, "wb") as f:
-                f.write(content)
-        except Exception as e:
-            logger.warning(
-                f"Download of {filename} from central registry failed: {e}. Trying to download from OpenDose directly..."
-            )
-            try:
-                if filename == "masses.json":
-                    download_opendose_data(phantom, isotope="lu177", force=True)
-                elif filename.endswith(".json.gz"):
-                    iso_name = filename[:-8]
-                    download_opendose_data(phantom, isotope=iso_name, force=True)
-                else:
-                    raise ValueError(f"Unknown database file name format: {filename}")
+    else:
+        archive_error = None
+        local_file = _find_opendose_file(phantom, filename)
+        if local_file is not None:
+            return local_file
 
-                if not local_file.exists():
-                    raise FileNotFoundError(
-                        f"OpenDose download did not produce the expected file {filename}"
-                    )
-            except Exception as od_err:
-                raise FileNotFoundError(
-                    f"RADOT Database: Failed to download '{filename}' for phantom '{phantom}'.\n"
-                    f"  - First download (Creatis) error: {e}\n"
-                    f"  - Second download (OpenDose) error: {od_err}"
-                )
-
+    try:
+        if filename == "masses.json":
+            download_opendose_data(phantom, isotope="lu177", force=True)
+        elif filename.endswith(".json.gz"):
+            download_opendose_data(phantom, isotope=filename[: -len(".json.gz")], force=True)
+        else:
+            raise ValueError(f"Unknown database file name format: {filename}")
+        local_file = _find_opendose_file(phantom, filename)
+        if local_file is None:
+            raise FileNotFoundError(f"OpenDose download did not produce {filename}")
+    except Exception as od_err:
+        raise FileNotFoundError(
+            f"RADOT Database: '{filename}' for phantom '{phantom}' is not available locally "
+            f"and could not be downloaded.\n"
+            f"  - OpenDose archive (Zenodo): {archive_error or 'does not contain it'}\n"
+            f"  - OpenDose website: {od_err}\n"
+            f"  Cache folder: {opendose_cache_dir()} (set RADOT_DATA_DIR to change it)."
+        )
     return local_file
 
 
@@ -210,29 +280,9 @@ def _load_s_values(phantom: str, isotope: str) -> Dict[str, Dict[str, float]]:
     key = (phantom, isotope)
     if key not in _s_values_cache:
         try:
-            import importlib.resources
-            from pathlib import Path
-
-            p_dir = (
-                importlib.resources.files("radot")
-                .joinpath("data")
-                .joinpath("opendose")
-                .joinpath(phantom)
-            )
-            local_json = Path(str(p_dir)) / f"{isotope}.json"
-
-            if local_json.exists():
-                with open(local_json, "r", encoding="utf-8") as f:
-                    _s_values_cache[key] = json.load(f)
-            else:
-                s_file_gz = _ensure_file_downloaded(phantom, f"{isotope}.json.gz")
-                try:
-                    with gzip.open(s_file_gz, "rt", encoding="utf-8") as f:
-                        _s_values_cache[key] = json.load(f)
-                except Exception:
-                    # In case they decompressed the .json.gz file in-place keeping the .gz extension
-                    with open(s_file_gz, "r", encoding="utf-8") as f:
-                        _s_values_cache[key] = json.load(f)
+            s_file_gz = _ensure_file_downloaded(phantom, f"{isotope}.json.gz")
+            with gzip.open(s_file_gz, "rt", encoding="utf-8") as f:
+                _s_values_cache[key] = json.load(f)
         except Exception as e:
             raise FileNotFoundError(
                 f"RADOT Database: Failed S-value matrix file for '{isotope}' on '{phantom}': {e}"
@@ -398,8 +448,9 @@ def download_opendose_data(
     phantom: str, isotope: Optional[str] = None, force: bool = False
 ) -> None:
     """
-    Downloads S-values and target organ reference masses from OpenDose registry.
-    Saves S-value matrix as <isotope>.json and masses as masses.json.
+    Downloads S-values and target organ reference masses from the OpenDose website (fallback
+    when the Zenodo archive is not reachable, or for a radionuclide it does not contain).
+    Saves the S-value matrix as <cache>/opendose/<phantom>/<isotope>.json.gz and masses.json.
     """
     norm_phantom = normalize_phantom(phantom)
 
@@ -412,14 +463,7 @@ def download_opendose_data(
     if isotope:
         isotopes_to_download = [isotope]
 
-    dest_dir = Path(
-        str(
-            importlib.resources.files("radot")
-            .joinpath("data")
-            .joinpath("opendose")
-            .joinpath(norm_phantom)
-        )
-    )
+    dest_dir = opendose_cache_dir() / norm_phantom
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     url_options = ["https://opendose.polsl.pl/svalues/", "https://opendose.org/svalues"]

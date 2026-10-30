@@ -51,6 +51,8 @@ def mock_opendose_dir_globally():
 
     mp = _pytest.monkeypatch.MonkeyPatch()
     mp.setattr(importlib.resources, "files", mock_files)
+    # Downloaded data (OpenDose cache) in the temporary folder too
+    mp.setenv("RADOT_DATA_DIR", str(temp_dir / "cache"))
 
     yield
 

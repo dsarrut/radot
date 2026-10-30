@@ -61,7 +61,9 @@ radot = "radot.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-radot = ["data/*.json", "data/opendose/*/*.json"]
+# OpenDose: only the masses and Lu177 are shipped; the rest is downloaded (radot.db), and a local
+# cache in data/opendose/ must not end up in a build.
+radot = ["data/*.json", "data/opendose/*/masses.json", "data/opendose/*/lu177.json.gz", "data/opendose/README.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "validation"]

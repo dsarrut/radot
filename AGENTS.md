@@ -25,7 +25,7 @@ pytest -q                         # unit tests + validation levels that need no 
 *   **`src/radot/segmentation.py`**: Runs TotalSegmentator on CT scans and maps label IDs/naming conventions to standard AAPM TG-263 nomenclature.
 *   **`src/radot/resampling.py`**: Performs isotropic resampling or grid-alignment resampling. Handles continuous values vs. discrete labels, and isotope activity preservation.
 *   **`src/radot/stats.py`**: Computes volumes, masses (density-calibrated from CT HU), and intensity/peak metrics (e.g. SUVpeak via Gaussian smoothing).
-*   **`src/radot/db.py`**: Coordinates radionuclide physical data (using `icrp107-database`), decay chain network trees and cumulative secular equilibrium yields from curated IAEA LiveChart data (`decay_chains.json`), and local caching/lazy-loading of OpenDose reference masses and S-values.
+*   **`src/radot/db.py`**: Coordinates radionuclide physical data (using `icrp107-database`), decay chain network trees and cumulative secular equilibrium yields from curated IAEA LiveChart data (`decay_chains.json`), and OpenDose reference masses and S-values (CC BY-SA 4.0): masses and Lu177 shipped, the rest downloaded once from Zenodo (checksum) into the user cache (`$RADOT_DATA_DIR` or `~/.cache/radot`), OpenDose website as fallback. Never write into the installed package.
 *   **`src/radot/nomenclature.py`**: Encapsulates the 3-stage cascading mapping dictionary logic between segmentations (TotalSegmentator), clinical naming standards (AAPM TG-263), and reference phantoms (OpenDose).
 *   **`src/radot/convert.py`**: Handles conversion of image voxel values and files between radioactivity units (`bq`, `bqml`, `suv`, `sul`), using patient weight, injected activity, height, sex, and Lean Body Mass (LBM) calculation methods.
 *   **`src/radot/log.py`**: Configures package-level logging levels (`QUIET`, `INFO`, `DEBUG`) and formats standard outputs.
@@ -37,7 +37,7 @@ pytest -q                         # unit tests + validation levels that need no 
     *   `uncertainty.py`: ROI dose uncertainty (`roi_dose_uncertainty_estimate`, also used by the validation).
     *   `compute.py`: input checks and `compute_roi_dose` (SimpleITK images, dispatch to the above).
     *   `config.py`: JSON dose configs (`load_dose_config`); `files.py`: `compute_roi_dose_file` (files, resampling, output) and the results table.
-*   **`src/radot/data/`**: Packaged JSON data (mapping dictionaries, decay chains) and the OpenDose cache `data/opendose/icrp_110_{male,female}/` (declared in `[tool.setuptools.package-data]`).
+*   **`src/radot/data/`**: Packaged JSON data (mapping dictionaries, decay chains) and the shipped OpenDose files `data/opendose/icrp_110_{male,female}/{masses.json,lu177.json.gz}` + `README.txt` (licence). The package-data patterns in `pyproject.toml` list these files exactly: a local cache in that folder must not end up in a build.
 
 ### Repository Layout (outside the package)
 *   **`tests/`**: Unit tests. They must run without patient data and without TotalSegmentator (tests needing it are skipped when it is not installed). `tests/conftest.py` mocks the OpenDose S-values with a module-scoped fixture (it must not leak into `validation/`).
