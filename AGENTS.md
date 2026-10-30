@@ -143,9 +143,9 @@ Refer to these Markdown documents in the `docs/` directory for detailed specific
 *   [8_validation_snmmi.md](docs/8_validation_snmmi.md): Generated comparison with the SNMMI challenge participants (do not edit).
 *   [validation/opengate/README.md](validation/opengate/README.md): How the OpenGATE reference was produced and how to run each validation level.
 *   [validation/snmmi/README.md](validation/snmmi/README.md): SNMMI challenge data, how to prepare them and run T5.
-*   [dev_docs/dev_readme_060_sul.md](dev_docs/dev_readme_060_sul.md): SUL methods (done) and the proposed CT-based LBM method (`--lbm-method ct`, TODO).
+*   [dev_docs/dev_readme_083_sul.md](dev_docs/dev_readme_083_sul.md): SUL methods (done) and the proposed CT-based LBM method (`--lbm-method ct`, TODO).
 *   [dev_docs/dev_readme_070_consolidate.md](dev_docs/dev_readme_070_consolidate.md): Status of the work towards v0.1 (start here for planning).
-*   [dev_docs/dev_readme_075_opendose.md](dev_docs/dev_readme_075_opendose.md): OpenDose data hosting (Zenodo, user cache, licence CC BY-SA 4.0), last blocker before v0.1 on PyPI.
+*   [dev_docs/dev_readme_060_opendose.md](dev_docs/dev_readme_060_opendose.md): OpenDose data hosting (Zenodo, user cache, licence CC BY-SA 4.0), last blocker before v0.1 on PyPI.
 *   [dev_docs/old/dev_readme_080_opengate_validation.md](dev_docs/old/dev_readme_080_opengate_validation.md): OpenGATE validation history and decisions (done).
 *   [dev_docs/dev_readme_090_dose_engine_time_model.md](dev_docs/dev_readme_090_dose_engine_time_model.md): `--dose-rate-map` (external Monte Carlo dose rate) and the planned dose-rate engine × time model refactor.
 *   [dev_docs/dev_readme_082_snmmi_challenge.md](dev_docs/dev_readme_082_snmmi_challenge.md): Plan and status (T5 done) to evaluate radot with the SNMMI 177Lu Dosimetry Challenge data.
