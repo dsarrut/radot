@@ -82,7 +82,9 @@ All commands run in `p142/data/`.
    TLE dose actor (electrons analog, bremsstrahlung photons with TLE). Before it, the electron run had a
    1 m cut for all particles, so no bremsstrahlung photon was created and its energy stayed in the liver;
    for Y-90 (no γ line) the cross-doses were 10 to 140 times too low. `create_campaigns.py` refuses an
-   opengate without the option. The Ac-225 analog run already has a 2 mm cut.
+   opengate without the option. The Ac-225 analog run already has a 2 mm cut. It is included in all
+   references, but only needed for pure β emitters: less than 1 % of the Lu-177 cross-doses and about
+   0.1 % for I-131 (γ lines dominate).
 5. Mean dose rate and uncertainty in the liver (self-dose) and in the organs of `CROSS_TARGETS` in
    `benchmarks.py` (cross-doses: kidneys, spleen, pancreas, adrenals, stomach, heart; whole organs entirely
    inside the cropped CT), with their mass and closest distance to the liver:

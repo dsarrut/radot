@@ -132,6 +132,9 @@ def render(rows):
         "",
         "Cross-doses are about 100 times lower than self-doses and are due to photons (γ lines, and the "
         "bremsstrahlung of the β particles, the only photons of Y-90). "
+        "The bremsstrahlung is included in all references, but it is less than 1 % of the cross-dose "
+        "of Lu-177 and about 0.1 % for I-131 (organs not touching the liver): it is only needed for pure "
+        "β emitters such as Y-90. "
         "They depend on the position of the organs and the tissue between them, which differ between "
         "the reference phantom (used for the S-values) and the patient: radot is higher than GATE for "
         "most organs of this patient, by tens of percent and more. The organ-level S-value methods give "
