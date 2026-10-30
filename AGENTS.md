@@ -108,7 +108,8 @@ pytest -q                         # unit tests + validation levels that need no 
 *   **Uncertainty**: GATE organ-mean uncertainty uses a per-part model (electrons: mean β range; photons: mean organ chord 4V/S). Checked with 20 Lu177 batches (`batch_uncertainty.py`, `p142/p142_lu177_batch_uncertainty.json`).
 *   **Report**: `python validation/opengate/report.py` writes `docs/7_validation_opengate.md`; a test fails when the page is out of date.
 *   **Trap**: under pytest, `import opengate` resolves to the `validation/opengate/` folder (namespace package). Never `import opengate` directly in validation code; the opengate version is read from the install record.
-*   **Known open points**: large cross-dose differences except heart/stomach (phantom vs patient geometry, mass scaling); Y90 needs opengate with the `bremsstrahlung` option of `opengate_dose_rate` (OpenGATE PR #1223); without it the cross-doses are 10 to 140 times too low. Details in `dev_docs/dev_readme_080_opengate_validation.md`.
+*   **Bremsstrahlung**: the references need opengate with the `bremsstrahlung` option of `opengate_dose_rate` (OpenGATE PR #1223, on by default); without it the Y90 cross-doses are 10 to 140 times too low (for Lu177 and I131 it is below 1 %). `p142/create_campaigns.py` refuses an opengate without it.
+*   **Cross-doses**: large differences except heart/stomach come from the anatomy (phantom vs patient geometry, organ distances, mass scaling); shown, only Kidney_R asserted. Open point: OpenGATE issue #1215 (default material tables), then drop the tables from the configs and the zip. Details in `dev_docs/dev_readme_080_opengate_validation.md` (done, kept until PR #5 is merged).
 
 ## 4. SNMMI Challenge Evaluation (`validation/snmmi/`)
 
