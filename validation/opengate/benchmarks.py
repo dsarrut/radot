@@ -53,10 +53,10 @@ BENCH_DIR = Path(__file__).resolve().parent / "p142"
 DATA_DIR = BENCH_DIR / "data"
 SIM_DIR = DATA_DIR / "simulated"
 
-# Images and OpenGATE outputs, Zenodo doi:10.5281/zenodo.23696023 (version 1.1, doi:10.5281/zenodo.23702111)
-DATA_URL = "https://zenodo.org/records/23702111/files/radot_opengate_p142_v1.1.zip?download=1"
-DATA_SHA256 = "367224f864c858f5063278fa5c6443e4207bf91a320f7ce424fa211379bbb612"
-DATA_TOP_FOLDER = "radot_opengate_p142_v1.1"
+# Images and OpenGATE outputs, Zenodo doi:10.5281/zenodo.23696023 (version 1.2, doi:10.5281/zenodo.23809698)
+DATA_URL = "https://zenodo.org/records/23809698/files/radot_opengate_p142_v1.2.zip?download=1"
+DATA_SHA256 = "9408522b321147c7aa4a8cd246b50caab4379a2d4f35184fd6bba7d7860ede59"
+DATA_TOP_FOLDER = "radot_opengate_p142_v1.2"
 CT_FILE = "ct_4mm_cropped.nii.gz"
 LIVER_FILE = "liver_4mm_cropped.nii.gz"
 LABELS_FILE = "labels_all_4mm_cropped.nii.gz"
@@ -180,8 +180,10 @@ def has_data(data_dir: Path = DATA_DIR, bench_dir: Path = BENCH_DIR) -> bool:
         folders = [out]
         with open(Path(bench_dir) / f"p142_dose_rate_{isotope.lower()}.json") as f:
             if json.load(f)["mode"] == "vrt":
-                # since version 1.1: the electron and photon parts of the VRT simulations
+                # since version 1.1: the electron and photon parts of the VRT simulations;
+                # since version 1.2 (bremsstrahlung): reference.json
                 folders += [out / "e", out / "gamma_tle"]
+                files.append(out / "reference.json")
         files += [d / name for d in folders for name in ("output_dose.mhd", "output_dose_uncertainty.mhd")]
     return all(f.exists() for f in files)
 

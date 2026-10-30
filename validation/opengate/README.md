@@ -136,16 +136,16 @@ All commands run in `p142/data/`.
 
 The images and OpenGATE outputs are not in git. They are published on Zenodo (CC-BY-4.0):
 [doi:10.5281/zenodo.23696023](https://doi.org/10.5281/zenodo.23696023) (all versions). The download uses
-version 1.1, [10.5281/zenodo.23702111](https://doi.org/10.5281/zenodo.23702111); version 1.0
-([10.5281/zenodo.23696024](https://doi.org/10.5281/zenodo.23696024)) lacks the electron and photon images.
-
-Not yet published: the Lu-177, Y-90 and I-131 references with bremsstrahlung (step 4), on which the
-benchmark JSONs are now based. Until they are on Zenodo (version 1.2), the `images` level needs them in
-`p142/data/output_<radionuclide>_vrt/`; with the version 1.1 outputs, the check that the JSON values are
-those of the images fails for these three.
+version 1.2, [10.5281/zenodo.23809698](https://doi.org/10.5281/zenodo.23809698): the Lu-177, Y-90 and I-131
+references with bremsstrahlung (step 4). Earlier versions do not match the benchmark JSONs: 1.1
+([10.5281/zenodo.23702111](https://doi.org/10.5281/zenodo.23702111)) lacks the bremsstrahlung (Y-90
+cross-doses 10 to 140 times too low), 1.0 ([10.5281/zenodo.23696024](https://doi.org/10.5281/zenodo.23696024))
+also lacks the electron and photon images. A folder with an earlier version is downloaded again (no
+`reference.json` in the VRT outputs).
 
 The zip contains the cropped trunk CT (4 mm), the liver and organ label images, the material tables and,
 for each radionuclide, the OpenGATE dose rate, its uncertainty and the simulation statistics; for the
 VRT simulations (Lu-177, Y-90, I-131), also the electron (`e/`) and photon (`gamma_tle/`) parts, used to
-estimate the uncertainty of the organ means (step 6).
+estimate the uncertainty of the organ means (step 6), and `reference.json` (simulated activity, opengate
+version).
 Unzip the content of its top folder into `p142/data/`. The full-body CT and the acquisition metadata are not published.
