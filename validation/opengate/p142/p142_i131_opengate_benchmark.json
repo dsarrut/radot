@@ -4,19 +4,25 @@
   "roi_name": "Liver",
   "radionuclide": "I131",
   "phantom": "male",
-  "total_activity_bq": 500000.0,
+  "total_activity_bq": 5000000.0,
   "teff_h": 192.4968,
   "time_from_injection_h": 0.0,
   "num_voxels": 20572,
   "roi_volume_ml": 1316.608,
   "roi_mass_g": 1423.515625,
   "opengate": {
-    "mean_dose_rate_gy_s": 1.4314002095768103e-08,
+    "mean_dose_rate_gy_s": 1.4346958713852396e-07,
     "simulation_mode": "vrt",
-    "uncertainty_min_fraction": 0.0012406444372879471,
-    "uncertainty_max_fraction": 0.17576274960207644,
-    "uncertainty_estimate_fraction": 0.001463284962612755,
-    "mean_voxel_uncertainty_fraction": 0.17576274960207644
+    "opengate": {
+      "version": "10.1.1",
+      "commit": "2833600ed",
+      "dirty": false
+    },
+    "bremsstrahlung": true,
+    "uncertainty_min_fraction": 0.00039218307035354335,
+    "uncertainty_max_fraction": 0.05617153577166349,
+    "uncertainty_estimate_fraction": 0.0004624886969852152,
+    "mean_voxel_uncertainty_fraction": 0.05617153577166349
   },
   "cross_doses": [
     {
@@ -27,10 +33,10 @@
       "target_mass_g": 161.4965362548828,
       "min_distance_to_source_mm": 14.966629981994629,
       "opengate": {
-        "mean_dose_rate_gy_s": 7.789341228759554e-10,
-        "uncertainty_min_fraction": 0.0022095664034530427,
-        "uncertainty_max_fraction": 0.10284476797422248,
-        "uncertainty_estimate_fraction": 0.006277522069788861
+        "mean_dose_rate_gy_s": 7.724700896154375e-09,
+        "uncertainty_min_fraction": 0.0007008765218534091,
+        "uncertainty_max_fraction": 0.03272439555602296,
+        "uncertainty_estimate_fraction": 0.0019912358485959826
       }
     },
     {
@@ -41,10 +47,10 @@
       "target_mass_g": 165.00022888183594,
       "min_distance_to_source_mm": 91.38927459716797,
       "opengate": {
-        "mean_dose_rate_gy_s": 1.0212038128687363e-10,
-        "uncertainty_min_fraction": 0.005319950156849364,
-        "uncertainty_max_fraction": 0.246929796994339,
-        "uncertainty_estimate_fraction": 0.015324683848882071
+        "mean_dose_rate_gy_s": 1.0601982845411884e-09,
+        "uncertainty_min_fraction": 0.0016759728435737442,
+        "uncertainty_max_fraction": 0.07961317481302954,
+        "uncertainty_estimate_fraction": 0.004827818539764165
       }
     },
     {
@@ -55,10 +61,10 @@
       "target_mass_g": 188.06117248535156,
       "min_distance_to_source_mm": 62.60990524291992,
       "opengate": {
-        "mean_dose_rate_gy_s": 1.3927516645576987e-10,
-        "uncertainty_min_fraction": 0.004384612021166012,
-        "uncertainty_max_fraction": 0.22128582694368168,
-        "uncertainty_estimate_fraction": 0.013370250876790663
+        "mean_dose_rate_gy_s": 1.3681341189251643e-09,
+        "uncertainty_min_fraction": 0.001388776193621435,
+        "uncertainty_max_fraction": 0.07106888196295413,
+        "uncertainty_estimate_fraction": 0.00423487552142404
       }
     },
     {
@@ -69,10 +75,10 @@
       "target_mass_g": 88.86204528808594,
       "min_distance_to_source_mm": 16.492422103881836,
       "opengate": {
-        "mean_dose_rate_gy_s": 4.604548821711746e-10,
-        "uncertainty_min_fraction": 0.0036450512334406026,
-        "uncertainty_max_fraction": 0.12976555609105117,
-        "uncertainty_estimate_fraction": 0.008859611075945652
+        "mean_dose_rate_gy_s": 4.647728848349827e-09,
+        "uncertainty_min_fraction": 0.0011472702006555208,
+        "uncertainty_max_fraction": 0.041125073557453935,
+        "uncertainty_estimate_fraction": 0.002788539075095557
       }
     },
     {
@@ -83,10 +89,10 @@
       "target_mass_g": 5.010290145874023,
       "min_distance_to_source_mm": 4.0,
       "opengate": {
-        "mean_dose_rate_gy_s": 1.5798793806305127e-09,
-        "uncertainty_min_fraction": 0.010484587986365965,
-        "uncertainty_max_fraction": 0.0804199907004999,
-        "uncertainty_estimate_fraction": 0.016630165388347346
+        "mean_dose_rate_gy_s": 1.5545381492546754e-08,
+        "uncertainty_min_fraction": 0.0031267221456126796,
+        "uncertainty_max_fraction": 0.025490576993253994,
+        "uncertainty_estimate_fraction": 0.005235136419693276
       }
     },
     {
@@ -97,10 +103,10 @@
       "target_mass_g": 7.232762336730957,
       "min_distance_to_source_mm": 53.06599807739258,
       "opengate": {
-        "mean_dose_rate_gy_s": 2.804423103267761e-10,
-        "uncertainty_min_fraction": 0.01542283595772578,
-        "uncertainty_max_fraction": 0.16169378796031914,
-        "uncertainty_estimate_fraction": 0.0270101071874307
+        "mean_dose_rate_gy_s": 2.777146966821013e-09,
+        "uncertainty_min_fraction": 0.00494345090278799,
+        "uncertainty_max_fraction": 0.05239293313133356,
+        "uncertainty_estimate_fraction": 0.008657495915115587
       }
     },
     {
@@ -111,10 +117,10 @@
       "target_mass_g": 175.92388916015625,
       "min_distance_to_source_mm": 4.0,
       "opengate": {
-        "mean_dose_rate_gy_s": 7.236434804870162e-10,
-        "uncertainty_min_fraction": 0.0025112938679597795,
-        "uncertainty_max_fraction": 0.11150410272926996,
-        "uncertainty_estimate_fraction": 0.00617855741352412
+        "mean_dose_rate_gy_s": 7.236290362362067e-09,
+        "uncertainty_min_fraction": 0.0007840232025460611,
+        "uncertainty_max_fraction": 0.035836913827755966,
+        "uncertainty_estimate_fraction": 0.0019470847493643644
       }
     },
     {
@@ -125,10 +131,10 @@
       "target_mass_g": 689.3963012695312,
       "min_distance_to_source_mm": 4.0,
       "opengate": {
-        "mean_dose_rate_gy_s": 5.296085127742783e-10,
-        "uncertainty_min_fraction": 0.001311125126544595,
-        "uncertainty_max_fraction": 0.11935420568883055,
-        "uncertainty_estimate_fraction": 0.004372988121271686
+        "mean_dose_rate_gy_s": 5.310591236253225e-09,
+        "uncertainty_min_fraction": 0.00041673667299007514,
+        "uncertainty_max_fraction": 0.03800963408778336,
+        "uncertainty_estimate_fraction": 0.0013810107282811396
       }
     }
   ]

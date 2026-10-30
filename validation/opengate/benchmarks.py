@@ -25,8 +25,10 @@ Three levels:
 import hashlib
 import importlib.metadata
 import json
+import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import urllib.parse
 import urllib.request
@@ -137,6 +139,7 @@ CASES: List[Case] = [
     Case("Lu177", "hanscheid2018", (0, 50), H2018_NOTE, target="Kidney_R"),
     *[Case("Lu177", "madsen2018", None, target=t) for t in CROSS_TARGETS if t != "Kidney_R"],
     *[Case("I131", "madsen2018", None, target=t) for t in CROSS_TARGETS],
+    *[Case("Y90", "madsen2018", None, target=t) for t in CROSS_TARGETS],
 ]
 
 
@@ -145,12 +148,22 @@ def load_benchmark(isotope: str, bench_dir: Path = BENCH_DIR) -> dict:
         return json.load(f)
 
 
+# Beyond this distance from the source, the electrons do not reach the organ (Y90 maximum beta range
+# ~11 mm): the dose of the electron run there is bremsstrahlung only (see gate_roi_uncertainty)
+ELECTRON_REACH_MM = 10.0
+
+
 def cross_dose(bench: dict, target: str) -> dict:
     """Entry of the benchmark cross_doses list for this target organ."""
     for entry in bench["cross_doses"]:
         if entry["target_roi_name"] == target:
             return entry
     raise KeyError(f"no cross-dose to {target} in the {bench['radionuclide']} benchmark")
+
+
+def is_distant(bench: dict, target: str) -> bool:
+    """The organ is beyond the electron reach of the source (always False for the source itself)."""
+    return bool(target) and cross_dose(bench, target)["min_distance_to_source_mm"] > ELECTRON_REACH_MM
 
 
 def gate_output_dir(isotope: str, data_dir: Path, bench_dir: Path = BENCH_DIR) -> Path:
@@ -266,55 +279,85 @@ def run_opengate(
     bench_dir: Path = BENCH_DIR,
 ) -> Path:
     """
-    Run opengate_dose_rate with the p142 configuration of this radionuclide.
-    Inputs are read from data_dir; outputs go to sim_dir/<output_folder>, with the
-    log and opengate_version.json. Returns the output folder.
+    Run the p142 OpenGATE simulation of this radionuclide, with the activity of its configuration.
+    Inputs are read from data_dir; outputs go to sim_dir/<output_folder>, with the log and
+    opengate_version.json. Returns the output folder.
+    VRT radionuclides: p142/create_campaigns.py, as for the references (bremsstrahlung included,
+    parallel jobs); analog (Ac225): opengate_dose_rate.
     """
-    exe = shutil.which("opengate_dose_rate")
-    if exe is None:
-        raise RuntimeError("opengate_dose_rate not found: install opengate (pip install opengate)")
     config = (Path(bench_dir) / f"p142_dose_rate_{isotope.lower()}.json").resolve()
+    with open(config) as f:
+        cfg = json.load(f)
     out = gate_output_dir(isotope, sim_dir, bench_dir).resolve()
     out.mkdir(parents=True, exist_ok=True)
+    if cfg.get("mode", "vrt") == "vrt":
+        # a separate process: under pytest, "import opengate" resolves to this folder
+        cmd = [
+            sys.executable, str(Path(bench_dir) / "create_campaigns.py"),
+            "--radionuclide", isotope, "--activity", str(float(cfg["activity_bq"])),
+            "--campaigns", str(Path(sim_dir).resolve() / "campaigns"),
+            "--run", "-j", str(os.cpu_count() or 4), "-o", str(out),
+        ]
+    else:
+        exe = shutil.which("opengate_dose_rate")
+        if exe is None:
+            raise RuntimeError("opengate_dose_rate not found: install opengate (pip install opengate)")
+        cmd = [exe, str(config), "--output_folder", str(out)]
     with open(out / "opengate.log", "w") as log:
-        subprocess.run(
-            [exe, str(config), "--output_folder", str(out)],
-            cwd=data_dir,
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            check=True,
-        )
+        subprocess.run(cmd, cwd=data_dir, stdout=log, stderr=subprocess.STDOUT, check=True)
     with open(out / "opengate_version.json", "w") as f:
         json.dump(opengate_version(), f, indent=2)
     return out
 
 
+def simulated_activity_bq(out: Path, isotope: str, bench_dir: Path = BENCH_DIR) -> float:
+    """Activity simulated in an OpenGATE output folder: reference.json (create_campaigns.py), else the configuration."""
+    reference = Path(out) / "reference.json"
+    if reference.exists():
+        return float(json.loads(reference.read_text())["activity_bq"])
+    with open(Path(bench_dir) / f"p142_dose_rate_{isotope.lower()}.json") as f:
+        return float(json.load(f)["activity_bq"])
+
+
 def gate_from_images(
-    isotope: str, mask: np.ndarray, data_dir: Path, gate_dir: Optional[Path] = None
+    isotope: str,
+    mask: np.ndarray,
+    data_dir: Path,
+    gate_dir: Optional[Path] = None,
+    distant: bool = False,
+    activity_bq: Optional[float] = None,
 ) -> Tuple[float, float]:
     """
     Mean OpenGATE dose rate (Gy/s) in the mask, and its relative uncertainty.
     The OpenGATE outputs are read from gate_dir (default: data_dir).
+    distant: the organ is beyond the electron reach of the source (see gate_roi_uncertainty).
+    activity_bq: scale the dose rate to this activity (e.g. the one of the benchmark JSON);
+    default: the activity of the simulation.
     """
     out = gate_output_dir(isotope, gate_dir if gate_dir is not None else data_dir)
     dose = sitk.ReadImage(str(out / "output_dose.mhd"))
     rate = float(sitk.GetArrayViewFromImage(dose)[mask].mean())
-    return rate, gate_roi_uncertainty(out, mask, isotope)
+    if activity_bq is not None:
+        rate *= activity_bq / simulated_activity_bq(out, isotope)
+    return rate, gate_roi_uncertainty(out, mask, isotope, distant)
 
 
-def gate_roi_uncertainty(out: Path, mask: np.ndarray, isotope: str) -> float:
+def gate_roi_uncertainty(out: Path, mask: np.ndarray, isotope: str, distant: bool = False) -> float:
     """
     Relative uncertainty of the mean OpenGATE dose rate in the mask.
 
     In VRT mode, the electrons (e/) and the photons (gamma_tle/) are two independent
     simulations whose dose maps add up to the merged one: each part is estimated with
     its own correlation model (mean beta range, ROI mean chord) and the variances are
-    added. Otherwise (analog mode, or parts missing), the merged map is used with the
-    electron model, which underestimates the uncertainty of a photon dose.
+    added. The electron run also contains the bremsstrahlung photons (create_campaigns.py):
+    in an organ beyond the electron reach (distant=True, see ELECTRON_REACH_MM), its dose is
+    bremsstrahlung only, so the photon model is used there too; in an organ touching the
+    source, the electrons crossing the boundary dominate (electron model). Otherwise (analog mode, or parts missing), the merged map is
+    used with the electron model, which underestimates the uncertainty of a photon dose.
     Checked on p142 Lu177 against 20 independent simulations (batch_uncertainty.py).
     """
     out = Path(out)
-    parts = [(out / "e", False), (out / "gamma_tle", True)]
+    parts = [(out / "e", distant), (out / "gamma_tle", True)]
     if not all((folder / "output_dose_uncertainty.mhd").exists() for folder, _ in parts):
         dose = sitk.ReadImage(str(out / "output_dose.mhd"))
         unc = sitk.ReadImage(str(out / "output_dose_uncertainty.mhd"))
@@ -513,7 +556,8 @@ def evaluate(
     gate_unc = float(gate["uncertainty_estimate_fraction"])
     if data_dir is not None:
         gate_rate, gate_unc = gate_from_images(
-            case.isotope, organ_mask(data_dir, case.target), data_dir, gate_dir
+            case.isotope, organ_mask(data_dir, case.target), data_dir, gate_dir,
+            is_distant(bench, case.target), activity_bq=float(bench["total_activity_bq"]),
         )
     gate_gy = gate_integrated_dose_gy(gate_rate, teff_h)
 

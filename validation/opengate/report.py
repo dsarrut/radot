@@ -115,7 +115,8 @@ def render(rows):
     ]
     def cross_key(r):
         c = r["case"]
-        return (c.isotope != "Lu177", cross_dose(r["bench"], c.target)["min_distance_to_source_mm"], c.target, c.method != "madsen2018")
+        isotopes = ["Lu177", "I131", "Y90"]
+        return (isotopes.index(c.isotope), cross_dose(r["bench"], c.target)["min_distance_to_source_mm"], c.target, c.method != "madsen2018")
 
     for r in sorted(cross_rows, key=cross_key):
         c = r["case"]
@@ -129,11 +130,15 @@ def render(rows):
 
     lines += [
         "",
-        "Cross-doses are about 100 times lower than self-doses and are due to photons. "
+        "Cross-doses are about 100 times lower than self-doses and are due to photons (γ lines, and the "
+        "bremsstrahlung of the β particles, the only photons of Y-90). "
         "They depend on the position of the organs and the tissue between them, which differ between "
         "the reference phantom (used for the S-values) and the patient: radot is higher than GATE for "
         "most organs of this patient, by tens of percent and more. The organ-level S-value methods give "
         "the order of magnitude of a cross-dose, not a patient-specific value. "
+        "For Y-90, the right kidney and the pancreas touch the liver in the reference phantom, and receive "
+        "β particles crossing the boundary; in this patient they are 15 mm away, out of reach, hence radot "
+        "30 to 70 times higher. "
         "The CT is cropped around the liver (34 cm along the body axis): a simulation on the full-body CT "
         "changes the cross-doses by less than 10 % (left kidney +9 %, heart +3 %, the others within the "
         "statistical uncertainty). "
@@ -171,13 +176,20 @@ def render(rows):
         "- `benchmarks.py`: the cases and acceptance ranges shown above; "
         "`test_opengate.py`: the same comparisons as tests; `report.py`: this page.",
         "",
-        "Each simulation is run with the `opengate_dose_rate` command of OpenGATE, for example:",
+        "Each simulation is defined by a configuration of the `opengate_dose_rate` command of OpenGATE, "
+        "for example `p142_dose_rate_lu177.json` below. Lu-177, Y-90 and I-131 use variance reduction "
+        "(an electron run and a photon run with the track-length estimator); their references are run "
+        "with `opengate_jobs` in parallel jobs, with more activity (Y-90 30 MBq, Lu-177 10 MBq, I-131 "
+        "5 MBq; results per MBq), and with the bremsstrahlung of the electron run, which "
+        "`opengate_dose_rate` does not create (`p142/run_references.zsh`, `p142/create_campaigns.py`). "
+        "Ac-225 is simulated in analog mode with `opengate_dose_rate`.",
         "",
         "```bash",
-        "opengate_dose_rate p142_dose_rate_lu177.json",
+        "p142/run_references.zsh 12                    # Lu-177, Y-90, I-131 (12 parallel jobs)",
+        "opengate_dose_rate p142_dose_rate_ac225.json  # Ac-225",
         "```",
         "",
-        "with `p142_dose_rate_lu177.json`:",
+        "`p142_dose_rate_lu177.json`:",
         "",
         "```json",
         *(V_CONFIG.read_text(encoding="utf-8").rstrip().splitlines()),

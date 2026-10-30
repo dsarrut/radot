@@ -10,6 +10,7 @@ The results are published in [docs/7_validation_opengate.md](../../docs/7_valida
 | `report.py` | Writes `docs/7_validation_opengate.md` |
 | `p142/prepare/` | Preparation of the simulation inputs |
 | `p142/p142_dose_rate_*.json` | OpenGATE configuration, one per radionuclide |
+| `p142/run_references.zsh`, `p142/create_campaigns.py` | Run the reference simulations with `opengate_jobs` (bremsstrahlung included) |
 | `p142/create_benchmark_json.py` | OpenGATE outputs → `p142/p142_*_opengate_benchmark.json` |
 | `p142/p142_*_opengate_benchmark.json` | Reference values used by the tests and the report |
 | `batch_uncertainty.py` | Measures the uncertainty of the organ means with repeated simulations (step 6 below) |
@@ -63,15 +64,22 @@ All commands run in `p142/data/`.
    The crop (34 cm along the body axis, the full 50 cm in the transverse plane) removes the head. A
    Lu-177 simulation on the full-body CT changes the organ dose rates by less than 10 % (left kidney
    +9 %, heart +3 %, liver +0.2 %, the other organs within the statistical uncertainty).
-4. One OpenGATE simulation per radionuclide (uniform activity in the liver, dose rate at t = 0; 1 MBq,
-   0.5 MBq for I-131 and 0.1 MBq for Ac-225, the results are given per MBq):
+4. One OpenGATE simulation per radionuclide (uniform activity in the liver, dose rate at t = 0; the
+   results are given per MBq of the simulated activity). Lu-177, Y-90 and I-131 use variance reduction
+   (`"mode": "vrt"`: an electron run and a photon run with the track-length estimator, TLE); they are
+   run with `opengate_jobs` in parallel jobs, with more activity than the configurations (Y-90 30 MBq,
+   Lu-177 10 MBq, I-131 5 MBq, about 35 min with 12 jobs):
    ```bash
-   opengate_dose_rate ../p142_dose_rate_lu177.json
-   opengate_dose_rate ../p142_dose_rate_y90.json
-   opengate_dose_rate ../p142_dose_rate_i131.json
-   opengate_dose_rate ../p142_dose_rate_ac225.json
+   ../run_references.zsh 12        # outputs in new/output_<radionuclide>_vrt/, then moved to output_<radionuclide>_vrt/
+   opengate_dose_rate ../p142_dose_rate_ac225.json        # Ac-225: analog mode, 0.1 MBq
    ```
-   Lu-177, Y-90 and I-131 use variance reduction (`"mode": "vrt"`); Ac-225 is simulated in analog mode.
+   `run_references.zsh` calls `create_campaigns.py`, which builds the campaigns from the configurations
+   and writes `reference.json` (simulated activity, opengate version) next to the output.
+   Bremsstrahlung: `opengate_dose_rate` sets a 1 m production cut for all particles in the electron run,
+   so no bremsstrahlung photon is created and its energy stays in the liver; for Y-90 (no γ line) the
+   cross-doses were then 10 to 140 times too low. `create_campaigns.py` uses a 2 mm photon cut in the
+   electron run (electrons still 1 m) and a TLE dose actor (electrons analog, bremsstrahlung photons with
+   TLE). The Ac-225 analog run already has a 2 mm cut. To remove once `opengate_dose_rate` does it.
 5. Mean dose rate and uncertainty in the liver (self-dose) and in the organs of `CROSS_TARGETS` in
    `benchmarks.py` (cross-doses: kidneys, spleen, pancreas, adrenals, stomach, heart; whole organs entirely
    inside the cropped CT), with their mass and closest distance to the liver:
@@ -83,9 +91,11 @@ All commands run in `p142/data/`.
    an organ, and one history deposits in several voxels, which are therefore correlated.
    `benchmarks.gate_roi_uncertainty` estimates the organ uncertainty from the voxel maps, separately for
    the two VRT simulations: electrons (`e/`, a cluster of the mean β range) and photons (`gamma_tle/`,
-   the mean chord 4V/S of the organ, since a photon deposits along its path). This estimate was checked
-   with the batch method: the Lu-177 simulation is repeated 20 times with different random seeds, each
-   identical to the reference (1 MBq), and the relative standard deviation of the 20 organ means is the
+   the mean chord 4V/S of the organ, since a photon deposits along its path). The electron run also
+   contains the bremsstrahlung photons: in organs beyond the electron reach (more than 10 mm from the
+   liver), its dose is bremsstrahlung only and the photon model is used for it too. This estimate was
+   checked with the batch method: the Lu-177 simulation is repeated 20 times with different random
+   seeds, each at 1 MBq, and the relative standard deviation of the 20 organ means is the
    uncertainty of one simulation (about 1 min per batch on 8 threads):
    ```bash
    python ../../batch_uncertainty.py --run   # batches in batches/run_NN/, result in p142_lu177_batch_uncertainty.json
@@ -102,7 +112,8 @@ All commands run in `p142/data/`.
    | Stomach   | 0.90 % ± 0.15 | 1.15 % |
    | Heart     | 0.97 % ± 0.16 | 0.67 % |
 
-   The estimate is within 2 standard deviations of the measurement for all organs (0.7 to 1.3 times the
+   (These batches predate the bremsstrahlung fix, negligible for Lu-177; the test scales the reference
+   estimate, now at 10 MBq, to 1 MBq.) The estimate is within 2 standard deviations of the measurement for all organs (0.7 to 1.3 times the
    measured value); `pytest` checks it. The former estimate (cluster of the maximum β range on the merged
    map) gave 0.20 % for the liver and 0.58 % for the right kidney. The mean of the 20 batches agrees with
    the reference simulation within 1.2 %.

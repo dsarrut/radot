@@ -4,9 +4,10 @@
 #   validation/opengate/p142/run_references.zsh [number_of_jobs]     (default 12)
 #
 # Needs opengate and the data in p142/data/ (python validation/opengate/download_data.py).
-# For each radionuclide: builds the electron and photon campaigns (create_campaigns.py, bremsstrahlung
-# included), runs each one in parallel jobs (split, run, merge), then merges both parts into
-# p142/data/new/output_<radionuclide>_vrt/, with the opengate version.
+# For each radionuclide, create_campaigns.py builds the electron and photon campaigns (bremsstrahlung
+# included), runs each one in parallel jobs (split, run, merge), then assembles
+# p142/data/new/output_<radionuclide>_vrt/ (merged images, e/ and gamma_tle/, reference.json with the
+# activity, opengate version).
 # Ac225 (analog mode) is not run here.
 #
 # Activities (more activity = more statistics; results are normalised per MBq), measured on a laptop:
@@ -17,28 +18,10 @@ JOBS="${1:-12}"
 P142_DIR="${0:A:h}"
 cd "$P142_DIR/data"
 
-# radionuclide and activity (Bq); the e-factor is the one of the p142 configurations (1)
-run() {
-  local name="$1" activity="$2"
-  local r="${name:l}"
+for name activity in Y90 30e6 Lu177 10e6 I131 5e6; do
   echo "=== $name: $activity Bq, $JOBS jobs"
-  python "$P142_DIR/create_campaigns.py" --radionuclide "$name" --activity "$activity"
-  for part in e gamma_tle; do
-    opengate_jobs run "campaigns/$r/$part" -j "$JOBS"
-  done
-  opengate_dose_rate --merge-only "campaigns/$r/e/output" "campaigns/$r/gamma_tle/output" \
-      --e-factor 1 -o "new/output_${r}_vrt"
-  cp "campaigns/$r/opengate_version.json" "new/output_${r}_vrt/"
-  # electron and photon parts, as opengate_dose_rate does (used for the organ uncertainty)
-  for part in e gamma_tle; do
-    mkdir -p "new/output_${r}_vrt/$part"
-    cp campaigns/$r/$part/output/output_dose{,_uncertainty}.{mhd,raw} campaigns/$r/$part/output/stats.txt \
-        "new/output_${r}_vrt/$part/"
-  done
-}
-
-run Y90 30e6
-run Lu177 10e6
-run I131 5e6
+  python "$P142_DIR/create_campaigns.py" --radionuclide "$name" --activity "$activity" \
+      --run -j "$JOBS" -o "new/output_${name:l}_vrt"
+done
 
 echo "Done: $P142_DIR/data/new/"
