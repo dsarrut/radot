@@ -120,6 +120,15 @@ All commands run in `p142/data/`.
    map) gave 0.20 % for the liver and 0.58 % for the right kidney. The mean of the 20 batches agrees with
    the reference simulation within 0.7 % per MBq.
 
+   Y-90 (bremsstrahlung only outside the liver), 10 electron runs of 1 MBq with the bremsstrahlung of
+   `create_campaigns.py` (run by hand, not with `batch_uncertainty.py`): the estimate is 1.1 times the
+   measured uncertainty for the right kidney and 1.0 for the spleen, 0.65 for the pancreas and the left
+   kidney, and too high (1.4 to 2.2) for the liver and the organs touching it, with a ±24 % precision
+   on the measurement. The mean of the 10 runs agrees with the reference (right kidney +3.2 % ± 1.1,
+   pancreas +0.1 % ± 2.6), so the references do not depend on the machine (laptop vs cluster).
+   The 3-sigma check of the `simulate` level can fail by chance on an organ where the estimate is low
+   (a first rerun gave −10 % for the right kidney, 3.0 sigma; the next one −2 %).
+
 ## Data
 
 The images and OpenGATE outputs are not in git. They are published on Zenodo (CC-BY-4.0):
