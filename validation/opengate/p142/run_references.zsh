@@ -29,6 +29,12 @@ run() {
   opengate_dose_rate --merge-only "campaigns/$r/e/output" "campaigns/$r/gamma_tle/output" \
       --e-factor 1 -o "new/output_${r}_vrt"
   cp "campaigns/$r/opengate_version.json" "new/output_${r}_vrt/"
+  # electron and photon parts, as opengate_dose_rate does (used for the organ uncertainty)
+  for part in e gamma_tle; do
+    mkdir -p "new/output_${r}_vrt/$part"
+    cp campaigns/$r/$part/output/output_dose{,_uncertainty}.{mhd,raw} campaigns/$r/$part/output/stats.txt \
+        "new/output_${r}_vrt/$part/"
+  done
 }
 
 run Y90 30e6
