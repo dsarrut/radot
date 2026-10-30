@@ -3,7 +3,8 @@
 Build the opengate_jobs campaigns of a p142 dose-rate simulation (VRT: electron and photon runs),
 to run them on a cluster instead of with opengate_dose_rate.
 
-Run in p142/data/ (inputs downloaded with download_data.py). For each part, writes
+run_references.zsh runs all the VRT references locally with it. Run in p142/data/ (inputs
+downloaded with download_data.py). For each part, writes
 campaigns/<radionuclide>/<part>/simulation.json, with the input paths relative to it:
 
     python ../create_campaigns.py --radionuclide Y90 --activity 30e6
