@@ -66,7 +66,6 @@ nav:
       - CT Segmentation: 2a_segmentation.md
       - Standard ROI Names: 2b_roi_names.md
       - Units & Normalization: 3a_images_units.md
-      - SUL Normalization: 3b_sul.md
       - SUVpeak: 3c_peak.md
       - Image Resampling: 4_images_resample.md
   - Physics & Radionuclides:
