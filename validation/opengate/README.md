@@ -77,11 +77,12 @@ All commands run in `p142/data/`.
    ```
    `run_references.zsh` calls `create_campaigns.py`, which builds the campaigns from the configurations
    and writes `reference.json` (simulated activity, opengate version) next to the output.
-   Bremsstrahlung: `opengate_dose_rate` sets a 1 m production cut for all particles in the electron run,
-   so no bremsstrahlung photon is created and its energy stays in the liver; for Y-90 (no γ line) the
-   cross-doses were then 10 to 140 times too low. `create_campaigns.py` uses a 2 mm photon cut in the
-   electron run (electrons still 1 m) and a TLE dose actor (electrons analog, bremsstrahlung photons with
-   TLE). The Ac-225 analog run already has a 2 mm cut. To remove once `opengate_dose_rate` does it.
+   Bremsstrahlung: needs an opengate with the `bremsstrahlung` option of `opengate_dose_rate`
+   (OpenGATE PR #1223, on by default): 2 mm photon cut in the electron run (electrons still 1 m) and a
+   TLE dose actor (electrons analog, bremsstrahlung photons with TLE). Before it, the electron run had a
+   1 m cut for all particles, so no bremsstrahlung photon was created and its energy stayed in the liver;
+   for Y-90 (no γ line) the cross-doses were 10 to 140 times too low. `create_campaigns.py` refuses an
+   opengate without the option. The Ac-225 analog run already has a 2 mm cut.
 5. Mean dose rate and uncertainty in the liver (self-dose) and in the organs of `CROSS_TARGETS` in
    `benchmarks.py` (cross-doses: kidneys, spleen, pancreas, adrenals, stomach, heart; whole organs entirely
    inside the cropped CT), with their mass and closest distance to the liver:

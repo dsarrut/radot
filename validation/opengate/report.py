@@ -180,8 +180,8 @@ def render(rows):
         "for example `p142_dose_rate_lu177.json` below. Lu-177, Y-90 and I-131 use variance reduction "
         "(an electron run and a photon run with the track-length estimator); their references are run "
         "with `opengate_jobs` in parallel jobs, with more activity (Y-90 30 MBq, Lu-177 10 MBq, I-131 "
-        "5 MBq; results per MBq), and with the bremsstrahlung of the electron run, which "
-        "`opengate_dose_rate` does not create (`p142/run_references.zsh`, `p142/create_campaigns.py`). "
+        "5 MBq; results per MBq), and with the bremsstrahlung of the electron run (`bremsstrahlung` "
+        "option of `opengate_dose_rate`; `p142/run_references.zsh`, `p142/create_campaigns.py`). "
         "Ac-225 is simulated in analog mode with `opengate_dose_rate`.",
         "",
         "```bash",

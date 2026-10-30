@@ -349,7 +349,7 @@ def gate_roi_uncertainty(out: Path, mask: np.ndarray, isotope: str, distant: boo
     In VRT mode, the electrons (e/) and the photons (gamma_tle/) are two independent
     simulations whose dose maps add up to the merged one: each part is estimated with
     its own correlation model (mean beta range, ROI mean chord) and the variances are
-    added. The electron run also contains the bremsstrahlung photons (create_campaigns.py):
+    added. The electron run also contains the bremsstrahlung photons (opengate_dose_rate option):
     in an organ beyond the electron reach (distant=True, see ELECTRON_REACH_MM), its dose is
     bremsstrahlung only, so the photon model is used there too; in an organ touching the
     source, the electrons crossing the boundary dominate (electron model). Otherwise (analog mode, or parts missing), the merged map is

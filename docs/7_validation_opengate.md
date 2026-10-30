@@ -88,7 +88,7 @@ The scripts and configurations are in [`validation/opengate/`](https://github.co
 - `batch_uncertainty.py`: repeats the Lu-177 simulation with different random seeds to measure the uncertainty of the organ mean (`p142/p142_lu177_batch_uncertainty.json`).
 - `benchmarks.py`: the cases and acceptance ranges shown above; `test_opengate.py`: the same comparisons as tests; `report.py`: this page.
 
-Each simulation is defined by a configuration of the `opengate_dose_rate` command of OpenGATE, for example `p142_dose_rate_lu177.json` below. Lu-177, Y-90 and I-131 use variance reduction (an electron run and a photon run with the track-length estimator); their references are run with `opengate_jobs` in parallel jobs, with more activity (Y-90 30 MBq, Lu-177 10 MBq, I-131 5 MBq; results per MBq), and with the bremsstrahlung of the electron run, which `opengate_dose_rate` does not create (`p142/run_references.zsh`, `p142/create_campaigns.py`). Ac-225 is simulated in analog mode with `opengate_dose_rate`.
+Each simulation is defined by a configuration of the `opengate_dose_rate` command of OpenGATE, for example `p142_dose_rate_lu177.json` below. Lu-177, Y-90 and I-131 use variance reduction (an electron run and a photon run with the track-length estimator); their references are run with `opengate_jobs` in parallel jobs, with more activity (Y-90 30 MBq, Lu-177 10 MBq, I-131 5 MBq; results per MBq), and with the bremsstrahlung of the electron run (`bremsstrahlung` option of `opengate_dose_rate`; `p142/run_references.zsh`, `p142/create_campaigns.py`). Ac-225 is simulated in analog mode with `opengate_dose_rate`.
 
 ```bash
 p142/run_references.zsh 12                    # Lu-177, Y-90, I-131 (12 parallel jobs)

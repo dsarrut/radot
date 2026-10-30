@@ -22,11 +22,10 @@ p142_dose_rate_<radionuclide>.json, except the activity (--activity, in Bq: more
 statistics). reference.json records the simulated activity: create_benchmark_json.py gives every
 result per MBq of it.
 
-Electron run: bremsstrahlung included. opengate_dose_rate sets a 1 m production cut for all particles in
-the electron run, so no bremsstrahlung photon is created (its energy is deposited along the electron
-track). Here the photon cut is 2 mm (electrons and positrons still 1 m) and the dose actor is a
-TLEDoseActor: electrons are scored as with the DoseActor, the bremsstrahlung photons with the
-track-length estimator. To remove once opengate_dose_rate does it.
+Electron run: bremsstrahlung included (opengate_dose_rate option "bremsstrahlung", OpenGATE PR #1223):
+2 mm photon cut (electrons and positrons still 1 m) and a TLEDoseActor, electrons scored as with the
+DoseActor, the bremsstrahlung photons with the track-length estimator. An older opengate ignores the
+option (no bremsstrahlung photon, Y90 cross-doses 10 to 140 times too low): refused here.
 """
 
 import argparse
@@ -38,33 +37,11 @@ from pathlib import Path
 
 from box import Box
 from opengate.contrib.dose.doserate import create_simulation, merge_vrt_dose_rate
-from opengate.utility import g4_units
 
 P142_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(P142_DIR.parent))
 from benchmarks import opengate_version
 PARTS = {"e": "e-", "gamma_tle": "gamma_tle"}
-
-
-def include_bremsstrahlung(sim):
-    """Electron run: create the bremsstrahlung photons and score them with TLE."""
-    mm, m = g4_units.mm, g4_units.m
-    pm = sim.physics_manager
-    # in a region, an "all" cut overrides the per-particle cuts: unset it
-    pm.set_production_cut("ct", "all", None)
-    pm.set_production_cut("ct", "gamma", 2 * mm)
-    pm.set_production_cut("ct", "electron", 1 * m)
-    pm.set_production_cut("ct", "positron", 1 * m)
-
-    old = sim.actor_manager.get_actor("dose")
-    sim.actor_manager.remove_actor("dose")
-    dose = sim.add_actor("TLEDoseActor", "dose")
-    dose.output_filename = "output.mhd"
-    for k in ("attached_to", "size", "spacing", "translation", "output_coordinate_system", "hit_type"):
-        setattr(dose, k, getattr(old, k))
-    dose.dose.active = True
-    dose.dose_squared.active = True
-    dose.dose_uncertainty.active = True
 
 
 def create_campaigns(radionuclide: str, activity_bq: float, campaigns_dir: Path, threads: int = 1) -> dict:
@@ -87,9 +64,10 @@ def create_campaigns(radionuclide: str, activity_bq: float, campaigns_dir: Path,
         param.visu = False
         param.activity_bq = int(activity_bq / e_factor if part == "e" else activity_bq)
         param.output_folder = str(campaign / "output")
+        param.bremsstrahlung = True
         sim = create_simulation(param)
-        if part == "e":
-            include_bremsstrahlung(sim)
+        if part == "e" and sim.actor_manager.get_actor("dose").type_name != "TLEDoseActor":
+            raise SystemExit("opengate_dose_rate without the bremsstrahlung option: update opengate (PR #1223)")
         sim.to_json_file(campaign)
         print(f"{campaign}/simulation.json  ({mode}, {param.activity_bq:.3g} Bq)")
         campaigns[part] = campaign
