@@ -59,9 +59,10 @@ pytest -q                         # unit tests + validation levels that need no 
 
 ### Metadata & Unit Safety
 1.  **Read from Header/Sidecar First**: Tools and functions requiring modality, units, patient weight, injected activity, height, or sex must first look up these parameters from the image's companion JSON sidecar.
-2.  **No Static Defaults in CLI**: Do not hardcode static defaults (e.g., `--type` or `--unit` defaulting to `ct`/`hu`) in click/argparse options, as this disables dynamic metadata resolution. Let them default to `None` and resolve dynamically.
+2.  **No Static Defaults in CLI**: Do not hardcode static defaults (e.g., `--type` or `--unit` defaulting to `ct`/`hu`) in click/argparse options, as this disables dynamic metadata resolution. Let them default to `None` and resolve dynamically. Do not mark these options `required=True` either.
 3.  **Explicit Fallbacks**: If required parameters are missing from both options and sidecar/metadata, raise a clear `ValueError` specifying the missing attribute.
 4.  **Metadata Inheritance**: Any tool that creates or resamples an image (e.g., `resample`, `convert-units`) must copy, update, or generate a matching sidecar JSON file to accompany the new image.
+5.  **Tests**: For each such parameter, test both cases: the command works when the value is only in the sidecar, and fails with an explicit error when it is in neither the options nor the sidecar.
 
 ### Resampling & Unit Conversions
 *   **Preserve Total Activity**: When resampling images in absolute activity units (e.g., `bq`), you must scale voxel values by the volume change ratio (new voxel volume / old voxel volume) to keep the total activity constant.
@@ -109,7 +110,7 @@ pytest -q                         # unit tests + validation levels that need no 
 *   **Report**: `python validation/opengate/report.py` writes `docs/7_validation_opengate.md`; a test fails when the page is out of date.
 *   **Trap**: under pytest, `import opengate` resolves to the `validation/opengate/` folder (namespace package). Never `import opengate` directly in validation code; the opengate version is read from the install record.
 *   **Bremsstrahlung**: the references need opengate with the `bremsstrahlung` option of `opengate_dose_rate` (OpenGATE PR #1223, on by default); without it the Y90 cross-doses are 10 to 140 times too low (for Lu177 and I131 it is below 1 %). `p142/create_campaigns.py` refuses an opengate without it.
-*   **Cross-doses**: large differences except heart/stomach come from the anatomy (phantom vs patient geometry, organ distances, mass scaling); shown, only Kidney_R asserted. Open point: OpenGATE issue #1215 (default material tables), then drop the tables from the configs and the zip. Details in `dev_docs/dev_readme_080_opengate_validation.md` (done, kept until PR #5 is merged).
+*   **Cross-doses**: large differences except heart/stomach come from the anatomy (phantom vs patient geometry, organ distances, mass scaling); shown, only Kidney_R asserted. Open point: OpenGATE issue #1215 (default material tables), then drop the tables from the configs and the zip. History and decisions in `dev_docs/old/dev_readme_080_opengate_validation.md` (done).
 
 ## 4. SNMMI Challenge Evaluation (`validation/snmmi/`)
 
@@ -143,10 +144,9 @@ Refer to these Markdown documents in the `docs/` directory for detailed specific
 *   [8_validation_snmmi.md](docs/8_validation_snmmi.md): Generated comparison with the SNMMI challenge participants (do not edit).
 *   [validation/opengate/README.md](validation/opengate/README.md): How the OpenGATE reference was produced and how to run each validation level.
 *   [validation/snmmi/README.md](validation/snmmi/README.md): SNMMI challenge data, how to prepare them and run T5.
-*   [dev_docs/dev_readme_010_checklist.md](dev_docs/dev_readme_010_checklist.md): Developer parameter and metadata validation checklist.
 *   [dev_docs/dev_readme_020_db_api.md](dev_docs/dev_readme_020_db_api.md): Developer reference for database and phantom layers.
 *   [dev_docs/dev_readme_070_consolidate.md](dev_docs/dev_readme_070_consolidate.md): Status of the work towards v0.1 (start here for planning).
-*   [dev_docs/dev_readme_080_opengate_validation.md](dev_docs/dev_readme_080_opengate_validation.md): OpenGATE validation status, decisions and open points.
+*   [dev_docs/old/dev_readme_080_opengate_validation.md](dev_docs/old/dev_readme_080_opengate_validation.md): OpenGATE validation history and decisions (done).
 *   [dev_docs/dev_readme_090_dose_engine_time_model.md](dev_docs/dev_readme_090_dose_engine_time_model.md): `--dose-rate-map` (external Monte Carlo dose rate) and the planned dose-rate engine × time model refactor.
 *   [dev_docs/dev_readme_082_snmmi_challenge.md](dev_docs/dev_readme_082_snmmi_challenge.md): Plan and status (T5 done) to evaluate radot with the SNMMI 177Lu Dosimetry Challenge data.
 *   [dev_docs/dev_readme_085_lesion_validation.md](dev_docs/dev_readme_085_lesion_validation.md): Plan (not started) for synthetic lesions in the OpenGATE validation and a sphere S-value model.
