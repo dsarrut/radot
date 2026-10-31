@@ -35,7 +35,7 @@ from pathlib import Path
 BASE_URL = "https://opendose.polsl.pl/svalues/"
 PHANTOMS = {"icrp_110_male": "ICRP_110_AM", "icrp_110_female": "ICRP_110_AF"}
 
-# Already in radot_opendose v1.0, then the additions for v1.1
+# Content of radot_opendose v1.0 (the first 11 were extracted in June 2026)
 RADIONUCLIDES = [
     "Ac-225", "At-211", "Ho-166", "I-125", "I-131", "Lu-177", "Pb-212", "Ra-223", "Sm-153",
     "Tb-161", "Y-90",

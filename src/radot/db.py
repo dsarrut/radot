@@ -143,9 +143,9 @@ def resolve_organ_name(user_name: str, phantom: Optional[str] = None) -> str:
     return resolved
 
 
-# OpenDose S-values and masses (CC BY-SA 4.0), Zenodo doi:10.5281/zenodo.ZENODO_RECORD_OPENDOSE
-OPENDOSE_DATA_URL = "https://zenodo.org/records/ZENODO_RECORD_OPENDOSE/files/radot_opendose_v1.0.zip?download=1"
-OPENDOSE_DATA_SHA256 = "c0477438aef8033533a17909e8a8e4fd0a9608eda88dfd94aab052298e365bcc"
+# OpenDose S-values and masses (CC BY-SA 4.0), Zenodo doi:10.5281/zenodo.23841128
+OPENDOSE_DATA_URL = "https://zenodo.org/records/23841128/files/radot_opendose_v1.0.zip?download=1"
+OPENDOSE_DATA_SHA256 = "a5fc2357bc65e948b204fb588973124bb8a27f90072ddb812ba6423df270b0bf"
 OPENDOSE_DATA_TOP_FOLDER = "radot_opendose_v1.0"
 
 

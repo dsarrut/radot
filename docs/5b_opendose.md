@@ -5,13 +5,14 @@ radot uses the reference organ masses and S-values of the [OpenDose](https://ope
 ## Data, licence and disclaimer
 
 - **Source**: OpenDose collaboration. Please cite: Chauvin M. et al., "OpenDose: open-access resource for nuclear medicine dosimetry", J Nucl Med 2020, [doi:10.2967/jnumed.119.240366](https://doi.org/10.2967/jnumed.119.240366).
-- **Licence**: the OpenDose data are under [Creative Commons Attribution-ShareAlike 4.0](https://creativecommons.org/licenses/by-sa/4.0/) (CC BY-SA 4.0). The copy used by radot is published on Zenodo under the same licence: [doi:10.5281/zenodo.ZENODO_RECORD_OPENDOSE](https://doi.org/10.5281/zenodo.ZENODO_RECORD_OPENDOSE). The radot code is under LGPL-3.0.
+- **Licence**: the OpenDose data are under [Creative Commons Attribution-ShareAlike 4.0](https://creativecommons.org/licenses/by-sa/4.0/) (CC BY-SA 4.0). The copy used by radot is published on Zenodo under the same licence: [doi:10.5281/zenodo.23841128](https://doi.org/10.5281/zenodo.23841128). The radot code is under LGPL-3.0.
 - **Disclaimer (OpenDose)**: the data are intended for the nuclear medicine research community, for educational and research purposes only. They are not intended to be used in the clinical management of patients.
 
 ## Where the data come from
 
 1. **Shipped with radot**: the organ masses of both phantoms and the Lu-177 S-values.
-2. **Downloaded on first use**: the other radionuclides (Ac-225, At-211, Ho-166, I-125, I-131, Pb-212, Ra-223, Sm-153, Tb-161, Y-90). The whole archive (3.6 MB) is downloaded once from Zenodo, its SHA-256 is checked, and it is extracted into the cache folder.
+2. **Downloaded on first use**: the other radionuclides. The whole archive (12 MB) is downloaded once from Zenodo, its SHA-256 is checked, and it is extracted into the cache folder.
+   The archive contains 36 radionuclides: Ac-225, Ag-111, At-211, Bi-212, Bi-213, Cu-64, Cu-67, Er-169, F-18, Ga-68, Ho-166, I-123, I-124, I-125, I-131, In-111, Lu-177, P-32, Pb-203, Pb-212, Ra-223, Re-186, Re-188, Sc-44, Sc-47, Sm-153, Sr-89, Tb-149, Tb-152, Tb-155, Tb-161, Tc-99m, Th-227, Y-86, Y-90, Zr-89. The S-values are those of the radionuclide alone, without its progeny.
 3. **OpenDose website** (fallback): if the archive cannot be downloaded, or for a radionuclide it does not contain, radot reads the S-values from the OpenDose website (one radionuclide at a time, slower).
 
 The cache folder is `$RADOT_DATA_DIR/opendose/` if the environment variable is set, else the user cache: `~/.cache/radot/opendose/` (Linux), `~/Library/Caches/radot/opendose/` (macOS), `%LOCALAPPDATA%\radot\opendose\` (Windows). radot never writes into its installation folder. Without network access, download the archive by hand from Zenodo and unzip the content of its top folder into the cache folder.
