@@ -19,6 +19,7 @@ dev_docs/
 uv.lock
 
 src/radot/data/opendose/**/*gz
+!src/radot/data/opendose/icrp_110_*/lu177.json.gz
 src/radot/data/opendose.save/
 src/radot/data/source_temp/
 

@@ -25,7 +25,7 @@ pytest -q                         # unit tests + validation levels that need no 
 *   **`src/radot/segmentation.py`**: Runs TotalSegmentator on CT scans and maps label IDs/naming conventions to standard AAPM TG-263 nomenclature.
 *   **`src/radot/resampling.py`**: Performs isotropic resampling or grid-alignment resampling. Handles continuous values vs. discrete labels, and isotope activity preservation.
 *   **`src/radot/stats.py`**: Computes volumes, masses (density-calibrated from CT HU), and intensity/peak metrics (e.g. SUVpeak via Gaussian smoothing).
-*   **`src/radot/db.py`**: Coordinates radionuclide physical data (using `icrp107-database`), decay chain network trees and cumulative secular equilibrium yields from curated IAEA LiveChart data (`decay_chains.json`), and local caching/lazy-loading of OpenDose reference masses and S-values.
+*   **`src/radot/db.py`**: Coordinates radionuclide physical data (using `icrp107-database`), decay chain network trees and cumulative secular equilibrium yields from curated IAEA LiveChart data (`decay_chains.json`), and OpenDose reference masses and S-values (CC BY-SA 4.0): masses and Lu177 shipped, the rest downloaded once from Zenodo (checksum) into the user cache (`$RADOT_DATA_DIR` or `~/.cache/radot`), OpenDose website as fallback. Never write into the installed package.
 *   **`src/radot/nomenclature.py`**: Encapsulates the 3-stage cascading mapping dictionary logic between segmentations (TotalSegmentator), clinical naming standards (AAPM TG-263), and reference phantoms (OpenDose).
 *   **`src/radot/convert.py`**: Handles conversion of image voxel values and files between radioactivity units (`bq`, `bqml`, `suv`, `sul`), using patient weight, injected activity, height, sex, and Lean Body Mass (LBM) calculation methods.
 *   **`src/radot/log.py`**: Configures package-level logging levels (`QUIET`, `INFO`, `DEBUG`) and formats standard outputs.
@@ -37,7 +37,7 @@ pytest -q                         # unit tests + validation levels that need no 
     *   `uncertainty.py`: ROI dose uncertainty (`roi_dose_uncertainty_estimate`, also used by the validation).
     *   `compute.py`: input checks and `compute_roi_dose` (SimpleITK images, dispatch to the above).
     *   `config.py`: JSON dose configs (`load_dose_config`); `files.py`: `compute_roi_dose_file` (files, resampling, output) and the results table.
-*   **`src/radot/data/`**: Packaged JSON data (mapping dictionaries, decay chains) and the OpenDose cache `data/opendose/icrp_110_{male,female}/` (declared in `[tool.setuptools.package-data]`).
+*   **`src/radot/data/`**: Packaged JSON data (mapping dictionaries, decay chains) and the shipped OpenDose files `data/opendose/icrp_110_{male,female}/{masses.json,lu177.json.gz}` + `README.txt` (licence). The package-data patterns in `pyproject.toml` list these files exactly: a local cache in that folder must not end up in a build.
 
 ### Repository Layout (outside the package)
 *   **`tests/`**: Unit tests. They must run without patient data and without TotalSegmentator (tests needing it are skipped when it is not installed). `tests/conftest.py` mocks the OpenDose S-values with a module-scoped fixture (it must not leak into `validation/`).
@@ -59,9 +59,10 @@ pytest -q                         # unit tests + validation levels that need no 
 
 ### Metadata & Unit Safety
 1.  **Read from Header/Sidecar First**: Tools and functions requiring modality, units, patient weight, injected activity, height, or sex must first look up these parameters from the image's companion JSON sidecar.
-2.  **No Static Defaults in CLI**: Do not hardcode static defaults (e.g., `--type` or `--unit` defaulting to `ct`/`hu`) in click/argparse options, as this disables dynamic metadata resolution. Let them default to `None` and resolve dynamically.
+2.  **No Static Defaults in CLI**: Do not hardcode static defaults (e.g., `--type` or `--unit` defaulting to `ct`/`hu`) in click/argparse options, as this disables dynamic metadata resolution. Let them default to `None` and resolve dynamically. Do not mark these options `required=True` either.
 3.  **Explicit Fallbacks**: If required parameters are missing from both options and sidecar/metadata, raise a clear `ValueError` specifying the missing attribute.
 4.  **Metadata Inheritance**: Any tool that creates or resamples an image (e.g., `resample`, `convert-units`) must copy, update, or generate a matching sidecar JSON file to accompany the new image.
+5.  **Tests**: For each such parameter, test both cases: the command works when the value is only in the sidecar, and fails with an explicit error when it is in neither the options nor the sidecar.
 
 ### Resampling & Unit Conversions
 *   **Preserve Total Activity**: When resampling images in absolute activity units (e.g., `bq`), you must scale voxel values by the volume change ratio (new voxel volume / old voxel volume) to keep the total activity constant.
@@ -108,7 +109,8 @@ pytest -q                         # unit tests + validation levels that need no 
 *   **Uncertainty**: GATE organ-mean uncertainty uses a per-part model (electrons: mean β range; photons: mean organ chord 4V/S). Checked with 20 Lu177 batches (`batch_uncertainty.py`, `p142/p142_lu177_batch_uncertainty.json`).
 *   **Report**: `python validation/opengate/report.py` writes `docs/7_validation_opengate.md`; a test fails when the page is out of date.
 *   **Trap**: under pytest, `import opengate` resolves to the `validation/opengate/` folder (namespace package). Never `import opengate` directly in validation code; the opengate version is read from the install record.
-*   **Known open points**: large cross-dose differences except heart/stomach (phantom vs patient geometry, mass scaling); Y90 needs opengate with the `bremsstrahlung` option of `opengate_dose_rate` (OpenGATE PR #1223); without it the cross-doses are 10 to 140 times too low. Details in `dev_docs/dev_readme_080_opengate_validation.md`.
+*   **Bremsstrahlung**: the references need opengate with the `bremsstrahlung` option of `opengate_dose_rate` (OpenGATE PR #1223, on by default); without it the Y90 cross-doses are 10 to 140 times too low (for Lu177 and I131 it is below 1 %). `p142/create_campaigns.py` refuses an opengate without it.
+*   **Cross-doses**: large differences except heart/stomach come from the anatomy (phantom vs patient geometry, organ distances, mass scaling); shown, only Kidney_R asserted. Open point: OpenGATE issue #1215 (default material tables), then drop the tables from the configs and the zip. History and decisions in `dev_docs/old/dev_readme_080_opengate_validation.md` (done).
 
 ## 4. SNMMI Challenge Evaluation (`validation/snmmi/`)
 
@@ -126,7 +128,6 @@ Refer to these Markdown documents in the `docs/` directory for detailed specific
 *   [quickstart.md](docs/quickstart.md): End-to-end CLI usage and Python API workflows.
 *   [6a_dose.md](docs/6a_dose.md): Mathematical formulations for LDM, Hänscheid, and Madsen dosimetry models.
 *   [3a_images_units.md](docs/3a_images_units.md): Unit conversions (`bq`, `bqml`, `suv`, `sul`) and LBM strategies.
-*   [3b_sul.md](docs/3b_sul.md): Stoichiometric CT density integration for SUL without weight dependence.
 *   [5a_radionuclide.md](docs/5a_radionuclide.md): ICRP-107 and IAEA LiveChart decay cascade data integration and prioritization.
 *   [1a_dicom.md](docs/1a_dicom.md): DICOM conversion, series sorting, and sidecar metadata extraction.
 *   [1b_meta.md](docs/1b_meta.md): Companion JSON sidecar specifications and schema.
@@ -142,10 +143,10 @@ Refer to these Markdown documents in the `docs/` directory for detailed specific
 *   [8_validation_snmmi.md](docs/8_validation_snmmi.md): Generated comparison with the SNMMI challenge participants (do not edit).
 *   [validation/opengate/README.md](validation/opengate/README.md): How the OpenGATE reference was produced and how to run each validation level.
 *   [validation/snmmi/README.md](validation/snmmi/README.md): SNMMI challenge data, how to prepare them and run T5.
-*   [dev_docs/dev_readme_010_checklist.md](dev_docs/dev_readme_010_checklist.md): Developer parameter and metadata validation checklist.
-*   [dev_docs/dev_readme_020_db_api.md](dev_docs/dev_readme_020_db_api.md): Developer reference for database and phantom layers.
+*   [dev_docs/dev_readme_083_sul.md](dev_docs/dev_readme_083_sul.md): SUL methods (done) and the proposed CT-based LBM method (`--lbm-method ct`, TODO).
 *   [dev_docs/dev_readme_070_consolidate.md](dev_docs/dev_readme_070_consolidate.md): Status of the work towards v0.1 (start here for planning).
-*   [dev_docs/dev_readme_080_opengate_validation.md](dev_docs/dev_readme_080_opengate_validation.md): OpenGATE validation status, decisions and open points.
+*   [dev_docs/dev_readme_060_opendose.md](dev_docs/dev_readme_060_opendose.md): OpenDose data hosting (Zenodo, user cache, licence CC BY-SA 4.0), last blocker before v0.1 on PyPI.
+*   [dev_docs/old/dev_readme_080_opengate_validation.md](dev_docs/old/dev_readme_080_opengate_validation.md): OpenGATE validation history and decisions (done).
 *   [dev_docs/dev_readme_090_dose_engine_time_model.md](dev_docs/dev_readme_090_dose_engine_time_model.md): `--dose-rate-map` (external Monte Carlo dose rate) and the planned dose-rate engine × time model refactor.
 *   [dev_docs/dev_readme_082_snmmi_challenge.md](dev_docs/dev_readme_082_snmmi_challenge.md): Plan and status (T5 done) to evaluate radot with the SNMMI 177Lu Dosimetry Challenge data.
 *   [dev_docs/dev_readme_085_lesion_validation.md](dev_docs/dev_readme_085_lesion_validation.md): Plan (not started) for synthetic lesions in the OpenGATE validation and a sphere S-value model.
