@@ -1,4 +1,4 @@
-# RADOT (Radiation Dosimetry for Therapy)
+# RADOT (Radiopharmaceutical Open Toolbox)
 
 `radot` is an open-source Python library and command-line tool suite for radiation dosimetry, image processing, and metadata workflows in targeted radionuclide therapy.
 
