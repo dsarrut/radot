@@ -116,6 +116,7 @@ class CheckContext:
     thresholds: dict = field(default_factory=dict)
     _meta: Dict[Path, dict] = field(default_factory=dict)
     _arrays: Dict[Path, tuple] = field(default_factory=dict)
+    _images: Dict[Path, sitk.Image] = field(default_factory=dict)
     _roi_stats: Optional[Dict[int, dict]] = None
 
     def available(self) -> set:
@@ -139,10 +140,16 @@ class CheckContext:
         except (OSError, ValueError):
             return {}
 
+    def image(self, path: Path) -> sitk.Image:
+        """SimpleITK image (float32), read once."""
+        if path not in self._images:
+            self._images[path] = sitk.ReadImage(str(path), sitk.sitkFloat32)
+        return self._images[path]
+
     def array(self, path: Path) -> tuple:
         """Voxel values (float64 numpy array) and voxel volume (mL), read once."""
         if path not in self._arrays:
-            img = sitk.ReadImage(str(path))
+            img = self.image(path)
             voxel_ml = float(np.prod(img.GetSpacing())) / 1000.0
             self._arrays[path] = (sitk.GetArrayViewFromImage(img).astype(np.float64), voxel_ml)
         return self._arrays[path]
@@ -162,8 +169,8 @@ class CheckContext:
         """
         if self._roi_stats is not None:
             return self._roi_stats
-        img = sitk.ReadImage(str(self.labels))
-        lab = sitk.GetArrayFromImage(img).astype(np.int64)
+        img = self.image(self.labels)
+        lab = sitk.GetArrayViewFromImage(img).astype(np.int64)
         voxel_ml = float(np.prod(img.GetSpacing())) / 1000.0
         idx = np.nonzero(lab)
         ids = lab[idx]
@@ -177,8 +184,7 @@ class CheckContext:
         centroid_idx = [np.bincount(ids, weights=i, minlength=n) for i in idx]  # z, y, x
         hu_sum = None
         if self.ct:
-            ct = sitk.ReadImage(str(self.ct), sitk.sitkFloat32)
-            ct = sitk.Resample(ct, img, sitk.Transform(), sitk.sitkLinear, -1000.0)
+            ct = sitk.Resample(self.image(self.ct), img, sitk.Transform(), sitk.sitkLinear, -1000.0)
             hu_sum = np.bincount(ids, weights=sitk.GetArrayViewFromImage(ct)[idx], minlength=n)
         stats = {}
         for i in np.nonzero(counts)[0]:
@@ -502,12 +508,14 @@ def check_meta_consistency(ctx: CheckContext) -> List[Finding]:
 @register_check("units.ct_hu", ["ct"], "CT values in HU: air near -1000, soft tissue near 0 (catches mu maps, +1024 offset)")
 def check_units_ct_hu(ctx: CheckContext) -> List[Finding]:
     th = ctx.thresholds["ct"]
-    arr, _ = ctx.array(ctx.ct)
+    full = sitk.GetArrayViewFromImage(ctx.image(ctx.ct))
     name = ctx.ct.name
+    vmax = float(full.max())
+    arr = full[::2, ::2, ::2]  # every second voxel: enough for the histogram and the median
     valid = arr[arr >= th["padding_below_hu"]]  # values below = padding outside the field of view
-    if valid.size == 0:
+    if valid.size == 0 or vmax < th["padding_below_hu"]:
         return [Finding("units.ct_hu", Level.FAIL, "no value above the padding level", name)]
-    vmin, vmax, median = float(valid.min()), float(valid.max()), float(np.median(valid))
+    vmin, median = float(valid.min()), float(np.median(valid))
     if vmax < th["mu_map_max"]:
         return [
             Finding("units.ct_hu", Level.FAIL, f"values in [{vmin:.3g}, {vmax:.3g}]: not HU (attenuation map?)", name, [vmin, vmax])
@@ -729,6 +737,223 @@ def check_activity_mtp_trend(ctx: CheckContext) -> List[Finding]:
         else:
             teff_txt = f", Teff {teff:.1f} h (T½ {hl:.1f} h)" if teff else ""
             findings.append(Finding("activity.mtp_trend", Level.OK, f"total activity x{ratio:.2f} in {t2 - t1:.1f} h{teff_txt}", pair, round(ratio, 4)))
+    return findings
+
+
+# ----------------------------------------------------------------------------------------------
+# D. Geometry
+# ----------------------------------------------------------------------------------------------
+
+
+def _on_grid(image: sitk.Image, reference: sitk.Image, nearest: bool = False, default: float = 0.0) -> np.ndarray:
+    """Image resampled on the grid of the reference (physical space), as a numpy array."""
+    interp = sitk.sitkNearestNeighbor if nearest else sitk.sitkLinear
+    return sitk.GetArrayFromImage(sitk.Resample(image, reference, sitk.Transform(), interp, default))
+
+
+def _inside(image: sitk.Image, reference: sitk.Image, factor: int = 8) -> np.ndarray:
+    """
+    Boolean array on the reference grid: voxels inside the field of view of image. The box is built
+    with voxels `factor` times larger (same physical extent), to keep it cheap for large CTs.
+    """
+    size = np.array(image.GetSize())
+    spacing = np.array(image.GetSpacing())
+    coarse_size = np.ceil(size / factor).astype(int)
+    coarse_spacing = spacing * size / coarse_size
+    direction = np.array(image.GetDirection()).reshape(3, 3)
+    origin = np.array(image.GetOrigin()) + direction @ ((coarse_spacing - spacing) / 2)
+    ones = sitk.Image([int(s) for s in coarse_size], sitk.sitkUInt8) + 1
+    ones.SetSpacing([float(s) for s in coarse_spacing])
+    ones.SetOrigin([float(o) for o in origin])
+    ones.SetDirection(image.GetDirection())
+    return _on_grid(ones, reference, nearest=True) > 0
+
+
+def _describe_shift(v) -> str:
+    """LPS vector (mm) -> '12 mm posterior, 5 mm left'."""
+    names = (("left", "right"), ("posterior", "anterior"), ("superior", "inferior"))
+    parts = sorted(((abs(c), n[0] if c > 0 else n[1]) for c, n in zip(v, names) if abs(c) >= 1), reverse=True)
+    return ", ".join(f"{a:.0f} mm {n}" for a, n in parts) or "0 mm"
+
+
+@register_check("geom.direction", [], "Image axes aligned with the patient axes (no oblique images)")
+def check_geom_direction(ctx: CheckContext) -> List[Finding]:
+    findings = []
+    for p in ctx.activity + [x for x in (ctx.ct, ctx.labels, ctx.dose) if x]:
+        r = sitk.ImageFileReader()
+        r.SetFileName(str(p))
+        r.ReadImageInformation()
+        d = np.abs(np.array(r.GetDirection()).reshape(3, 3))
+        if not np.allclose(np.sort(d, axis=1)[:, -1], 1.0, atol=1e-3):
+            findings.append(Finding("geom.direction", Level.WARN, "oblique image (direction not axis-aligned)", p.name, np.round(d, 3).tolist()))
+    if not findings:
+        findings.append(Finding("geom.direction", Level.OK, "all images axis-aligned"))
+    return findings
+
+
+@register_check("geom.overlap", [], "Activity inside the CT field of view; organs inside the activity field of view")
+def check_geom_overlap(ctx: CheckContext) -> List[Finding]:
+    th = ctx.thresholds["geom"]
+    findings = []
+    for p in ctx.activity:
+        act = ctx.image(p)
+        a = np.clip(ctx.array(p)[0], 0, None)
+        total = a.sum()
+        if ctx.ct and total > 0:
+            frac = float(a[_inside(ctx.image(ctx.ct), act)].sum() / total)
+            level = Level.FAIL if frac < th["overlap_fail_below"] else Level.WARN if frac < th["overlap_warn_below"] else Level.OK
+            findings.append(Finding("geom.overlap", level, f"{100 * frac:.1f} % of the activity inside the CT field of view", p.name, round(frac, 4)))
+        if ctx.labels:
+            # organs partly outside the activity image: activity (dose) underestimated
+            lab = _on_grid(ctx.image(ctx.labels), act, nearest=True, default=-1).astype(np.int64)
+            labels_map, stats = ctx.labels_map(), ctx.roi_stats()
+            cut = []
+            for i, roi in sorted(labels_map.items()):
+                if i not in stats or _roi_class(roi, {"organ": th["organs"]}) is None:
+                    continue
+                n_in = int((lab == i).sum())
+                full = stats[i]["voxels"] * ctx.array(ctx.labels)[1] / ctx.array(p)[1]  # voxels on the activity grid
+                if n_in < th["organ_inside_warn_below"] * full:
+                    cut.append(f"{roi} {100 * n_in / full:.0f} %")
+            if cut:
+                findings.append(
+                    Finding("geom.overlap", Level.WARN, f"organs partly outside the activity image (fraction inside): {', '.join(cut)}", p.name, cut)
+                )
+    return findings
+
+
+@register_check("geom.activity_in_body", ["activity", "ct"], "Activity inside the CT body outline (catches large shifts between SPECT/PET and CT)")
+def check_geom_activity_in_body(ctx: CheckContext) -> List[Finding]:
+    th = ctx.thresholds["geom"]
+    findings = []
+    for p in ctx.activity:
+        act = ctx.image(p)
+        a = np.clip(ctx.array(p)[0], 0, None)
+        ct = _on_grid(ctx.image(ctx.ct), act, default=-1000.0)
+        body = sitk.GetImageFromArray((ct > -500).astype(np.uint8))
+        body.CopyInformation(act)
+        body = sitk.RelabelComponent(sitk.ConnectedComponent(body), sortByObjectSize=True) == 1
+        radius = [int(np.ceil(th["body_dilation_mm"] / s)) for s in act.GetSpacing()]
+        body = sitk.GetArrayFromImage(sitk.BinaryDilate(body, radius)) > 0
+        inside_ct = _inside(ctx.image(ctx.ct), act)
+        total = a[inside_ct].sum()
+        if total <= 0:
+            continue
+        frac = float(a[body & inside_ct].sum() / total)
+        level = Level.FAIL if frac < th["body_fail_below"] else Level.WARN if frac < th["body_warn_below"] else Level.OK
+        msg = f"{100 * frac:.1f} % of the activity inside the CT body (+{th['body_dilation_mm']:g} mm)"
+        if level > Level.OK:
+            msg += ": SPECT/PET and CT not registered?"
+        findings.append(Finding("geom.activity_in_body", level, msg, p.name, round(frac, 4)))
+    return findings
+
+
+def best_shift(a: np.ndarray, mask: np.ndarray, n: Sequence[int]) -> tuple:
+    """
+    Shift (index, z y x) of the mask, within +-n voxels, that maximises the activity inside it
+    (cross-correlation by FFT on the bounding box of the mask padded by n). Returns
+    (shift, counts at the best shift, counts at no shift).
+    """
+    idx = np.nonzero(mask)
+    lo = [max(int(i.min()) - k, 0) for i, k in zip(idx, n)]
+    hi = [min(int(i.max()) + k + 1, s) for i, k, s in zip(idx, n, a.shape)]
+    box = tuple(slice(l, h) for l, h in zip(lo, hi))
+    ab, mb = a[box], mask[box].astype(np.float64)
+    shape = [s + k for s, k in zip(ab.shape, n)]  # extra zero padding: no wrap-around
+    axes = (0, 1, 2)
+    corr = np.fft.irfftn(np.fft.rfftn(ab, shape, axes) * np.conj(np.fft.rfftn(mb, shape, axes)), shape, axes)
+    best, best_shift_idx = -np.inf, (0, 0, 0)
+    for dz in range(-n[0], n[0] + 1):
+        for dy in range(-n[1], n[1] + 1):
+            for dx in range(-n[2], n[2] + 1):
+                v = corr[dz % shape[0], dy % shape[1], dx % shape[2]]
+                if v > best:
+                    best, best_shift_idx = v, (dz, dy, dx)
+    return best_shift_idx, float(best), float(corr[0, 0, 0])
+
+
+@register_check("geom.organ_shift", ["activity", "labels"], "Uptake organs: shift of the label that maximises its activity (misregistration)")
+def check_geom_organ_shift(ctx: CheckContext) -> List[Finding]:
+    th = ctx.thresholds["geom"]
+    findings = []
+    labels_map = ctx.labels_map()
+    for p in ctx.activity:
+        act = ctx.image(p)
+        a = np.clip(ctx.array(p)[0], 0, None)
+        if a.max() <= 0:
+            continue
+        lab = _on_grid(ctx.image(ctx.labels), act, nearest=True).astype(np.int64)
+        background = a[a > 0.01 * a.max()].mean()
+        spacing = act.GetSpacing()  # x y z
+        n = [int(th["shift_search_mm"] // s) for s in spacing[::-1]]  # z y x
+        direction = np.array(act.GetDirection()).reshape(3, 3)
+        shifted, ok = [], []
+        for i, roi in sorted(labels_map.items()):
+            if _roi_class(roi, {"organ": th["organs"]}) is None:
+                continue
+            mask = lab == i
+            if mask.sum() < 8:
+                continue
+            if a[mask].mean() < th["min_uptake"] * background:
+                continue  # low uptake: the best shift would be noise
+            s_idx, best, zero = best_shift(a, mask, n)
+            mm = direction @ (np.array(s_idx[::-1]) * spacing)  # LPS
+            dist = float(np.linalg.norm(mm))
+            gain = best / zero - 1 if zero > 0 else float("inf")
+            if dist > th["shift_warn_mm"] and gain > th["shift_min_gain"]:
+                edge = " (search limit)" if any(abs(s) == k for s, k in zip(s_idx, n)) else ""
+                shifted.append(f"{roi} {_describe_shift(mm)}{edge}, +{100 * gain:.0f} % counts")
+            else:
+                ok.append(f"{roi} {dist:.0f} mm")
+        if shifted:
+            findings.append(
+                Finding(
+                    "geom.organ_shift",
+                    Level.WARN,
+                    f"labels not on the activity, best match: {'; '.join(shifted)}. Labels and activity image not registered?",
+                    p.name,
+                    shifted,
+                )
+            )
+        if ok:
+            findings.append(Finding("geom.organ_shift", Level.OK, f"best match shift: {', '.join(ok)}", p.name, ok))
+    return findings
+
+
+@register_check("activity.lr_symmetry", ["activity", "labels"], "Left/right uptake organs (kidneys): similar activity concentration")
+def check_activity_lr_symmetry(ctx: CheckContext) -> List[Finding]:
+    th = ctx.thresholds["geom"]
+    min_ratio = ctx.thresholds["activity_balance"]["lr_min_ratio"]
+    labels_map = ctx.labels_map()
+    pairs = {}
+    for i, roi in labels_map.items():
+        side = roi_side(roi)
+        if side and _roi_class(roi, {"organ": th["organs"]}):
+            pairs.setdefault(_roi_base(roi), {})[side] = (i, roi)
+    pairs = {b: s for b, s in pairs.items() if len(s) == 2}
+    if not pairs:
+        return []
+    findings = []
+    for p in ctx.activity:
+        a = ctx.array(p)[0]
+        lab = _on_grid(ctx.image(ctx.labels), ctx.image(p), nearest=True).astype(np.int64)
+        for base, sides in sorted(pairs.items()):
+            (il, rl), (ir, rr) = sides["L"], sides["R"]
+            ml, mr = (lab == il), (lab == ir)
+            if ml.sum() == 0 or mr.sum() == 0:
+                continue
+            cl, cr = float(a[ml].mean()), float(a[mr].mean())
+            if max(cl, cr) <= 0:
+                continue
+            ratio = min(cl, cr) / max(cl, cr)
+            low = rl if cl < cr else rr
+            msg = f"{rl}/{rr} mean activity ratio {cl / cr:.2f}" if cr > 0 else f"{rr}: no activity"
+            if ratio < min_ratio:
+                findings.append(
+                    Finding("activity.lr_symmetry", Level.WARN, f"{msg}: low uptake in {low} (non-functioning organ, or labels not registered?)", p.name, round(cl / cr, 3) if cr > 0 else None, min_ratio)
+                )
+            else:
+                findings.append(Finding("activity.lr_symmetry", Level.OK, msg, p.name, round(cl / cr, 3)))
     return findings
 
 

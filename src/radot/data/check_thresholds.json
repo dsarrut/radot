@@ -51,11 +51,26 @@
         "max_gy": 1000
     },
     "activity_balance": {
-        "_comment": "Fraction of the injected activity (decay-corrected) in the image: FAIL above max_fraction (units, calibration) or below min_fraction (uncalibrated counts), WARN below warn_below. mtp_tolerance: allowed excess over the physical decay between time points.",
+        "_comment": "Fraction of the injected activity (decay-corrected) in the image: FAIL above max_fraction (units, calibration) or below min_fraction (uncalibrated counts), WARN below warn_below. mtp_tolerance: allowed excess over the physical decay between time points. lr_min_ratio: minimum ratio of the mean activity of left/right uptake organs (kidneys).",
         "max_fraction": 1.1,
         "min_fraction": 0.02,
         "warn_below": 0.1,
-        "mtp_tolerance": 0.2
+        "mtp_tolerance": 0.2,
+        "lr_min_ratio": 0.5
+    },
+    "geom": {
+        "_comment": "overlap: fraction of the activity inside the CT field of view. organs: substrings of ROI names (lower case) of the uptake organs checked by geom.overlap and geom.organ_shift. body: fraction of the activity inside the CT body (HU > -500, largest component, dilated). organ_shift: shift of the label within +-shift_search_mm that maximises its activity; WARN above shift_warn_mm if the counts increase by more than shift_min_gain; organs with a mean below min_uptake x the mean activity are skipped.",
+        "overlap_warn_below": 0.9,
+        "overlap_fail_below": 0.5,
+        "organ_inside_warn_below": 0.9,
+        "organs": ["liver", "kidney", "spleen"],
+        "body_dilation_mm": 15,
+        "body_warn_below": 0.9,
+        "body_fail_below": 0.5,
+        "shift_search_mm": 30,
+        "shift_warn_mm": 15,
+        "shift_min_gain": 0.15,
+        "min_uptake": 1.5
     },
     "roi": {
         "_comment": "min_volume_ml: smaller ROIs reported. mass_ratio: ROI mass (CT density) / OpenDose reference mass, only for these whole organs (OpenDose name, lower case). organ_side: patient side of unpaired organs (catches mirrored images). tissue_classes: substrings of the ROI name (lower case) -> class, first match; mean_hu: expected mean CT value per class.",
@@ -73,11 +88,13 @@
         "organ_side": {"liver": "R", "spleen": "L", "stomach": "L", "gallbladder": "R"},
         "tissue_classes": {
             "lung": ["lung"],
+            "cartilage": ["cartilage"],
             "bone": ["vertebra", "rib", "femur", "humerus", "hip", "sacrum", "skull", "scapula", "clavicula", "sternum", "bone"],
             "soft": ["liver", "kidney", "spleen", "pancreas", "heart", "brain", "prostate", "thyroid", "adrenal"]
         },
         "mean_hu": {
             "lung": [-1000, -400],
+            "cartilage": [-100, 500],
             "bone": [100, 1800],
             "soft": [-60, 300]
         }

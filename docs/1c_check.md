@@ -1,6 +1,6 @@
 # Input Checks (`radot check`)
 
-`radot check` runs quick quality checks on the inputs of a dosimetry before computing doses: metadata, units, activity balance, ROIs, and later geometry. Wrong doses come more often from the data (units, injection time, weight, misregistration) than from the dose models.
+`radot check` runs quick quality checks on the inputs of a dosimetry before computing doses: metadata, units, activity balance, geometry and ROIs. Wrong doses come more often from the data (units, injection time, weight, misregistration) than from the dose models.
 
 The files are only read, never modified. A missing or suspicious value is reported; fix the sidecar with `radot meta` (or by editing the JSON) and run the check again.
 
@@ -65,6 +65,11 @@ $ radot meta spect.nii.gz --rad Lu177       # a missing radionuclide
 | `units.dose_range` | Dose image in Gy: positive, max below 1000 Gy, no negative values. |
 | `activity.fov_fraction` | Total activity in the image / injected activity decayed to the acquisition (not decayed if the image is decay-corrected to the injection). FAIL above 110 % (units, calibration) or below 2 % (counts); WARN below 10 %. SUV images: Σ SUV·mL / weight. TIA images: compared with the injected activity × physical mean life. |
 | `activity.mtp_trend` | Multi time points: the total activity decreases at least as fast as the physical decay (20 % tolerance); else different calibrations or decay-corrected images. Reports the effective half-life. |
+| `activity.lr_symmetry` | With labels: mean activity of left/right uptake organs (kidneys) within a factor 2; else a non-functioning organ, or labels not registered with the activity image. |
+| `geom.direction` | All images axis-aligned (no oblique image). |
+| `geom.overlap` | Activity inside the CT field of view (WARN below 90 %); uptake organs (liver, kidneys, spleen) inside the activity field of view (else their activity and dose are underestimated). |
+| `geom.activity_in_body` | Activity inside the CT body outline (HU > −500, dilated 15 mm): WARN below 90 %, FAIL below 50 % (SPECT/PET and CT not registered). |
+| `geom.organ_shift` | For each uptake organ with enough activity: the shift of its label, within ±30 mm, that gives the most counts (cross-correlation). WARN if it is above 15 mm and gains more than 15 % counts, with the direction (e.g. "Kidney_L 20 mm anterior, +60 % counts"). |
 | `roi.names` | Labels sidecar present (label id → ROI name); ROIs without an OpenDose organ listed (no S-value). |
 | `roi.empty` | Labels image not empty; ROIs of the sidecar empty, smaller than 1 mL or touching the image border (truncated) listed. On a cropped image these are normal, so they are reported as INFO. |
 | `roi.laterality` | Left/right pairs (`Kidney_L`/`Kidney_R`, `kidney_left`/`kidney_right`) on the correct side in patient coordinates (LPS: patient left = +x); liver and gallbladder on the patient right, spleen and stomach on the left (catches mirrored images). |
@@ -73,7 +78,7 @@ $ radot meta spect.nii.gz --rad Lu177       # a missing radionuclide
 
 ## Thresholds
 
-The default thresholds are in `radot/data/check_thresholds.json`, one section per topic (`patient`, `time_from_injection`, `injected_activity_mbq` per radionuclide, `ct`, `activity_image`, `suv`, `dose`, `activity_balance`, `roi`). They are heuristics, generous on purpose. A user file with the same sections overrides the values it contains, e.g. for a dosimetric study with low activities:
+The default thresholds are in `radot/data/check_thresholds.json`, one section per topic (`patient`, `time_from_injection`, `injected_activity_mbq` per radionuclide, `ct`, `activity_image`, `suv`, `dose`, `activity_balance`, `geom`, `roi`). They are heuristics, generous on purpose. A user file with the same sections overrides the values it contains, e.g. for a dosimetric study with low activities:
 
 ```json
 {"injected_activity_mbq": {"lu177": [100, 12000]}}

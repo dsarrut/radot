@@ -321,3 +321,70 @@ def test_roi_mass_female(tmp_path):
     act = spect(tmp_path, sex="female")
     ok = by_code(run_checks(act, ct=ct, labels=labels, only=["roi.mass"]), "roi.mass", Level.OK)
     assert "(female)" in ok[0].message
+
+
+def geom_case(tmp_path, name="g", label_shift=(0, 0, 0), act_shift=(0, 0, 0), left_uptake=1.0):
+    """Body (CT) with two hot kidneys, blurred activity, labels; 4 mm voxels, arrays z, y, x."""
+    shape = (40, 40, 40)
+    ct = np.full(shape, -1000.0)
+    ct[5:35, 8:32, 6:34] = 40.0
+    lab = np.zeros(shape, dtype=np.uint8)
+    lab[15:25, 18:26, 10:15] = 1  # Kidney_R, patient right (low x)
+    lab[15:25, 18:26, 25:30] = 2  # Kidney_L
+    act = np.where(ct > 0, 1.0, 0.0) + 20.0 * (lab == 1) + 20.0 * left_uptake * (lab == 2)
+    act = np.roll(act, act_shift, axis=(0, 1, 2))
+    lab = np.roll(lab, label_shift, axis=(0, 1, 2))
+    paths = {}
+    for kind, arr, meta in (
+        ("ct", ct, {"modality": "ct", "unit": "hu"}),
+        ("labels", lab, {"1": "Kidney_R", "2": "Kidney_L"}),
+        ("spect", act * 1e4, {"modality": "spect", "unit": "bqml"}),
+    ):
+        img = sitk.GetImageFromArray(np.ascontiguousarray(arr))
+        img.SetSpacing((4.0, 4.0, 4.0))
+        if kind == "spect":
+            img = sitk.SmoothingRecursiveGaussian(img, 5.0)
+        path = tmp_path / f"{name}_{kind}.nii.gz"
+        sitk.WriteImage(img, str(path))
+        (tmp_path / f"{name}_{kind}.json").write_text(json.dumps(meta))
+        paths[kind] = path
+    return paths
+
+
+def run_geom(p):
+    return run_checks(p["spect"], ct=p["ct"], labels=p["labels"], only=["geom", "activity.lr_symmetry"])
+
+
+def test_geom_aligned(tmp_path):
+    findings = run_geom(geom_case(tmp_path))
+    assert worst_level(findings) == Level.OK
+    ok = by_code(findings, "geom.organ_shift", Level.OK)
+    assert ok and "Kidney_L 0 mm" in ok[0].message
+
+
+def test_geom_organ_shift(tmp_path):
+    warn = by_code(run_geom(geom_case(tmp_path, label_shift=(0, 6, 0))), "geom.organ_shift", Level.WARN)
+    # labels moved 24 mm posterior (+y): the activity is 24 mm anterior of them
+    assert warn and "24 mm anterior" in warn[0].message
+
+
+def test_geom_activity_in_body_and_overlap(tmp_path):
+    # activity moved 15 voxels (60 mm) to the left: partly outside the body
+    findings = run_geom(geom_case(tmp_path, act_shift=(0, 0, 15)))
+    assert by_code(findings, "geom.activity_in_body", Level.WARN) or by_code(findings, "geom.activity_in_body", Level.FAIL)
+    # kidneys partly outside the activity image
+    p = geom_case(tmp_path, "crop")
+    img = sitk.ReadImage(str(p["spect"]))
+    sitk.WriteImage(img[:, :, :20], str(p["spect"]))  # z 0-19: kidneys z 15-24 half outside
+    assert by_code(run_geom(p), "geom.overlap", Level.WARN)
+
+
+def test_lr_symmetry_and_direction(tmp_path):
+    warn = by_code(run_geom(geom_case(tmp_path, left_uptake=0.1)), "activity.lr_symmetry", Level.WARN)
+    assert warn and "Kidney_L" in warn[0].message
+    p = geom_case(tmp_path, "obl")
+    img = sitk.ReadImage(str(p["ct"]))
+    c, s = np.cos(0.3), np.sin(0.3)
+    img.SetDirection((c, -s, 0, s, c, 0, 0, 0, 1))
+    sitk.WriteImage(img, str(p["ct"]))
+    assert by_code(run_checks(ct=p["ct"], only=["geom.direction"]), "geom.direction", Level.WARN)
