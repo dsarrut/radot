@@ -1,0 +1,34 @@
+{
+    "_comment": "Thresholds of radot check (heuristics, generous on purpose). Sections are merged with a user file given with --thresholds.",
+    "patient": {
+        "weight_kg": [20, 250],
+        "height_cm": [100, 220],
+        "bmi": [12, 60]
+    },
+    "time_from_injection": {
+        "max_half_lives": 10
+    },
+    "injected_activity_mbq": {
+        "_comment": "Plausible injected activity per radionuclide (MBq), therapy and imaging; 'default' for the others.",
+        "default": [0.01, 50000],
+        "ac225": [0.01, 1],
+        "ra223": [0.5, 15],
+        "th227": [0.1, 10],
+        "pb212": [10, 1000],
+        "at211": [10, 2000],
+        "lu177": [500, 12000],
+        "y90": [100, 15000],
+        "i131": [30, 15000],
+        "ho166": [100, 20000],
+        "sm153": [500, 8000],
+        "tb161": [500, 12000],
+        "f18": [50, 800],
+        "ga68": [30, 400],
+        "cu64": [50, 600],
+        "zr89": [10, 200],
+        "in111": [50, 600],
+        "tc99m": [50, 2000],
+        "i123": [30, 500],
+        "i124": [10, 300]
+    }
+}
