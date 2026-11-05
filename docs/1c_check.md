@@ -35,6 +35,7 @@ $ radot check spect.nii.gz -m madsen2018
   5 findings: 1 warnings, 1 failures
 
 $ radot meta spect.nii.gz --injection-date "2026-01-10 10:00:00" --activity 7400
+$ radot meta spect.nii.gz --rad Lu177       # a missing radionuclide
 ```
 
 ## Levels

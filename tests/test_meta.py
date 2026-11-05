@@ -235,3 +235,20 @@ def test_metadata_dose_default_unit(tmp_path):
 
 
 
+
+
+def test_metadata_radionuclide(tmp_path):
+    from click.testing import CliRunner
+    from radot.cli import main
+
+    image_path = tmp_path / "spect.nii.gz"
+    sitk.WriteImage(sitk.Image([5, 5, 5], sitk.sitkFloat32), str(image_path))
+    manage_metadata(image_path, modality="spect", radionuclide="Lu177")
+    assert get_metadata_case_insensitive(None, "radionuclide", image_path) == "Lu177"
+    with pytest.raises(ValueError):
+        manage_metadata(image_path, radionuclide="Xx999")
+    # CLI, short option; other fields kept
+    result = CliRunner().invoke(main, ["meta", str(image_path), "--rad", "Y90"])
+    assert result.exit_code == 0, result.output
+    assert get_metadata_case_insensitive(None, "radionuclide", image_path) == "Y90"
+    assert get_metadata_case_insensitive(None, "modality", image_path) == "spect"

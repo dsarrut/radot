@@ -475,6 +475,12 @@ def common_meta_options(f):
         type=click.Choice(["male", "female"], case_sensitive=False),
         help="Patient sex.",
     )(f)
+    f = click.option(
+        "--radionuclide",
+        "--rad",
+        "radionuclide",
+        help="Radionuclide (e.g. Lu177).",
+    )(f)
     return f
 
 
@@ -504,6 +510,8 @@ def meta_list():
     sys.stdout.write("            Format: floating point number\n")
     sys.stdout.write("  - sex: Patient sex.\n")
     sys.stdout.write("         Valid choices: male, female\n")
+    sys.stdout.write("  - radionuclide: Radionuclide (option --radionuclide or --rad).\n")
+    sys.stdout.write("                  Format: name known to ICRP 107 (e.g. Lu177, Y90, Tc99m)\n")
 
 
 @main.command(name="meta")
@@ -519,6 +527,7 @@ def meta(
     time_from_injection,
     height,
     sex,
+    radionuclide,
 ):
     """Read or write image metadata fields."""
     _run_meta_command(
@@ -532,6 +541,7 @@ def meta(
         time_from_injection,
         height,
         sex,
+        radionuclide,
     )
 
 
@@ -548,6 +558,7 @@ def info(
     time_from_injection,
     height,
     sex,
+    radionuclide,
 ):
     """Alias for 'meta' command to read or write image metadata fields."""
     _run_meta_command(
@@ -561,6 +572,7 @@ def info(
         time_from_injection,
         height,
         sex,
+        radionuclide,
     )
 
 
@@ -575,6 +587,7 @@ def _run_meta_command(
     time_from_injection,
     height,
     sex,
+    radionuclide,
 ):
     from radot.meta import manage_metadata
 
@@ -590,6 +603,7 @@ def _run_meta_command(
             time_from_injection=time_from_injection,
             height=height,
             sex=sex,
+            radionuclide=radionuclide,
         )
     except Exception as e:
         handle_cli_exception(e)
