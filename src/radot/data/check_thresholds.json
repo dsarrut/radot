@@ -56,5 +56,30 @@
         "min_fraction": 0.02,
         "warn_below": 0.1,
         "mtp_tolerance": 0.2
+    },
+    "roi": {
+        "_comment": "min_volume_ml: smaller ROIs reported. mass_ratio: ROI mass (CT density) / OpenDose reference mass, only for these whole organs (OpenDose name, lower case). organ_side: patient side of unpaired organs (catches mirrored images). tissue_classes: substrings of the ROI name (lower case) -> class, first match; mean_hu: expected mean CT value per class.",
+        "min_volume_ml": 1.0,
+        "mass_ratio": {
+            "liver": [0.5, 3.0],
+            "spleen": [0.2, 5.0],
+            "left kidney": [0.4, 2.5],
+            "right kidney": [0.4, 2.5],
+            "pancreas": [0.3, 3.0],
+            "thyroid": [0.2, 5.0],
+            "prostate": [0.3, 5.0],
+            "brain": [0.6, 1.6]
+        },
+        "organ_side": {"liver": "R", "spleen": "L", "stomach": "L", "gallbladder": "R"},
+        "tissue_classes": {
+            "lung": ["lung"],
+            "bone": ["vertebra", "rib", "femur", "humerus", "hip", "sacrum", "skull", "scapula", "clavicula", "sternum", "bone"],
+            "soft": ["liver", "kidney", "spleen", "pancreas", "heart", "brain", "prostate", "thyroid", "adrenal"]
+        },
+        "mean_hu": {
+            "lung": [-1000, -400],
+            "bone": [100, 1800],
+            "soft": [-60, 300]
+        }
     }
 }

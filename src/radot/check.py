@@ -10,6 +10,7 @@ import copy
 import importlib.resources
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import IntEnum
@@ -115,6 +116,7 @@ class CheckContext:
     thresholds: dict = field(default_factory=dict)
     _meta: Dict[Path, dict] = field(default_factory=dict)
     _arrays: Dict[Path, tuple] = field(default_factory=dict)
+    _roi_stats: Optional[Dict[int, dict]] = None
 
     def available(self) -> set:
         names = {"activity": bool(self.activity), "ct": self.ct, "labels": self.labels, "dose": self.dose}
@@ -144,6 +146,64 @@ class CheckContext:
             voxel_ml = float(np.prod(img.GetSpacing())) / 1000.0
             self._arrays[path] = (sitk.GetArrayViewFromImage(img).astype(np.float64), voxel_ml)
         return self._arrays[path]
+
+    def labels_map(self) -> Dict[int, str]:
+        """Label id -> ROI name, from the labels sidecar ({} if none)."""
+        s = get_sidecar_path(self.labels)
+        try:
+            return {int(k): str(v) for k, v in json.loads(s.read_text()).items()}
+        except (OSError, ValueError, AttributeError):
+            return {}
+
+    def roi_stats(self) -> Dict[int, dict]:
+        """
+        Per label id: voxels, volume_ml, centroid (physical, LPS mm), border (touches the image border),
+        mean_hu (if a CT is given, CT resampled on the labels grid). Computed once.
+        """
+        if self._roi_stats is not None:
+            return self._roi_stats
+        img = sitk.ReadImage(str(self.labels))
+        lab = sitk.GetArrayFromImage(img).astype(np.int64)
+        voxel_ml = float(np.prod(img.GetSpacing())) / 1000.0
+        idx = np.nonzero(lab)
+        ids = lab[idx]
+        n = int(ids.max()) + 1 if ids.size else 1
+        counts = np.bincount(ids, minlength=n)
+        shape = lab.shape
+        border = np.zeros(ids.shape, dtype=bool)
+        for axis, i in enumerate(idx):
+            border |= (i == 0) | (i == shape[axis] - 1)
+        n_border = np.bincount(ids, weights=border, minlength=n)
+        centroid_idx = [np.bincount(ids, weights=i, minlength=n) for i in idx]  # z, y, x
+        hu_sum = None
+        if self.ct:
+            ct = sitk.ReadImage(str(self.ct), sitk.sitkFloat32)
+            ct = sitk.Resample(ct, img, sitk.Transform(), sitk.sitkLinear, -1000.0)
+            hu_sum = np.bincount(ids, weights=sitk.GetArrayViewFromImage(ct)[idx], minlength=n)
+        stats = {}
+        for i in np.nonzero(counts)[0]:
+            c = counts[i]
+            zyx = [float(ci[i]) / c for ci in centroid_idx]
+            point = img.TransformContinuousIndexToPhysicalPoint(zyx[::-1])
+            stats[int(i)] = {
+                "voxels": int(c),
+                "volume_ml": c * voxel_ml,
+                "centroid": point,
+                "border": bool(n_border[i] > 0),
+                "mean_hu": float(hu_sum[i] / c) if hu_sum is not None else None,
+            }
+        self._roi_stats = stats
+        return stats
+
+    def sex(self) -> Optional[str]:
+        """Patient sex from the activity sidecars (None if unknown)."""
+        for p in self.activity:
+            s = (self.meta(p).get("sex") or "").lower()
+            if s in ("male", "m"):
+                return "male"
+            if s in ("female", "f"):
+                return "female"
+        return None
 
 
 def _parse_date(value) -> Optional[datetime]:
@@ -670,6 +730,195 @@ def check_activity_mtp_trend(ctx: CheckContext) -> List[Finding]:
             teff_txt = f", Teff {teff:.1f} h (T½ {hl:.1f} h)" if teff else ""
             findings.append(Finding("activity.mtp_trend", Level.OK, f"total activity x{ratio:.2f} in {t2 - t1:.1f} h{teff_txt}", pair, round(ratio, 4)))
     return findings
+
+
+# ----------------------------------------------------------------------------------------------
+# E. ROIs
+# ----------------------------------------------------------------------------------------------
+
+
+def roi_side(name: str) -> Optional[str]:
+    """'L' or 'R' from a ROI name (TG-263 'Kidney_L', TotalSegmentator 'kidney_left', 'rib_left_3')."""
+    n = name.lower()
+    if re.search(r"(^|[_\s-])(l|left)($|[_\s-])", n):
+        return "L"
+    if re.search(r"(^|[_\s-])(r|right)($|[_\s-])", n):
+        return "R"
+    return None
+
+
+def _roi_base(name: str) -> str:
+    """Name without the side, to pair 'Kidney_L' with 'Kidney_R'."""
+    return re.sub(r"(^|[_\s-])(l|left|r|right)(?=$|[_\s-])", r"\1", name.lower()).strip("_ -")
+
+
+def _roi_class(name: str, classes: dict) -> Optional[str]:
+    n = name.lower()
+    for cls, words in classes.items():
+        if any(w in n for w in words):
+            return cls
+    return None
+
+
+@register_check("roi.names", ["labels"], "Labels sidecar present; ROI names resolve to OpenDose organs")
+def check_roi_names(ctx: CheckContext) -> List[Finding]:
+    from radot.nomenclature import verify_sidecar_mappings
+
+    name = ctx.labels.name
+    labels_map = ctx.labels_map()
+    if not labels_map:
+        return [Finding("roi.names", Level.WARN, "no labels sidecar (label id -> ROI name)", name)]
+    report = verify_sidecar_mappings(labels_map)
+    findings = [Finding("roi.names", Level.OK, f"{len(report['mapped'])} of {len(labels_map)} ROIs mapped to OpenDose", name)]
+    if report["unmapped"]:
+        unmapped = sorted(report["unmapped"].values())
+        findings.append(
+            Finding(
+                "roi.names",
+                Level.INFO,
+                f"{len(unmapped)} ROIs without OpenDose organ (no S-value, skipped by organ-level methods): {', '.join(unmapped)}",
+                name,
+                unmapped,
+            )
+        )
+    return findings
+
+
+@register_check("roi.empty", ["labels"], "ROIs of the sidecar present in the image, not tiny, not truncated by the image border")
+def check_roi_empty(ctx: CheckContext) -> List[Finding]:
+    min_ml = ctx.thresholds["roi"]["min_volume_ml"]
+    labels_map, stats = ctx.labels_map(), ctx.roi_stats()
+    name = ctx.labels.name
+    if not stats:
+        return [Finding("roi.empty", Level.FAIL, "labels image is empty", name)]
+    # On a cropped image, empty or truncated ROIs of a full segmentation are normal: reported, grouped
+    empty = [roi for i, roi in sorted(labels_map.items()) if i not in stats]
+    tiny = [roi for i, roi in sorted(labels_map.items()) if i in stats and stats[i]["volume_ml"] < min_ml]
+    border = [roi for i, roi in sorted(labels_map.items()) if i in stats and stats[i]["border"] and roi not in tiny]
+    extra = sorted(set(stats) - set(labels_map)) if labels_map else []
+    findings = [Finding("roi.empty", Level.OK, f"{len(stats)} labels in the image", name)]
+    for rois, what in (
+        (empty, "empty"),
+        (tiny, f"smaller than {min_ml:g} mL"),
+        (border, "touching the image border (truncated?)"),
+    ):
+        if rois:
+            findings.append(Finding("roi.empty", Level.INFO, f"{len(rois)} ROIs {what}: {', '.join(rois)}", name, rois))
+    if extra:
+        findings.append(Finding("roi.empty", Level.INFO, f"label ids in the image but not in the sidecar: {extra}", name, extra))
+    return findings
+
+
+@register_check("roi.laterality", ["labels"], "Left/right ROIs on the correct side (LPS: patient left = +x); liver on the right")
+def check_roi_laterality(ctx: CheckContext) -> List[Finding]:
+    labels_map, stats = ctx.labels_map(), ctx.roi_stats()
+    rois = {roi: stats[i] for i, roi in labels_map.items() if i in stats}
+    if not rois:
+        return []
+    findings = []
+    # pairs: x(left) > x(right)
+    pairs = {}
+    for roi in rois:
+        side = roi_side(roi)
+        if side:
+            pairs.setdefault(_roi_base(roi), {})[side] = roi
+    full = [s for s in pairs.values() if len(s) == 2]
+    swapped = [s["L"] for s in full if rois[s["L"]]["centroid"][0] <= rois[s["R"]]["centroid"][0]]
+    if swapped:
+        findings.append(
+            Finding(
+                "roi.laterality",
+                Level.FAIL,
+                f"{len(swapped)} of {len(full)} left/right pairs swapped (left ROI on the patient right): {', '.join(sorted(swapped))}",
+                ctx.labels.name,
+                sorted(swapped),
+            )
+        )
+    # organs on a known side vs the centre of all the labels (catches a mirrored image)
+    centre = np.average([s["centroid"][0] for s in rois.values()], weights=[s["voxels"] for s in rois.values()])
+    sides_known = ctx.thresholds["roi"]["organ_side"]
+    wrong = []
+    for roi, s in sorted(rois.items()):
+        expected = sides_known.get(roi.lower())
+        x = s["centroid"][0]
+        if (expected == "R" and x >= centre) or (expected == "L" and x <= centre):
+            wrong.append(f"{roi} on the patient {'left' if expected == 'R' else 'right'}")
+    if wrong:
+        findings.append(Finding("roi.laterality", Level.FAIL, f"{', '.join(wrong)}: image or labels mirrored?", ctx.labels.name, wrong))
+    if not findings:
+        findings.append(Finding("roi.laterality", Level.OK, f"{len(full)} left/right pairs consistent", ctx.labels.name))
+    return findings
+
+
+@register_check("roi.mass", ["labels", "ct"], "Mass (CT density) of whole organs vs the OpenDose reference mass")
+def check_roi_mass(ctx: CheckContext) -> List[Finding]:
+    from radot.db import get_reference_mass, resolve_organ_name
+
+    # only whole organs listed in the thresholds (lobes, vessels, muscles are parts of an OpenDose organ)
+    th = ctx.thresholds["roi"]["mass_ratio"]
+    sex = ctx.sex()
+    phantom = sex or "male"
+    labels_map, stats = ctx.labels_map(), ctx.roi_stats()
+    organs = {}
+    for i, roi in labels_map.items():
+        if i in stats:
+            organs.setdefault(resolve_organ_name(roi, phantom).lower(), []).append((i, roi))
+    findings, ratios = [], []
+    for organ, rois in sorted(organs.items()):
+        if organ not in th or len(rois) != 1:
+            continue
+        i, roi = rois[0]
+        s = stats[i]
+        try:
+            ref = get_reference_mass(phantom, roi)
+        except Exception:
+            continue
+        mass = s["volume_ml"] * max(0.0, 1.0 + s["mean_hu"] / 1000.0)
+        ratio = mass / ref
+        lo, hi = th[organ]
+        if s["border"]:
+            findings.append(Finding("roi.mass", Level.INFO, f"{mass:.0f} g, ratio {ratio:.2f}: not checked, touches the image border", roi, round(ratio, 3)))
+        elif not lo <= ratio <= hi:
+            findings.append(
+                Finding("roi.mass", Level.WARN, f"{mass:.0f} g, reference {ref:.0f} g ({phantom}), ratio {ratio:.2f}", roi, round(ratio, 3), [lo, hi])
+            )
+        else:
+            ratios.append(ratio)
+    if ratios:
+        msg = f"{len(ratios)} organs, mass {min(ratios):.2f}-{max(ratios):.2f} x OpenDose ({phantom}{'' if sex else ', sex unknown'})"
+        findings.append(Finding("roi.mass", Level.OK, msg, ctx.labels.name))
+    return findings
+
+
+@register_check("roi.density", ["labels", "ct"], "Mean CT value of each ROI plausible for its tissue (lung, bone, soft tissue)")
+def check_roi_density(ctx: CheckContext) -> List[Finding]:
+    th = ctx.thresholds["roi"]
+    labels_map, stats = ctx.labels_map(), ctx.roi_stats()
+    n, bad = 0, {}
+    for i, roi in sorted(labels_map.items()):
+        s = stats.get(i)
+        cls = _roi_class(roi, th["tissue_classes"])
+        if s is None or cls is None:
+            continue
+        n += 1
+        lo, hi = th["mean_hu"][cls]
+        if not lo <= s["mean_hu"] <= hi:
+            bad[roi] = round(s["mean_hu"], 1)
+    if not n:
+        return []
+    if not bad:
+        return [Finding("roi.density", Level.OK, f"{n} ROIs with a plausible mean HU", ctx.labels.name)]
+    ranges = ", ".join(f"{c} {lo}..{hi}" for c, (lo, hi) in th["mean_hu"].items())
+    detail = ", ".join(f"{roi} {hu:.0f}" for roi, hu in bad.items())
+    return [
+        Finding(
+            "roi.density",
+            Level.WARN,
+            f"{len(bad)} of {n} ROIs with an implausible mean HU (expected {ranges}): labels misaligned with the CT? {detail}",
+            ctx.labels.name,
+            bad,
+        )
+    ]
 
 
 # ----------------------------------------------------------------------------------------------

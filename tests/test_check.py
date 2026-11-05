@@ -250,3 +250,74 @@ def test_mtp_trend(tmp_path):
     v = activity_values(0.5, GOOD_META)
     flat = spect(tmp_path, "d4flat", values=v, acquisition_date="2026-01-14 10:00:00")
     assert by_code(run_checks([d1, flat]), "activity.mtp_trend", Level.WARN)
+
+
+ROI_NAMES = {"1": "Liver", "2": "Spleen", "3": "Kidney_R", "4": "Kidney_L", "5": "Lung_L", "6": "Thyroid"}
+
+
+def body(tmp_path, name="labels", mirror=False, names=ROI_NAMES, liver_slices=5):
+    """Labels and CT, 20 mm voxels (8 mL), shape z, y, x; +x = patient left (LPS)."""
+    lab = np.zeros((12, 12, 22), dtype=np.uint8)  # one empty voxel at the border (not truncated)
+    inner = lab[1:-1, 1:-1, 1:-1]
+    inner[:liver_slices, :, 0:5] = 1  # liver, patient right, 250 voxels = 2000 mL
+    inner[0, 0:4, 15:20] = 2  # spleen, 160 mL
+    inner[5:7, 0:5, 5:7] = 3  # right kidney, 160 mL
+    inner[5:7, 0:5, 13:15] = 4  # left kidney
+    inner[5:10, 5:10, 10:20] = 5  # left lung
+    ct = np.full(lab.shape, 40.0)
+    ct[lab == 5] = -800.0
+    if mirror:
+        lab = lab[:, :, ::-1]
+    paths = []
+    for suffix, arr, meta in (("", lab, names), ("_ct", ct, {"modality": "ct", "unit": "hu"})):
+        img = sitk.GetImageFromArray(np.ascontiguousarray(arr))
+        img.SetSpacing((20.0, 20.0, 20.0))
+        path = tmp_path / f"{name}{suffix}.nii.gz"
+        sitk.WriteImage(img, str(path))
+        if meta is not None:
+            (tmp_path / f"{name}{suffix}.json").write_text(json.dumps(meta))
+        paths.append(path)
+    return paths
+
+
+def test_roi_clean(tmp_path):
+    labels, ct = body(tmp_path)
+    findings = run_checks(ct=ct, labels=labels, only=["roi"])
+    assert worst_level(findings) == Level.INFO  # Thyroid empty: reported, not a problem
+    assert any("Thyroid" in f.message for f in by_code(findings, "roi.empty", Level.INFO))
+    mass = by_code(findings, "roi.mass", Level.OK)
+    assert mass and "4 organs" in mass[0].message and "sex unknown" in mass[0].message
+
+
+def test_roi_laterality(tmp_path):
+    labels, ct = body(tmp_path, mirror=True)
+    fail = by_code(run_checks(labels=labels, only=["roi.laterality"]), "roi.laterality", Level.FAIL)
+    assert len(fail) == 2  # kidney pair swapped, liver and spleen on the wrong side
+    names = {**ROI_NAMES, "3": "Kidney_L", "4": "Kidney_R"}
+    labels, ct = body(tmp_path, "swapped", names=names)
+    fail = by_code(run_checks(labels=labels, only=["roi.laterality"]), "roi.laterality", Level.FAIL)
+    assert len(fail) == 1 and "Kidney_L" in fail[0].message
+
+
+def test_roi_mass_density_names(tmp_path):
+    labels, ct = body(tmp_path, liver_slices=1)  # 400 mL liver
+    warn = by_code(run_checks(ct=ct, labels=labels), "roi.mass", Level.WARN)
+    assert [f.subject for f in warn] == ["Liver"]
+    # labels misaligned with the CT: the lung label on soft tissue
+    labels, ct = body(tmp_path, "shifted")
+    img = sitk.ReadImage(str(ct))
+    img = sitk.GetImageFromArray(np.full(sitk.GetArrayFromImage(img).shape, 40.0))
+    img.SetSpacing((20.0, 20.0, 20.0))
+    sitk.WriteImage(img, str(ct))
+    warn = by_code(run_checks(ct=ct, labels=labels), "roi.density", Level.WARN)
+    assert warn and "Lung_L" in warn[0].value
+    # no sidecar
+    (tmp_path / "labels.json").unlink()
+    assert by_code(run_checks(labels=tmp_path / "labels.nii.gz"), "roi.names", Level.WARN)
+
+
+def test_roi_mass_female(tmp_path):
+    labels, ct = body(tmp_path)
+    act = spect(tmp_path, sex="female")
+    ok = by_code(run_checks(act, ct=ct, labels=labels, only=["roi.mass"]), "roi.mass", Level.OK)
+    assert "(female)" in ok[0].message
