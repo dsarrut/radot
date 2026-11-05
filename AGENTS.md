@@ -17,7 +17,7 @@ pytest -q                         # unit tests + validation levels that need no 
 
 ## 1. Project Principles & Architecture
 
-`radot` (Radiation Dosimetry for Therapy) provides tools to manage dosimetry calculations, image resampling, unit normalization, and metadata workflows in radionuclide therapy. The codebase adheres to the standard Python Packaging Authority (PyPA) **src-layout** (`src/radot/`).
+`radot` (Radiopharmaceutical Open Toolbox) provides tools to manage dosimetry calculations, image resampling, unit normalization, and metadata workflows in radionuclide therapy. The codebase adheres to the standard Python Packaging Authority (PyPA) **src-layout** (`src/radot/`).
 
 ### Directory Structure & Module Responsibilities
 *   **`src/radot/meta.py`**: Reads/writes metadata from/to companion JSON sidecars. Ensures standard unit defaults and provides time-from-injection calculation helper methods.
@@ -148,6 +148,7 @@ Refer to these Markdown documents in the `docs/` directory for detailed specific
 *   [dev_docs/dev_readme_060_opendose.md](dev_docs/dev_readme_060_opendose.md): OpenDose data hosting (Zenodo, user cache, licence CC BY-SA 4.0), last blocker before v0.1 on PyPI.
 *   [dev_docs/old/dev_readme_080_opengate_validation.md](dev_docs/old/dev_readme_080_opengate_validation.md): OpenGATE validation history and decisions (done).
 *   [dev_docs/dev_readme_090_dose_engine_time_model.md](dev_docs/dev_readme_090_dose_engine_time_model.md): `--dose-rate-map` (external Monte Carlo dose rate) and the planned dose-rate engine × time model refactor.
+*   [dev_docs/dev_readme_075_check_qc.md](dev_docs/dev_readme_075_check_qc.md): Plan (not started) for `radot check`, a QC of the inputs (metadata, units, activity balance, geometry, ROIs).
 *   [dev_docs/dev_readme_082_snmmi_challenge.md](dev_docs/dev_readme_082_snmmi_challenge.md): Plan and status (T5 done) to evaluate radot with the SNMMI 177Lu Dosimetry Challenge data.
 *   [dev_docs/dev_readme_085_lesion_validation.md](dev_docs/dev_readme_085_lesion_validation.md): Plan (not started) for synthetic lesions in the OpenGATE validation and a sphere S-value model.
 

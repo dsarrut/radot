@@ -20,7 +20,7 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 @click.version_option(version="0.1.0")
 @click.pass_context
 def main(ctx, verbose, quiet):
-    """radot: Radiation Dosimetry for Therapy command-line tools."""
+    """radot: Radiopharmaceutical Open Toolbox command-line tools."""
     if verbose and quiet:
         raise click.UsageError("Options --verbose and --quiet are mutually exclusive.")
     ctx.ensure_object(dict)
