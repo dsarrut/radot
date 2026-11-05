@@ -1,6 +1,6 @@
 # Input Checks (`radot check`)
 
-`radot check` runs quick quality checks on the inputs of a dosimetry before computing doses: metadata, and later units, activity balance, geometry and ROIs. Wrong doses come more often from the data (units, injection time, weight, misregistration) than from the dose models.
+`radot check` runs quick quality checks on the inputs of a dosimetry before computing doses: metadata, units, activity balance, and later geometry and ROIs. Wrong doses come more often from the data (units, injection time, weight, misregistration) than from the dose models.
 
 The files are only read, never modified. A missing or suspicious value is reported; fix the sidecar with `radot meta` (or by editing the JSON) and run the check again.
 
@@ -59,10 +59,16 @@ $ radot meta spect.nii.gz --rad Lu177       # a missing radionuclide
 | `meta.activity` | Injected activity in the usual range of the radionuclide, in MBq (catches GBq or Bq typos). |
 | `meta.radionuclide` | Radionuclide known to radot (ICRP 107). |
 | `meta.consistency` | Multi time points: same radionuclide, injection date, activity and patient data in all the images. |
+| `units.ct_hu` | CT in HU: air near −1000, soft tissue (or fat) peak within ±150 HU, max below 4000. Catches attenuation maps and the +1024 offset; padding below −1100 is ignored. |
+| `units.activity_values` | Activity image not empty, < 1 % negative voxels; integer values with a max ≤ 65535 in `bq`/`bqml` are probably counts. |
+| `units.suv_range` | SUV/SUL images: max in [0.5, 150]. |
+| `units.dose_range` | Dose image in Gy: positive, max below 1000 Gy, no negative values. |
+| `activity.fov_fraction` | Total activity in the image / injected activity decayed to the acquisition (not decayed if the image is decay-corrected to the injection). FAIL above 110 % (units, calibration) or below 2 % (counts); WARN below 10 %. SUV images: Σ SUV·mL / weight. TIA images: compared with the injected activity × physical mean life. |
+| `activity.mtp_trend` | Multi time points: the total activity decreases at least as fast as the physical decay (20 % tolerance); else different calibrations or decay-corrected images. Reports the effective half-life. |
 
 ## Thresholds
 
-The default thresholds are in `radot/data/check_thresholds.json`, one section per topic (`patient`, `time_from_injection`, `injected_activity_mbq` per radionuclide). They are heuristics, generous on purpose. A user file with the same sections overrides the values it contains, e.g. for a dosimetric study with low activities:
+The default thresholds are in `radot/data/check_thresholds.json`, one section per topic (`patient`, `time_from_injection`, `injected_activity_mbq` per radionuclide, `ct`, `activity_image`, `suv`, `dose`, `activity_balance`). They are heuristics, generous on purpose. A user file with the same sections overrides the values it contains, e.g. for a dosimetric study with low activities:
 
 ```json
 {"injected_activity_mbq": {"lu177": [100, 12000]}}

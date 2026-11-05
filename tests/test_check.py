@@ -21,9 +21,15 @@ GOOD_META = {
 }
 
 
-def write_image(folder, name, meta, value=1.0):
+LU177_HL_H = 6.647 * 24
+VOXEL_ML = 0.064  # 4 mm voxels
+N = 4
+
+
+def write_image(folder, name, meta, values=1.0):
     path = folder / f"{name}.nii.gz"
-    img = sitk.GetImageFromArray(np.full((4, 4, 4), value, dtype=np.float32))
+    arr = np.broadcast_to(np.asarray(values, dtype=np.float32), (N, N, N))
+    img = sitk.GetImageFromArray(np.ascontiguousarray(arr))
     img.SetSpacing((4.0, 4.0, 4.0))
     sitk.WriteImage(img, str(path))
     if meta is not None:
@@ -31,10 +37,37 @@ def write_image(folder, name, meta, value=1.0):
     return path
 
 
-def spect(tmp_path, name="spect", **changes):
+def activity_values(fraction, meta):
+    """Bq/mL values (not integers) holding a fraction of the injected activity, decayed to the acquisition."""
+    t = 24.0
+    if meta.get("injection_date") and meta.get("acquisition_date"):
+        from datetime import datetime
+
+        f = "%Y-%m-%d %H:%M:%S"
+        try:
+            t = (datetime.strptime(meta["acquisition_date"], f) - datetime.strptime(meta["injection_date"], f)).total_seconds() / 3600
+        except ValueError:
+            pass
+    total_bq = fraction * meta.get("activity", 7400.0) * 1e6 * 0.5 ** (t / LU177_HL_H)
+    noise = 1 + 0.01 * np.random.default_rng(0).standard_normal((N, N, N))
+    noise /= noise.mean()
+    return total_bq / (N**3 * VOXEL_ML) * noise
+
+
+def spect(tmp_path, name="spect", fraction=0.5, values=None, **changes):
     meta = {**GOOD_META, **changes}
     meta = {k: v for k, v in meta.items() if v is not None}
-    return write_image(tmp_path, name, meta)
+    if values is None:
+        values = activity_values(fraction, meta)
+    return write_image(tmp_path, name, meta, values)
+
+
+def ct_values(offset=0.0, scale=1.0):
+    """Half air (-1000), half soft tissue (40 HU), one bone voxel."""
+    arr = np.full((N, N, N), 40.0)
+    arr[: N // 2] = -1000.0
+    arr[-1, -1, -1] = 1200.0
+    return arr * scale + offset
 
 
 def by_code(findings, code, level=None):
@@ -102,9 +135,9 @@ def test_patient_and_activity(tmp_path):
 
 def test_radionuclide_and_modality(tmp_path):
     assert by_code(run_checks(spect(tmp_path, radionuclide="Xx999")), "meta.radionuclide", Level.FAIL)
-    ct = write_image(tmp_path, "ct", {"modality": "ct", "unit": "bqml"})
+    ct = write_image(tmp_path, "ct", {"modality": "ct", "unit": "bqml"}, ct_values())
     assert by_code(run_checks(ct=ct), "meta.modality", Level.FAIL)
-    ct = write_image(tmp_path, "ct", {"modality": "ct", "unit": "hu"})
+    ct = write_image(tmp_path, "ct", {"modality": "ct", "unit": "hu"}, ct_values())
     assert worst_level(run_checks(ct=ct)) == Level.OK
 
 
@@ -149,3 +182,71 @@ def test_cli(tmp_path):
 
     r = runner.invoke(main, ["check", "--list"])
     assert r.exit_code == 0 and "meta.required" in r.output
+
+
+def test_ct_hu(tmp_path):
+    meta = {"modality": "ct", "unit": "hu"}
+    assert worst_level(run_checks(ct=write_image(tmp_path, "ct", meta, ct_values()))) == Level.OK
+    # padding outside the field of view is ignored
+    v = ct_values()
+    v[0, 0, 0] = -3024
+    assert worst_level(run_checks(ct=write_image(tmp_path, "ct", meta, v))) == Level.OK
+    assert by_code(run_checks(ct=write_image(tmp_path, "ct", meta, ct_values(offset=1024))), "units.ct_hu", Level.FAIL)
+    mu = (ct_values() + 1000) / 1000 * 0.0096  # attenuation map, 1/mm
+    assert by_code(run_checks(ct=write_image(tmp_path, "ct", meta, mu)), "units.ct_hu", Level.FAIL)
+    no_air = ct_values()
+    no_air[no_air < 0] = 40
+    assert by_code(run_checks(ct=write_image(tmp_path, "ct", meta, no_air)), "units.ct_hu", Level.WARN)
+
+
+def test_activity_values(tmp_path):
+    counts = spect(tmp_path, "counts", values=np.arange(N**3).reshape(N, N, N) + 1.0)
+    assert by_code(run_checks(counts), "units.activity_values", Level.WARN)
+    assert by_code(run_checks(spect(tmp_path, "zero", values=0.0)), "units.activity_values", Level.FAIL)
+    neg = activity_values(0.5, GOOD_META)
+    neg[0] = -neg[0]
+    assert by_code(run_checks(spect(tmp_path, "neg", values=neg)), "units.activity_values", Level.WARN)
+    assert by_code(run_checks(spect(tmp_path, "suv", unit="suv", values=500.5)), "units.suv_range", Level.WARN)
+
+
+def test_dose_range(tmp_path):
+    ok = write_image(tmp_path, "dose", {"modality": "dose", "unit": "gy"}, 12.5)
+    assert worst_level(run_checks(dose=ok)) == Level.OK
+    high = write_image(tmp_path, "dose", {"modality": "dose", "unit": "gy"}, 5000.5)
+    assert by_code(run_checks(dose=high), "units.dose_range", Level.WARN)
+
+
+def test_fov_fraction(tmp_path):
+    f = by_code(run_checks(spect(tmp_path, fraction=0.5)), "activity.fov_fraction")
+    assert f[0].level == Level.OK and f[0].value == pytest.approx(0.5, rel=1e-3)
+    assert by_code(run_checks(spect(tmp_path, fraction=1.5)), "activity.fov_fraction", Level.FAIL)
+    assert by_code(run_checks(spect(tmp_path, fraction=0.001)), "activity.fov_fraction", Level.FAIL)
+    assert by_code(run_checks(spect(tmp_path, fraction=0.05)), "activity.fov_fraction", Level.WARN)
+    # image decay-corrected to the injection time: compared with the injected activity, no decay
+    meta = {**GOOD_META, "decay_correction": "admin"}
+    values = activity_values(0.5, meta) / 0.5 ** (24 / LU177_HL_H)
+    f = by_code(run_checks(write_image(tmp_path, "admin", meta, values)), "activity.fov_fraction")
+    assert f[0].value == pytest.approx(0.5, rel=1e-3)
+    # no injected activity: skipped (meta.required reports it)
+    f = by_code(run_checks(spect(tmp_path, activity=None, values=1.5)), "activity.fov_fraction")
+    assert f[0].level == Level.INFO
+    # SUV: sum(SUV x mL) / weight (g)
+    suv = 0.5 * 72000 / (N**3 * VOXEL_ML)
+    f = by_code(run_checks(spect(tmp_path, "suv", unit="suv", values=suv)), "activity.fov_fraction")
+    assert f[0].value == pytest.approx(0.5, rel=1e-3)
+    # TIA (Bq.s/mL) below the bound (injected activity x physical mean life)
+    tia = 0.3 * 7400e6 * LU177_HL_H * 3600 / np.log(2) / (N**3 * VOXEL_ML)
+    p = spect(tmp_path, "tia", unit="bqsml", injection_date=None, acquisition_date=None, values=tia)
+    f = by_code(run_checks(p), "activity.fov_fraction")
+    assert f[0].level == Level.OK and f[0].value == pytest.approx(0.3, rel=1e-3)
+
+
+def test_mtp_trend(tmp_path):
+    # biological clearance: faster than the physical decay -> ok
+    d1 = spect(tmp_path, "d1", fraction=0.5)
+    d4 = spect(tmp_path, "d4", fraction=0.2, acquisition_date="2026-01-14 10:00:00")
+    assert by_code(run_checks([d1, d4]), "activity.mtp_trend", Level.OK)
+    # same activity at day 4 as at day 1 = images decay-corrected (or recalibrated)
+    v = activity_values(0.5, GOOD_META)
+    flat = spect(tmp_path, "d4flat", values=v, acquisition_date="2026-01-14 10:00:00")
+    assert by_code(run_checks([d1, flat]), "activity.mtp_trend", Level.WARN)

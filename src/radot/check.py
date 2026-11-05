@@ -16,6 +16,9 @@ from enum import IntEnum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
+import numpy as np
+import SimpleITK as sitk
+
 from radot.meta import get_sidecar_path, read_metadata
 
 logger = logging.getLogger("radot")
@@ -111,6 +114,7 @@ class CheckContext:
     method: Optional[str] = None
     thresholds: dict = field(default_factory=dict)
     _meta: Dict[Path, dict] = field(default_factory=dict)
+    _arrays: Dict[Path, tuple] = field(default_factory=dict)
 
     def available(self) -> set:
         names = {"activity": bool(self.activity), "ct": self.ct, "labels": self.labels, "dose": self.dose}
@@ -124,6 +128,22 @@ class CheckContext:
             m["_sidecar"] = sidecar if sidecar.exists() else None
             self._meta[path] = m
         return self._meta[path]
+
+    def sidecar(self, path: Path) -> dict:
+        """Raw sidecar content (keys not read by read_metadata, e.g. decay_correction_reference)."""
+        s = self.meta(path)["_sidecar"]
+        try:
+            return json.loads(s.read_text()) if s else {}
+        except (OSError, ValueError):
+            return {}
+
+    def array(self, path: Path) -> tuple:
+        """Voxel values (float64 numpy array) and voxel volume (mL), read once."""
+        if path not in self._arrays:
+            img = sitk.ReadImage(str(path))
+            voxel_ml = float(np.prod(img.GetSpacing())) / 1000.0
+            self._arrays[path] = (sitk.GetArrayViewFromImage(img).astype(np.float64), voxel_ml)
+        return self._arrays[path]
 
 
 def _parse_date(value) -> Optional[datetime]:
@@ -411,6 +431,244 @@ def check_meta_consistency(ctx: CheckContext) -> List[Finding]:
             findings.append(Finding("meta.consistency", level, f"{k} differs between the images ({detail})", None, list(values)))
     if not findings:
         findings.append(Finding("meta.consistency", Level.OK, f"{len(ctx.activity)} images, same patient data"))
+    return findings
+
+
+# ----------------------------------------------------------------------------------------------
+# B. Units and intensities
+# ----------------------------------------------------------------------------------------------
+
+
+@register_check("units.ct_hu", ["ct"], "CT values in HU: air near -1000, soft tissue near 0 (catches mu maps, +1024 offset)")
+def check_units_ct_hu(ctx: CheckContext) -> List[Finding]:
+    th = ctx.thresholds["ct"]
+    arr, _ = ctx.array(ctx.ct)
+    name = ctx.ct.name
+    valid = arr[arr >= th["padding_below_hu"]]  # values below = padding outside the field of view
+    if valid.size == 0:
+        return [Finding("units.ct_hu", Level.FAIL, "no value above the padding level", name)]
+    vmin, vmax, median = float(valid.min()), float(valid.max()), float(np.median(valid))
+    if vmax < th["mu_map_max"]:
+        return [
+            Finding("units.ct_hu", Level.FAIL, f"values in [{vmin:.3g}, {vmax:.3g}]: not HU (attenuation map?)", name, [vmin, vmax])
+        ]
+    if vmin > -200 and median > 500:
+        return [
+            Finding("units.ct_hu", Level.FAIL, f"min {vmin:.0f}, median {median:.0f}: HU with a +1024 offset?", name, [vmin, median])
+        ]
+    findings = []
+    lo, hi = th["air_hu"]
+    if not (valid < hi).any():
+        findings.append(Finding("units.ct_hu", Level.WARN, f"no air in the image (min {vmin:.0f} HU)", name, vmin, [lo, hi]))
+    soft = valid[(valid > -500) & (valid < 500)]
+    peak = None
+    if soft.size:
+        counts, edges = np.histogram(soft, bins=100, range=(-500, 500))
+        peak = float(edges[np.argmax(counts)] + 5)
+        plo, phi = th["soft_tissue_peak_hu"]
+        if not plo <= peak <= phi:
+            findings.append(
+                Finding("units.ct_hu", Level.WARN, f"soft tissue peak at {peak:.0f} HU", name, peak, [plo, phi])
+            )
+    if vmax > th["max_hu"]:
+        findings.append(Finding("units.ct_hu", Level.WARN, f"max {vmax:.0f} HU (metal, or wrong scaling)", name, vmax, th["max_hu"]))
+    if not findings:
+        msg = f"min {vmin:.0f}, soft tissue peak {peak:.0f}, max {vmax:.0f} HU" if peak is not None else f"min {vmin:.0f}, max {vmax:.0f} HU"
+        findings.append(Finding("units.ct_hu", Level.OK, msg, name))
+    return findings
+
+
+@register_check("units.activity_values", ["activity"], "Activity values: not empty, few negative values, not integer counts")
+def check_units_activity_values(ctx: CheckContext) -> List[Finding]:
+    th = ctx.thresholds["activity_image"]
+    findings = []
+    for p in ctx.activity:
+        arr, _ = ctx.array(p)
+        unit = (ctx.meta(p).get("unit") or "").lower()
+        if not arr.any():
+            findings.append(Finding("units.activity_values", Level.FAIL, "image is empty (all zeros)", p.name))
+            continue
+        neg = float((arr < 0).mean())
+        bad = False
+        if neg > th["max_negative_fraction"]:
+            findings.append(
+                Finding("units.activity_values", Level.WARN, f"{100 * neg:.1f} % negative voxels", p.name, round(neg, 4), th["max_negative_fraction"])
+            )
+            bad = True
+        # integers with a small max: counts (activity concentrations stored as integers are much larger)
+        if unit in ("bq", "bqml") and arr.max() <= th["counts_max"] and np.array_equal(arr, np.round(arr)):
+            findings.append(
+                Finding("units.activity_values", Level.WARN, f"integer values only (max {arr.max():g}): counts, not {unit}?", p.name, float(arr.max()))
+            )
+            bad = True
+        if not bad:
+            findings.append(Finding("units.activity_values", Level.OK, f"max {arr.max():.4g} {unit}", p.name, float(arr.max())))
+    return findings
+
+
+@register_check("units.suv_range", ["activity"], "SUV/SUL images: max in a plausible range")
+def check_units_suv_range(ctx: CheckContext) -> List[Finding]:
+    lo, hi = ctx.thresholds["suv"]["max_suv"]
+    findings = []
+    for p in ctx.activity:
+        unit = (ctx.meta(p).get("unit") or "").lower()
+        if unit not in ("suv", "sul"):
+            continue
+        vmax = float(ctx.array(p)[0].max())
+        if not lo <= vmax <= hi:
+            findings.append(Finding("units.suv_range", Level.WARN, f"max {unit} {vmax:.3g} outside [{lo}, {hi}]", p.name, vmax, [lo, hi]))
+        else:
+            findings.append(Finding("units.suv_range", Level.OK, f"max {unit} {vmax:.3g}", p.name, vmax))
+    return findings
+
+
+@register_check("units.dose_range", ["dose"], "Dose image (Gy): not empty, max plausible, no negative values")
+def check_units_dose_range(ctx: CheckContext) -> List[Finding]:
+    unit = (ctx.meta(ctx.dose).get("unit") or "").lower()
+    name = ctx.dose.name
+    if unit != "gy":
+        return [Finding("units.dose_range", Level.INFO, f"skipped: unit '{unit or '?'}' (only gy is checked)", name)]
+    arr, _ = ctx.array(ctx.dose)
+    max_gy = ctx.thresholds["dose"]["max_gy"]
+    vmax = float(arr.max())
+    findings = []
+    if vmax <= 0:
+        return [Finding("units.dose_range", Level.FAIL, "no positive dose", name, vmax)]
+    if vmax > max_gy:
+        findings.append(Finding("units.dose_range", Level.WARN, f"max {vmax:.4g} Gy", name, vmax, max_gy))
+    if (arr < 0).any():
+        findings.append(Finding("units.dose_range", Level.WARN, f"negative doses (min {arr.min():.3g} Gy)", name, float(arr.min())))
+    if not findings:
+        findings.append(Finding("units.dose_range", Level.OK, f"max {vmax:.4g} Gy", name, vmax))
+    return findings
+
+
+# ----------------------------------------------------------------------------------------------
+# C. Activity balance
+# ----------------------------------------------------------------------------------------------
+
+
+def total_activity_mbq(ctx: CheckContext, p: Path) -> Optional[float]:
+    """Total activity in the image (MBq; MBq.s for a TIA image), None for suv/sul or unknown units."""
+    arr, voxel_ml = ctx.array(p)
+    unit = (ctx.meta(p).get("unit") or "").lower()
+    if unit in ("bq", "bqs"):
+        return float(arr.sum()) / 1e6
+    if unit in ("bqml", "bqsml"):
+        return float(arr.sum()) * voxel_ml / 1e6
+    return None
+
+
+def _decay_to_acquisition(ctx: CheckContext, p: Path) -> bool:
+    """False if the image is decay-corrected to the injection time (DICOM ADMIN, radot convert)."""
+    s = ctx.sidecar(p)
+    return not (
+        str(s.get("decay_correction", "")).lower() == "admin"
+        or str(s.get("decay_correction_reference", "")).lower() == "injection_time"
+    )
+
+
+@register_check("activity.fov_fraction", ["activity"], "Total activity in the image vs injected activity (decay-corrected)")
+def check_activity_fov_fraction(ctx: CheckContext) -> List[Finding]:
+    from radot.dose.strategies import TIA_UNITS
+
+    th = ctx.thresholds["activity_balance"]
+    findings = []
+    for p in ctx.activity:
+        m = ctx.meta(p)
+        unit = (m.get("unit") or "").lower()
+        a_inj = _float(m.get("activity"))
+        if unit == "suv":
+            w = _float(m.get("weight"))
+            if not w:
+                findings.append(Finding("activity.fov_fraction", Level.INFO, "skipped: no weight", p.name))
+                continue
+            arr, voxel_ml = ctx.array(p)
+            fraction = float(arr.sum()) * voxel_ml / (w * 1000.0)
+            ref = "of the injected activity (SUV)"
+        else:
+            total = total_activity_mbq(ctx, p)
+            if total is None or not a_inj:
+                why = f"unit '{unit or '?'}'" if total is None else "no injected activity"
+                findings.append(Finding("activity.fov_fraction", Level.INFO, f"skipped: {why}", p.name))
+                continue
+            hl = _half_life_h(m.get("radionuclide")) if m.get("radionuclide") else None
+            if hl is None:
+                findings.append(Finding("activity.fov_fraction", Level.INFO, "skipped: no radionuclide", p.name))
+                continue
+            if unit in TIA_UNITS:
+                # upper bound: all the injected activity, decaying physically, forever
+                tia_max = a_inj * hl * 3600.0 / np.log(2)
+                fraction = total / tia_max
+                level = Level.FAIL if fraction > th["max_fraction"] else Level.OK
+                findings.append(
+                    Finding(
+                        "activity.fov_fraction",
+                        level,
+                        f"TIA = {100 * fraction:.1f} % of injected activity x physical mean life (max {100 * th['max_fraction']:.0f} %)",
+                        p.name,
+                        round(fraction, 4),
+                    )
+                )
+                continue
+            ref_activity = a_inj
+            t = _time_from_injection_h(m)
+            if _decay_to_acquisition(ctx, p):
+                if t is None:
+                    findings.append(Finding("activity.fov_fraction", Level.INFO, "skipped: no time from injection", p.name))
+                    continue
+                ref_activity = a_inj * 0.5 ** (t / hl)
+                ref = f"of the injected activity decayed to {t:.1f} h"
+            else:
+                ref = "of the injected activity (image decay-corrected to injection)"
+            fraction = total / ref_activity
+        msg = f"{100 * fraction:.1f} % {ref}"
+        if fraction > th["max_fraction"]:
+            findings.append(Finding("activity.fov_fraction", Level.FAIL, msg + ": units or calibration?", p.name, round(fraction, 4), [0, th["max_fraction"]]))
+        elif fraction < th["min_fraction"]:
+            findings.append(Finding("activity.fov_fraction", Level.FAIL, msg + ": uncalibrated counts?", p.name, round(fraction, 4), [th["min_fraction"], th["max_fraction"]]))
+        elif fraction < th["warn_below"]:
+            findings.append(Finding("activity.fov_fraction", Level.WARN, msg, p.name, round(fraction, 4), [th["warn_below"], th["max_fraction"]]))
+        else:
+            findings.append(Finding("activity.fov_fraction", Level.OK, msg, p.name, round(fraction, 4)))
+    return findings
+
+
+@register_check("activity.mtp_trend", ["activity"], "Multi time points: total activity decreases at least as fast as the physical decay")
+def check_activity_mtp_trend(ctx: CheckContext) -> List[Finding]:
+    if len(ctx.activity) < 2:
+        return []
+    tol = ctx.thresholds["activity_balance"]["mtp_tolerance"]
+    points = []
+    for p in ctx.activity:
+        m = ctx.meta(p)
+        t, total = _time_from_injection_h(m), total_activity_mbq(ctx, p)
+        hl = _half_life_h(m.get("radionuclide")) if m.get("radionuclide") else None
+        if t is None or total is None or hl is None or not _decay_to_acquisition(ctx, p):
+            return [Finding("activity.mtp_trend", Level.INFO, "skipped: time, unit (bq, bqml), radionuclide or decay correction", p.name)]
+        points.append((t, total, hl, p))
+    points.sort(key=lambda x: x[0])
+    findings = []
+    for (t1, a1, hl, p1), (t2, a2, _, p2) in zip(points, points[1:]):
+        physical = 0.5 ** ((t2 - t1) / hl)
+        ratio = a2 / a1 if a1 > 0 else float("inf")
+        teff = (t2 - t1) * np.log(2) / np.log(a1 / a2) if 0 < a2 < a1 else None
+        pair = f"{p1.name} -> {p2.name}"
+        if ratio > physical * (1 + tol):
+            findings.append(
+                Finding(
+                    "activity.mtp_trend",
+                    Level.WARN,
+                    f"total activity x{ratio:.2f} in {t2 - t1:.1f} h, physical decay alone gives x{physical:.2f}: "
+                    "different calibration, or images decay-corrected?",
+                    pair,
+                    round(ratio, 4),
+                    round(physical, 4),
+                )
+            )
+        else:
+            teff_txt = f", Teff {teff:.1f} h (T½ {hl:.1f} h)" if teff else ""
+            findings.append(Finding("activity.mtp_trend", Level.OK, f"total activity x{ratio:.2f} in {t2 - t1:.1f} h{teff_txt}", pair, round(ratio, 4)))
     return findings
 
 

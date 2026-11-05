@@ -30,5 +30,31 @@
         "tc99m": [50, 2000],
         "i123": [30, 500],
         "i124": [10, 300]
+    },
+    "ct": {
+        "_comment": "Values below padding_below_hu are padding outside the field of view (ignored). Max below mu_map_max: not HU.",
+        "padding_below_hu": -1100,
+        "mu_map_max": 50,
+        "air_hu": [-1100, -900],
+        "soft_tissue_peak_hu": [-150, 150],
+        "max_hu": 4000
+    },
+    "activity_image": {
+        "_comment": "Integer values with a max below counts_max: probably counts, not an activity.",
+        "max_negative_fraction": 0.01,
+        "counts_max": 65535
+    },
+    "suv": {
+        "max_suv": [0.5, 150]
+    },
+    "dose": {
+        "max_gy": 1000
+    },
+    "activity_balance": {
+        "_comment": "Fraction of the injected activity (decay-corrected) in the image: FAIL above max_fraction (units, calibration) or below min_fraction (uncalibrated counts), WARN below warn_below. mtp_tolerance: allowed excess over the physical decay between time points.",
+        "max_fraction": 1.1,
+        "min_fraction": 0.02,
+        "warn_below": 0.1,
+        "mtp_tolerance": 0.2
     }
 }
