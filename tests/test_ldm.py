@@ -236,6 +236,37 @@ def test_ldm_cli_with_labels_no_output(tmp_path):
     assert "Liver" in result.output
 
 
+@pytest.mark.parametrize(
+    "output, image_name, table_name",
+    [("dose.nii.gz", "dose.nii.gz", "dose_rois.json"), ("results.json", "results_dose.nii.gz", "results.json")],
+)
+def test_ldm_with_labels_writes_image_and_table(tmp_path, output, image_name, table_name):
+    # voxel method with ROIs: the dose image and the ROI table are both written, whatever -o is
+    image_path = tmp_path / "spect.nii.gz"
+    labels_path = tmp_path / "labels.nii.gz"
+    img = sitk.Image([3, 3, 3], sitk.sitkFloat32) + 1000.0
+    img.SetSpacing([2.0, 2.0, 2.0])
+    sitk.WriteImage(img, str(image_path))
+    (tmp_path / "spect.json").write_text(json.dumps({"unit": "bq", "time_from_injection": "24.0"}))
+    labels = sitk.Image([3, 3, 3], sitk.sitkUInt16)
+    labels.SetSpacing([2.0, 2.0, 2.0])
+    labels[1, 1, 1] = 1
+    sitk.WriteImage(labels, str(labels_path))
+    (tmp_path / "labels.json").write_text(json.dumps({"1": "Liver"}))
+
+    out = tmp_path / output
+    result = CliRunner().invoke(
+        main, ["dose", str(image_path), "-l", str(labels_path), "-m", "ldm", "--isotope", "Lu177", "-o", str(out)]
+    )
+    assert result.exit_code == 0, result.output
+    assert "Liver" in result.output
+    assert sitk.ReadImage(str(tmp_path / image_name)).GetSize() == (3, 3, 3)
+    sidecar = json.loads((tmp_path / image_name.replace(".nii.gz", ".json")).read_text())
+    assert sidecar["unit"] == "gy" and sidecar["modality"] == "dose"
+    table = json.loads((tmp_path / table_name).read_text())
+    assert table["Liver"]["mean_dose_gy"] > 0
+
+
 def test_ldm_hu_threshold():
     # Activity image (2x2x2) with activity = 1e6 Bq
     image = sitk.Image([2, 2, 2], sitk.sitkFloat32)

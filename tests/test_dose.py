@@ -672,7 +672,7 @@ def test_dose_list_command():
     assert "Equation: Dose = 0.125 * " in result.output
     assert "hanscheid2018" in result.output
     assert "uses OpenDose S-value database" in result.output
-    assert "Equation: Dose = TIA * S * " in result.output
+    assert "Equation: Dose = A(t) * Teff / ln2 * S / mass_scaling" in result.output
     assert "ldm" in result.output
     assert "Local Deposition Model" in result.output
     assert "Equation: Dose = (TIA * Delta_local * " in result.output

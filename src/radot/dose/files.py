@@ -363,70 +363,77 @@ def compute_roi_dose_file(
     )
 
     if method_key == "ldm":
-        from radot.meta import read_metadata, write_metadata
-
         if labels_path is not None:
+            # voxel method with ROIs: write both the dose image and the ROI table
             results_dict, dose_image = results
             if output_path:
-                if output_path.name.endswith((".nii", ".nii.gz", ".nrrd", ".mhd")):
-                    logger.info(f"Saving dose image to: {output_path}")
-                    output_path.parent.mkdir(parents=True, exist_ok=True)
-                    sitk.WriteImage(dose_image, str(output_path))
-                    try:
-                        orig_meta = read_metadata(image_path).get("metadata", {})
-                    except Exception:
-                        orig_meta = {}
-                    write_metadata(
-                        image_path=output_path,
-                        modality="dose",
-                        unit="gy/h" if dose_rate else "gy",
-                        weight=orig_meta.get("weight"),
-                        activity=orig_meta.get("activity"),
-                        injection_date=orig_meta.get("injection_date"),
-                        acquisition_date=orig_meta.get("acquisition_date"),
-                    )
+                if _is_image_path(output_path):
+                    image_out, table_out = output_path, _with_suffix(output_path, "_rois.json")
                 else:
-                    logger.info(f"Saving dose results to: {output_path}")
-                    output_path.parent.mkdir(parents=True, exist_ok=True)
-                    with open(output_path, "w") as f:
-                        json.dump(results_dict, f, indent=4)
-            if not output_path or output_path.name.endswith(
-                (".nii", ".nii.gz", ".nrrd", ".mhd")
-            ):
-                pretty_print_dose(results_dict)
+                    table_out, image_out = output_path, _with_suffix(output_path, "_dose.nii.gz")
+                _write_dose_image(dose_image, image_out, image_path, dose_rate)
+                _write_table(results_dict, table_out)
+            pretty_print_dose(results_dict)
             return results
-        else:
-            if not output_path:
-                output_path = Path("dose.nii.gz")
-            logger.info(f"Saving dose image to: {output_path}")
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            sitk.WriteImage(results, str(output_path))
-            try:
-                orig_meta = read_metadata(image_path).get("metadata", {})
-            except Exception:
-                orig_meta = {}
-            write_metadata(
-                image_path=output_path,
-                modality="dose",
-                unit="gy/h" if dose_rate else "gy",
-                weight=orig_meta.get("weight"),
-                activity=orig_meta.get("activity"),
-                injection_date=orig_meta.get("injection_date"),
-                acquisition_date=orig_meta.get("acquisition_date"),
-            )
-            return results
+        if not output_path:
+            output_path = Path("dose.nii.gz")
+        _write_dose_image(results, output_path, image_path, dose_rate)
+        return results
 
     # Print results to stdout
     if output_path:
-        logger.info(f"Saving dose results to: {output_path}")
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(output_path, "w") as f:
-            json.dump(results, f, indent=4)
+        _write_table(results, output_path)
     else:
         # Pretty print results as a table
         pretty_print_dose(results)
 
     return results
+
+
+IMAGE_SUFFIXES = (".nii", ".nii.gz", ".nrrd", ".mhd", ".mha")
+
+
+def _is_image_path(path: Path) -> bool:
+    return path.name.lower().endswith(IMAGE_SUFFIXES)
+
+
+def _with_suffix(path: Path, suffix: str) -> Path:
+    """dose.nii.gz + '_rois.json' -> dose_rois.json (the image sidecar is dose.json)."""
+    name = path.name
+    for ext in IMAGE_SUFFIXES + (".json",):
+        if name.lower().endswith(ext):
+            name = name[: -len(ext)]
+            break
+    return path.with_name(name + suffix)
+
+
+def _write_dose_image(dose_image: sitk.Image, path: Path, image_path: Path, dose_rate: bool) -> None:
+    """Dose (or dose rate) image and its sidecar (unit, patient data of the activity image)."""
+    from radot.meta import read_metadata, write_metadata
+
+    logger.info(f"Saving dose image to: {path}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    sitk.WriteImage(dose_image, str(path))
+    try:
+        orig_meta = read_metadata(image_path).get("metadata", {})
+    except Exception:
+        orig_meta = {}
+    write_metadata(
+        image_path=path,
+        modality="dose",
+        unit="gy/h" if dose_rate else "gy",
+        weight=orig_meta.get("weight"),
+        activity=orig_meta.get("activity"),
+        injection_date=orig_meta.get("injection_date"),
+        acquisition_date=orig_meta.get("acquisition_date"),
+    )
+
+
+def _write_table(results: dict, path: Path) -> None:
+    logger.info(f"Saving dose results to: {path}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(results, f, indent=4)
 
 
 def pretty_print_dose(results: dict) -> None:
