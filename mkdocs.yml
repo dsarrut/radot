@@ -73,8 +73,10 @@ nav:
       - Radionuclide Physics: 5a_radionuclide.md
       - OpenDose Database: 5b_opendose.md
   - Dosimetry:
-      - Dosimetry Models: 6a_dose.md
-      - Statistics & Reporting: 6b_stats.md
+      - Dosimetry Overview: 6a_dose.md
+      - Organ-level Dosimetry: 6b_dose_organ.md
+      - Voxel-level Dosimetry: 6c_dose_voxel.md
+      - Statistics & Reporting: 6d_stats.md
       - Validation vs Monte Carlo: 7_validation_opengate.md
       - Validation vs SNMMI Challenge: 8_validation_snmmi.md
   - Reference:

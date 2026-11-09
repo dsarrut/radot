@@ -127,7 +127,9 @@ pytest -q                         # unit tests + validation levels that need no 
 
 Refer to these Markdown documents in the `docs/` directory for detailed specifications and user guides:
 *   [quickstart.md](docs/quickstart.md): End-to-end CLI usage and Python API workflows.
-*   [6a_dose.md](docs/6a_dose.md): Mathematical formulations for LDM, Hänscheid, and Madsen dosimetry models.
+*   [6a_dose.md](docs/6a_dose.md): Dosimetry overview: organ vs voxel level, energy deposition × time model table, choosing a method, inputs/outputs, CLI and API.
+*   [6b_dose_organ.md](docs/6b_dose_organ.md): Organ-level methods (S-values, mass scaling, Hänscheid 2017/2018, Madsen 2018, svalue, Jackson 2013).
+*   [6c_dose_voxel.md](docs/6c_dose_voxel.md): Voxel-level methods (LDM, cascade, dose rate, external Monte Carlo map, ROI uncertainty).
 *   [3a_images_units.md](docs/3a_images_units.md): Unit conversions (`bq`, `bqml`, `suv`, `sul`) and LBM strategies.
 *   [5a_radionuclide.md](docs/5a_radionuclide.md): ICRP-107 and IAEA LiveChart decay cascade data integration and prioritization.
 *   [1a_dicom.md](docs/1a_dicom.md): DICOM conversion, series sorting, and sidecar metadata extraction.
@@ -135,7 +137,7 @@ Refer to these Markdown documents in the `docs/` directory for detailed specific
 *   [2a_segmentation.md](docs/2a_segmentation.md): TotalSegmentator automation and TG-263 label mapping.
 *   [4_images_resample.md](docs/4_images_resample.md): Grid resampling and total activity preservation.
 *   [2b_roi_names.md](docs/2b_roi_names.md): Comprehensive ROI mapping policy and cascade stages.
-*   [6b_stats.md](docs/6b_stats.md): Volume, mass, and statistical dosimetry reporting.
+*   [6d_stats.md](docs/6d_stats.md): Volume, mass, and statistical dosimetry reporting.
 *   [5b_opendose.md](docs/5b_opendose.md): OpenDose S-values and phantom caching.
 *   [3c_peak.md](docs/3c_peak.md): SUVpeak equations, spherical volume integration, and Gaussian filtering.
 *   [1c_check.md](docs/1c_check.md): `radot check`, input quality checks, levels, thresholds.

@@ -60,5 +60,5 @@ For more examples and workflows, see the [Quickstart Guide](quickstart.md).
 3. **Unit Conversion**: Converts image voxel values between `bq`, `bqml`, `suv`, and `sul` ([Documentation](3a_images_units.md)).
 4. **Image Resampling**: Isotropic and grid-matching resampling while strictly preserving total radioactivity ([Documentation](4_images_resample.md)).
 5. **Radionuclide Physics Data**: Queries ICRP Publication 107 emissions spectra, IAEA LiveChart decay cascades, and OpenDose S-values ([Documentation](5a_radionuclide.md)).
-6. **Dosimetry Models**: Implements Local Deposition Model (LDM, voxel-level with daughter cascade support), Hänscheid (2017/2018), Madsen (2018), and Jackson (2013) tri-exponential MTP models ([Documentation](6a_dose.md)).
+6. **Dosimetry Models**: Implements Local Deposition Model (LDM, voxel-level with daughter cascade support), Hänscheid (2017/2018), Madsen (2018), and Jackson (2013) tri-exponential MTP models: [overview](6a_dose.md), [organ level](6b_dose_organ.md), [voxel level](6c_dose_voxel.md).
 
