@@ -268,6 +268,7 @@ def write_metadata(
     time_from_injection: Optional[str] = None,
     height: Optional[float] = None,
     sex: Optional[str] = None,
+    radionuclide: Optional[str] = None,
 ) -> None:
     """
     Write or merge metadata fields in the JSON sidecar file.
@@ -292,6 +293,13 @@ def write_metadata(
         if norm_sex not in ("male", "female"):
             raise ValueError(f"Invalid sex value: {sex}. Expected 'male' or 'female'.")
         sex = norm_sex
+
+    # Validate radionuclide if provided (known to ICRP 107)
+    if radionuclide is not None:
+        from radot.db import get_physical_half_life_h
+
+        radionuclide = radionuclide.strip()
+        get_physical_half_life_h(radionuclide)  # raises ValueError if unknown
 
     # Read existing metadata to merge
     existing_modality = get_metadata_case_insensitive(None, "modality", image_path)
@@ -387,6 +395,8 @@ def write_metadata(
         meta_dict["height"] = final_height
     if final_sex is not None:
         meta_dict["sex"] = final_sex
+    if radionuclide is not None:
+        meta_dict["radionuclide"] = radionuclide
 
     logger.info(f"Saving metadata to sidecar: {sidecar_path}")
     with open(sidecar_path, "w") as f:
@@ -478,6 +488,7 @@ def manage_metadata(
     time_from_injection: Optional[str] = None,
     height: Optional[float] = None,
     sex: Optional[str] = None,
+    radionuclide: Optional[str] = None,
 ) -> None:
     """
     Read or write metadata fields in the JSON sidecar file (wrapper for backward compatibility).
@@ -494,6 +505,7 @@ def manage_metadata(
             time_from_injection,
             height,
             sex,
+            radionuclide,
         )
     )
     if is_writing:
@@ -508,6 +520,7 @@ def manage_metadata(
             time_from_injection=time_from_injection,
             height=height,
             sex=sex,
+            radionuclide=radionuclide,
         )
     else:
         info_dict = read_metadata(image_path)

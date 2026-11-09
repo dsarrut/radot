@@ -63,6 +63,7 @@ nav:
   - Image Processing:
       - DICOM Conversion: 1a_dicom.md
       - Metadata Sidecars: 1b_meta.md
+      - Input Checks: 1c_check.md
       - CT Segmentation: 2a_segmentation.md
       - Standard ROI Names: 2b_roi_names.md
       - Units & Normalization: 3a_images_units.md

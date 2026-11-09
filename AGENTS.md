@@ -17,7 +17,7 @@ pytest -q                         # unit tests + validation levels that need no 
 
 ## 1. Project Principles & Architecture
 
-`radot` (Radiation Dosimetry for Therapy) provides tools to manage dosimetry calculations, image resampling, unit normalization, and metadata workflows in radionuclide therapy. The codebase adheres to the standard Python Packaging Authority (PyPA) **src-layout** (`src/radot/`).
+`radot` (Radiopharmaceutical Open Toolbox) provides tools to manage dosimetry calculations, image resampling, unit normalization, and metadata workflows in radionuclide therapy. The codebase adheres to the standard Python Packaging Authority (PyPA) **src-layout** (`src/radot/`).
 
 ### Directory Structure & Module Responsibilities
 *   **`src/radot/meta.py`**: Reads/writes metadata from/to companion JSON sidecars. Ensures standard unit defaults and provides time-from-injection calculation helper methods.
@@ -28,6 +28,7 @@ pytest -q                         # unit tests + validation levels that need no 
 *   **`src/radot/db.py`**: Coordinates radionuclide physical data (using `icrp107-database`), decay chain network trees and cumulative secular equilibrium yields from curated IAEA LiveChart data (`decay_chains.json`), and OpenDose reference masses and S-values (CC BY-SA 4.0): masses and Lu177 shipped, the rest downloaded once from Zenodo (checksum) into the user cache (`$RADOT_DATA_DIR` or `~/.cache/radot`), OpenDose website as fallback. Never write into the installed package.
 *   **`src/radot/nomenclature.py`**: Encapsulates the 3-stage cascading mapping dictionary logic between segmentations (TotalSegmentator), clinical naming standards (AAPM TG-263), and reference phantoms (OpenDose).
 *   **`src/radot/convert.py`**: Handles conversion of image voxel values and files between radioactivity units (`bq`, `bqml`, `suv`, `sul`), using patient weight, injected activity, height, sex, and Lean Body Mass (LBM) calculation methods.
+*   **`src/radot/check.py`**: `radot check`, quality control of the dosimetry inputs. Registry of checks (`register_check`, code `category.name`, declared inputs), `Finding` with a `Level` (OK, INFO, WARN, FAIL), thresholds in `data/check_thresholds.json` (sections, merged with a user file). Only reads the files and reports; never raises on a suspicious value. Plan: `dev_docs/dev_readme_075_check_qc.md`.
 *   **`src/radot/log.py`**: Configures package-level logging levels (`QUIET`, `INFO`, `DEBUG`) and formats standard outputs.
 *   **`src/radot/dose/`**: Dosimetry sub-package. The public API is re-exported by `radot/dose/__init__.py`: always import from `radot.dose`, and add any new public name there.
     *   `models.py`: dose formulas, voxel-level Local Deposition Model (LDM, with optional secular-equilibrium daughter cascade) and organ-level Hänscheid 2017/2018, Madsen 2018, S-value (TIA).
@@ -137,6 +138,7 @@ Refer to these Markdown documents in the `docs/` directory for detailed specific
 *   [6b_stats.md](docs/6b_stats.md): Volume, mass, and statistical dosimetry reporting.
 *   [5b_opendose.md](docs/5b_opendose.md): OpenDose S-values and phantom caching.
 *   [3c_peak.md](docs/3c_peak.md): SUVpeak equations, spherical volume integration, and Gaussian filtering.
+*   [1c_check.md](docs/1c_check.md): `radot check`, input quality checks, levels, thresholds.
 *   [logging.md](docs/logging.md): Configuration and levels of the package logging system.
 *   [python.md](docs/python.md): Python API reference and integration recipes.
 *   [7_validation_opengate.md](docs/7_validation_opengate.md): Generated comparison with OpenGATE (do not edit).
@@ -148,6 +150,7 @@ Refer to these Markdown documents in the `docs/` directory for detailed specific
 *   [dev_docs/old/dev_readme_060_opendose.md](dev_docs/old/dev_readme_060_opendose.md): OpenDose data hosting (Zenodo record 23841128, user cache, licence CC BY-SA 4.0), done.
 *   [dev_docs/old/dev_readme_080_opengate_validation.md](dev_docs/old/dev_readme_080_opengate_validation.md): OpenGATE validation history and decisions (done).
 *   [dev_docs/dev_readme_090_dose_engine_time_model.md](dev_docs/dev_readme_090_dose_engine_time_model.md): `--dose-rate-map` (external Monte Carlo dose rate) and the planned dose-rate engine × time model refactor.
+*   [dev_docs/dev_readme_075_check_qc.md](dev_docs/dev_readme_075_check_qc.md): Plan and status (step 1-2 done: framework, metadata checks, CLI) of `radot check`, a QC of the inputs (metadata, units, activity balance, geometry, ROIs).
 *   [dev_docs/dev_readme_082_snmmi_challenge.md](dev_docs/dev_readme_082_snmmi_challenge.md): Plan and status (T5 done) to evaluate radot with the SNMMI 177Lu Dosimetry Challenge data.
 *   [dev_docs/dev_readme_085_lesion_validation.md](dev_docs/dev_readme_085_lesion_validation.md): Plan (not started) for synthetic lesions in the OpenGATE validation and a sphere S-value model.
 

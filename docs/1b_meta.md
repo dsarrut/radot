@@ -60,6 +60,12 @@ Supported image metadata keys:
                       Format: YYYY-MM-DD HH:MM:SS
   - time_from_injection: Time elapsed from injection to acquisition (computed helper option, not stored directly).
                          Format: day:hours:min (e.g. 1:12:30)
+  - height: Patient height (in cm).
+            Format: floating point number
+  - sex: Patient sex.
+         Valid choices: male, female
+  - radionuclide: Radionuclide (option --radionuclide or --rad).
+                  Format: name known to ICRP 107 (e.g. Lu177, Y90, Tc99m)
 ```
 
 ---
@@ -79,6 +85,9 @@ radot meta <image_path> [options]
 * `--injection-date <YYYY-MM-DD HH:MM:SS>`: Injection timestamp.
 * `--acquisition-date <YYYY-MM-DD HH:MM:SS>`: Acquisition timestamp.
 * `--time-from-injection <day:hours:min>`: Time elapsed between injection and acquisition (e.g. 1:12:00 for 1 day and 12 hours).
+* `--height <float>`: Patient height in cm.
+* `--sex <male|female>`: Patient sex.
+* `--radionuclide <name>` (or `--rad`): Radionuclide, e.g. `Lu177`; must be known to ICRP 107.
 
 #### Default Unit Mapping:
 When saving metadata, if modality is specified but the unit is left empty, it defaults automatically:

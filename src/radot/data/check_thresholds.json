@@ -1,0 +1,102 @@
+{
+    "_comment": "Thresholds of radot check (heuristics, generous on purpose). Sections are merged with a user file given with --thresholds.",
+    "patient": {
+        "weight_kg": [20, 250],
+        "height_cm": [100, 220],
+        "bmi": [12, 60]
+    },
+    "time_from_injection": {
+        "max_half_lives": 10
+    },
+    "injected_activity_mbq": {
+        "_comment": "Plausible injected activity per radionuclide (MBq), therapy and imaging; 'default' for the others.",
+        "default": [0.01, 50000],
+        "ac225": [0.01, 1],
+        "ra223": [0.5, 15],
+        "th227": [0.1, 10],
+        "pb212": [10, 1000],
+        "at211": [10, 2000],
+        "lu177": [500, 12000],
+        "y90": [100, 15000],
+        "i131": [30, 15000],
+        "ho166": [100, 20000],
+        "sm153": [500, 8000],
+        "tb161": [500, 12000],
+        "f18": [50, 800],
+        "ga68": [30, 400],
+        "cu64": [50, 600],
+        "zr89": [10, 200],
+        "in111": [50, 600],
+        "tc99m": [50, 2000],
+        "i123": [30, 500],
+        "i124": [10, 300]
+    },
+    "ct": {
+        "_comment": "Values below padding_below_hu are padding outside the field of view (ignored). Max below mu_map_max: not HU.",
+        "padding_below_hu": -1100,
+        "mu_map_max": 50,
+        "air_hu": [-1100, -900],
+        "soft_tissue_peak_hu": [-150, 150],
+        "max_hu": 4000
+    },
+    "activity_image": {
+        "_comment": "Integer values with a max below counts_max: probably counts, not an activity.",
+        "max_negative_fraction": 0.01,
+        "counts_max": 65535
+    },
+    "suv": {
+        "max_suv": [0.5, 150]
+    },
+    "dose": {
+        "max_gy": 1000
+    },
+    "activity_balance": {
+        "_comment": "Fraction of the injected activity (decay-corrected) in the image: FAIL above max_fraction (units, calibration) or below min_fraction (uncalibrated counts), WARN below warn_below. mtp_tolerance: allowed excess over the physical decay between time points. lr_min_ratio: minimum ratio of the mean activity of left/right uptake organs (kidneys).",
+        "max_fraction": 1.1,
+        "min_fraction": 0.02,
+        "warn_below": 0.1,
+        "mtp_tolerance": 0.2,
+        "lr_min_ratio": 0.5
+    },
+    "geom": {
+        "_comment": "overlap: fraction of the activity inside the CT field of view. organs: substrings of ROI names (lower case) of the uptake organs checked by geom.overlap and geom.organ_shift. body: fraction of the activity inside the CT body (HU > -500, largest component, dilated). organ_shift: shift of the label within +-shift_search_mm that maximises its activity; WARN above shift_warn_mm if the counts increase by more than shift_min_gain; organs with a mean below min_uptake x the mean activity are skipped.",
+        "overlap_warn_below": 0.9,
+        "overlap_fail_below": 0.5,
+        "organ_inside_warn_below": 0.9,
+        "organs": ["liver", "kidney", "spleen"],
+        "body_dilation_mm": 15,
+        "body_warn_below": 0.9,
+        "body_fail_below": 0.5,
+        "shift_search_mm": 30,
+        "shift_warn_mm": 15,
+        "shift_min_gain": 0.15,
+        "min_uptake": 1.5
+    },
+    "roi": {
+        "_comment": "min_volume_ml: smaller ROIs reported. mass_ratio: ROI mass (CT density) / OpenDose reference mass, only for these whole organs (OpenDose name, lower case). organ_side: patient side of unpaired organs (catches mirrored images). tissue_classes: substrings of the ROI name (lower case) -> class, first match; mean_hu: expected mean CT value per class.",
+        "min_volume_ml": 1.0,
+        "mass_ratio": {
+            "liver": [0.5, 3.0],
+            "spleen": [0.2, 5.0],
+            "left kidney": [0.4, 2.5],
+            "right kidney": [0.4, 2.5],
+            "pancreas": [0.3, 3.0],
+            "thyroid": [0.2, 5.0],
+            "prostate": [0.3, 5.0],
+            "brain": [0.6, 1.6]
+        },
+        "organ_side": {"liver": "R", "spleen": "L", "stomach": "L", "gallbladder": "R"},
+        "tissue_classes": {
+            "lung": ["lung"],
+            "cartilage": ["cartilage"],
+            "bone": ["vertebra", "rib", "femur", "humerus", "hip", "sacrum", "skull", "scapula", "clavicula", "sternum", "bone"],
+            "soft": ["liver", "kidney", "spleen", "pancreas", "heart", "brain", "prostate", "thyroid", "adrenal"]
+        },
+        "mean_hu": {
+            "lung": [-1000, -400],
+            "cartilage": [-100, 500],
+            "bone": [100, 1800],
+            "soft": [-60, 300]
+        }
+    }
+}

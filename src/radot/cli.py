@@ -20,7 +20,7 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 @click.version_option(version="0.1.0")
 @click.pass_context
 def main(ctx, verbose, quiet):
-    """radot: Radiation Dosimetry for Therapy command-line tools."""
+    """radot: Radiopharmaceutical Open Toolbox command-line tools."""
     if verbose and quiet:
         raise click.UsageError("Options --verbose and --quiet are mutually exclusive.")
     ctx.ensure_object(dict)
@@ -475,6 +475,12 @@ def common_meta_options(f):
         type=click.Choice(["male", "female"], case_sensitive=False),
         help="Patient sex.",
     )(f)
+    f = click.option(
+        "--radionuclide",
+        "--rad",
+        "radionuclide",
+        help="Radionuclide (e.g. Lu177).",
+    )(f)
     return f
 
 
@@ -504,6 +510,8 @@ def meta_list():
     sys.stdout.write("            Format: floating point number\n")
     sys.stdout.write("  - sex: Patient sex.\n")
     sys.stdout.write("         Valid choices: male, female\n")
+    sys.stdout.write("  - radionuclide: Radionuclide (option --radionuclide or --rad).\n")
+    sys.stdout.write("                  Format: name known to ICRP 107 (e.g. Lu177, Y90, Tc99m)\n")
 
 
 @main.command(name="meta")
@@ -519,6 +527,7 @@ def meta(
     time_from_injection,
     height,
     sex,
+    radionuclide,
 ):
     """Read or write image metadata fields."""
     _run_meta_command(
@@ -532,6 +541,7 @@ def meta(
         time_from_injection,
         height,
         sex,
+        radionuclide,
     )
 
 
@@ -548,6 +558,7 @@ def info(
     time_from_injection,
     height,
     sex,
+    radionuclide,
 ):
     """Alias for 'meta' command to read or write image metadata fields."""
     _run_meta_command(
@@ -561,6 +572,7 @@ def info(
         time_from_injection,
         height,
         sex,
+        radionuclide,
     )
 
 
@@ -575,6 +587,7 @@ def _run_meta_command(
     time_from_injection,
     height,
     sex,
+    radionuclide,
 ):
     from radot.meta import manage_metadata
 
@@ -590,6 +603,7 @@ def _run_meta_command(
             time_from_injection=time_from_injection,
             height=height,
             sex=sex,
+            radionuclide=radionuclide,
         )
     except Exception as e:
         handle_cli_exception(e)
@@ -1009,6 +1023,134 @@ def dose(
         )
     except Exception as e:
         handle_cli_exception(e)
+
+
+#### QUALITY CONTROL ####
+@main.command(name="check")
+@click.argument(
+    "activity_paths", nargs=-1, type=click.Path(exists=True, path_type=Path)
+)
+@click.option(
+    "--ct", "ct_path", type=click.Path(exists=True, path_type=Path), help="CT image."
+)
+@click.option(
+    "-l",
+    "--labels",
+    "labels_path",
+    type=click.Path(exists=True, path_type=Path),
+    help="Labels image.",
+)
+@click.option(
+    "--dose",
+    "dose_path",
+    type=click.Path(exists=True, path_type=Path),
+    help="Dose image.",
+)
+@click.option(
+    "-m",
+    "--method",
+    help="Planned dosimetry method (sets the required sidecar fields).",
+)
+@click.option(
+    "--only",
+    multiple=True,
+    help="Run only these checks or categories (e.g. meta, meta.patient). Comma-separated or repeated.",
+)
+@click.option(
+    "--skip",
+    multiple=True,
+    help="Skip these checks or categories. Comma-separated or repeated.",
+)
+@click.option(
+    "--thresholds",
+    "thresholds_path",
+    type=click.Path(exists=True, path_type=Path),
+    help="JSON file of thresholds, merged with the default ones.",
+)
+@click.option(
+    "-o",
+    "--output",
+    "output_path",
+    type=click.Path(path_type=Path),
+    help="Write all findings to a JSON report.",
+)
+@click.option(
+    "-a",
+    "--all",
+    "show_all",
+    is_flag=True,
+    help="Show all findings (OK and INFO too), not only WARN and FAIL.",
+)
+@click.option(
+    "--strict", is_flag=True, help="Exit code 1 on WARN too (default: on FAIL only)."
+)
+@click.option("--list", "list_checks", is_flag=True, help="List the checks and exit.")
+def check(
+    activity_paths,
+    ct_path,
+    labels_path,
+    dose_path,
+    method,
+    only,
+    skip,
+    thresholds_path,
+    output_path,
+    show_all,
+    strict,
+    list_checks,
+):
+    """Check the inputs of a dosimetry: metadata, units, geometry, ROIs.
+
+    ACTIVITY_PATHS: activity images (several = multi time points). The files
+    are only read, never modified; fix the sidecars with 'radot meta'.
+    """
+    import json
+    from radot.check import CHECKS, Level, run_checks, worst_level
+
+    if list_checks:
+        for code, c in CHECKS.items():
+            click.echo(f"{code:28s} [{', '.join(c.inputs) or 'any'}] {c.description}")
+        return
+    if not (activity_paths or ct_path or labels_path or dose_path):
+        raise click.UsageError("Give at least one image to check.")
+
+    def split(values):
+        return [v.strip() for s in values for v in s.split(",") if v.strip()]
+
+    try:
+        findings = run_checks(
+            activity=list(activity_paths),
+            ct=ct_path,
+            labels=labels_path,
+            dose=dose_path,
+            method=method,
+            thresholds=thresholds_path,
+            only=split(only),
+            skip=split(skip),
+        )
+    except Exception as e:
+        handle_cli_exception(e)
+
+    colors = {Level.OK: "green", Level.INFO: "blue", Level.WARN: "yellow", Level.FAIL: "red"}
+    min_level = Level.OK if show_all else Level.WARN
+    for f in findings:
+        if f.level < min_level:
+            continue
+        level = click.style(f"{f.level.name:5s}", fg=colors[f.level], bold=True)
+        subject = f"{f.subject}: " if f.subject else ""
+        click.echo(f"  {f.category:9s} {level} {f.code:26s} {subject}{f.message}")
+    n_warn = sum(f.level == Level.WARN for f in findings)
+    n_fail = sum(f.level == Level.FAIL for f in findings)
+    click.echo(f"\n  {len(findings)} findings: {n_warn} warnings, {n_fail} failures")
+
+    if output_path:
+        with open(output_path, "w", encoding="utf-8") as fh:
+            json.dump([f.to_dict() for f in findings], fh, indent=2)
+        click.echo(f"  Report written to {output_path}")
+
+    worst = worst_level(findings)
+    if worst == Level.FAIL or (strict and worst == Level.WARN):
+        raise SystemExit(1)
 
 
 #### OPENDOSE DATA MAINTENANCE ####
