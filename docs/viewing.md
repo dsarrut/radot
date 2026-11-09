@@ -41,6 +41,8 @@ radot segment ct.nii.gz -o labels.nii.gz
 vvv ct.nii.gz + labels.nii.gz
 ```
 
+![CT and the radot segmentation in vvv](images/vvv_segmentation.png)
+
 The ROIs have the TG-263 names of `labels.json`. Look for missing or truncated organs (field of view), and for organs that leak into their neighbours: the dose is a mean over the ROI, so a wrong ROI is a wrong dose.
 
 ### Check the SPECT/CT registration
@@ -48,6 +50,8 @@ The ROIs have the TG-263 names of `labels.json`. Look for missing or truncated o
 ```bash
 vvv ct.nii.gz,spect.nii.gz,jet + labels.nii.gz
 ```
+
+![SPECT fused on the CT, with the liver and kidney contours](images/vvv_spect_ct.png)
 
 The activity must be inside the body and on the organs. Do it at least when [`radot check`](1c_check.md) warns on `geom.activity_in_body` or `geom.organ_shift`: the message gives the organ and the direction of the shift (e.g. "Kidney_L 20 mm anterior"). radot does not register images: fix the registration with your own tools, then recompute.
 
@@ -58,7 +62,11 @@ radot dose spect.nii.gz -l labels.nii.gz --ct ct.nii.gz -m ldm --isotope Lu177 -
 vvv ct.nii.gz,dose.nii.gz + labels.nii.gz
 ```
 
+![LDM dose on the CT, isodoses 2 Gy (green), 4 Gy (yellow), 6 Gy (red)](images/vvv_dose.png)
+
 The dose image (`gy`) turns on the vvv **Dose** tool: isodose lines or colorwash, normalisation (max, prescription, ROI mean), and the dose-volume histogram of each ROI (see [vvv Dose & DVH](https://github.com/dsarrut/vvv/blob/main/user_docs/doc_16_dose.md)). The same works on a dose-rate image (`--dose-rate`, Gy/h) and on an OpenGATE dose-rate map with a `gy/s` sidecar.
+
+The isodose levels are percentages of a reference dose: set the reference (e.g. **Prescription** 10 Gy, then 60 %, 40 %, 20 % are 6, 4, 2 Gy) to draw lines at absolute doses.
 
 The vvv ROI mean is the mean of the voxel values; the radot ROI mean (`dose_rois.json`) is weighted by the voxel masses from the CT density. They differ slightly where the density varies (lung, bone edges).
 
@@ -77,6 +85,8 @@ vvv dose_ldm.nii.gz gate_dose_rate.mhd -s
 ```
 
 For example the radot LDM and an OpenGATE map (see [external dose-rate map](6c_dose_voxel.md#2-external-dose-rate-map-monte-carlo)): the photons and the cross-doses appear outside the uptake organs in the Monte Carlo map only. The OpenGATE map is per simulated activity (e.g. Gy/s for 1 MBq): use the **Scale** of the Dose tool, or the max normalisation, to compare the shapes.
+
+The images on this page: p142 CT and TotalSegmentator labels from the radot OpenGATE validation data ([Zenodo](https://doi.org/10.5281/zenodo.23809698), CC-BY 4.0), with a synthetic Lu-177 SPECT (uptake in the liver, kidneys and spleen) and its radot LDM dose; coronal slices.
 
 ---
 
