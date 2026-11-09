@@ -364,7 +364,7 @@ def resample(
     "--radionuclide",
     "--isotope",
     type=str,
-    help="Radionuclide / isotope (e.g. Ga-68, F-18, PSMA, FDG) for decay correction.",
+    help="Radionuclide (e.g. F18, Ga68, Lu177; not a tracer name) for the decay correction of SUV/SUL.",
 )
 @click.option(
     "--injection-date",
@@ -379,7 +379,7 @@ def resample(
 @click.option(
     "--decay-factor",
     type=float,
-    help="Explicit decay correction factor to apply directly.",
+    help="Explicit decay factor of the injected activity (1 = no decay correction), instead of the dates.",
 )
 def convert_units(
     image_path,

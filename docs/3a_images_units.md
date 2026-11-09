@@ -14,6 +14,18 @@
 | `suv` | Standardized Uptake Value (normalized by patient total body weight) | Dimensionless (typically $0.1 - 30$) | Injected activity ($A_{\text{inj}}$ in MBq), Patient body weight ($W$ in kg) |
 | `sul` | Standardized Uptake Value normalized by Lean Body Mass (LBM) | Dimensionless | Injected activity, Patient weight, plus height & sex (analytical) or fat segmentation mask |
 
+### Decay of the injected activity (SUV and SUL)
+
+The SUV compares the activity concentration at the acquisition time with the injected activity **decayed to the acquisition time**:
+
+$$\text{SUV} = \frac{C(t_{\text{acq}})}{A_{\text{inj}} \cdot 2^{-\Delta t / T_{1/2}} / W}, \qquad \Delta t = t_{\text{acq}} - t_{\text{inj}}$$
+
+radot needs the radionuclide, the injection date and the acquisition date for every conversion between an activity unit (`bq`, `bqml`) and `suv` / `sul` (options, else the sidecar). Between `suv` and `sul` the decayed activity cancels out and no date is needed. If one of them is missing, the conversion stops with an error: without decay, the SUV of an F-18 image 1 h after injection would be 32 % too low. Set them with `radot meta`, or give `--decay-factor 1` to convert without decay correction on purpose (e.g. an image already normalised elsewhere). `--decay-factor F` uses the factor $F = 2^{\Delta t / T_{1/2}}$ directly.
+
+* The radionuclide must be a radionuclide (`F18`, `Ga68`, `Lu177`), not a tracer name: `PSMA` or `DOTATATE` can be labelled with Ga-68 or Lu-177.
+* If the image is decay-corrected to the injection time (DICOM Decay Correction `ADMIN`, sidecar `"decay_correction": "admin"` written by `radot dicom`), the injected activity is not decayed. With `START` (the usual case) it is.
+* The sidecar of a SUV/SUL image records `decay_correction_factor`, `decay_delay_minutes` and `decay_correction_reference: injection_time`. Converting it back to `bqml` gives the activity concentration at the acquisition time again.
+
 ---
 
 ## SUL (Lean Body Mass SUV): Principles & Methods
@@ -99,6 +111,8 @@ radot convert-units <image_path> -t <to_unit> [options]
 * `--sex <male|female>`: Patient sex (Required for analytical SUL methods, if not present in the sidecar).
 * `--lbm-method <james|janmahasatian|segmentation>`: Method used to compute Lean Body Mass (LBM). Defaults to `james`.
 * `-l, --labels <labels_path>`: Path to a label map image (Required if `--lbm-method segmentation` is used to subtract fat volume).
+* `--radionuclide <name>`, `--injection-date`, `--acquisition-date`: decay of the injected activity for SUV/SUL (Required if not present in the sidecar).
+* `--decay-factor <float>`: explicit decay factor instead of the dates; `1` converts without decay correction.
 
 #### Fat Labels Resolution under `segmentation` method:
 When using `--lbm-method segmentation`, the labels are resolved from the companion sidecar JSON of the `--labels` image. A label is identified as fat/adipose tissue (to be subtracted from total body weight) if its lowercase name satisfies either of:
@@ -119,9 +133,15 @@ This includes standard TotalSegmentator and TG-263 classes such as:
 radot convert-units spect.nii.gz -t bq
 ```
 
-2. Convert a PET image from Bq to SUV, specifying patient weight and injected activity explicitly:
+2. Convert a PET image from Bq to SUV, specifying patient weight and injected activity explicitly (radionuclide and dates read from the sidecar):
 ```bash
 radot convert-units pet.nii.gz -t suv --weight 75.0 --activity 250.0
+```
+
+   The same with all the decay information on the command line, or explicitly without decay correction:
+```bash
+radot convert-units pet.nii.gz -t suv --radionuclide F18 --injection-date "2026-01-10 09:00:00" --acquisition-date "2026-01-10 10:00:00"
+radot convert-units pet.nii.gz -t suv --decay-factor 1
 ```
 
 3. Convert a PET image from SUV to SUL using the James formula:
@@ -158,10 +178,13 @@ suv_img = convert_image_units(
     from_unit="bqml",
     to_unit="suv",
     weight=75.0,
-    activity=250.0
+    activity=250.0,
+    radionuclide="F18",
+    injection_date="2026-01-10 09:00:00",
+    acquisition_date="2026-01-10 10:00:00",
 )
 
-# Convert from SUV to SUL using the Janmahasatian formula
+# Convert from SUV to SUL (no decay needed between SUV and SUL) using the Janmahasatian formula
 sul_img = convert_image_units(
     image=suv_img,
     from_unit="suv",
@@ -193,6 +216,9 @@ convert_image_units_file(
     activity=220.0,
     height=180.0,
     sex="male",
-    lbm_method="james"
+    lbm_method="james",
+    radionuclide="F18",  # decay of the injected activity (or from the sidecar)
+    injection_date="2026-01-10 09:00:00",
+    acquisition_date="2026-01-10 10:00:00",
 )
 ```

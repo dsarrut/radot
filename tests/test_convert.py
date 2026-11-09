@@ -1,6 +1,7 @@
 import pytest
 import numpy as np
 import SimpleITK as sitk
+from click.testing import CliRunner
 from radot.convert import convert_image_units
 
 
@@ -38,14 +39,14 @@ def test_convert_bqml_to_suv():
     # Expected SUV factor = 250,000,000 / 75,000 = 3333.333 Bq/g
     # SUV = 1000 / 3333.333 = 0.3
     converted = convert_image_units(
-        image, from_unit="bqml", to_unit="suv", weight=75.0, activity=250.0
+        image, from_unit="bqml", to_unit="suv", weight=75.0, activity=250.0, decay_factor=1.0
     )
     res_arr = sitk.GetArrayFromImage(converted)
     assert res_arr[0, 0, 0] == pytest.approx(0.3)
 
     # Convert back
     back = convert_image_units(
-        converted, from_unit="suv", to_unit="bqml", weight=75.0, activity=250.0
+        converted, from_unit="suv", to_unit="bqml", weight=75.0, activity=250.0, decay_factor=1.0
     )
     back_arr = sitk.GetArrayFromImage(back)
     assert back_arr[0, 0, 0] == pytest.approx(1000.0)
@@ -97,10 +98,17 @@ def test_convert_metadata_fallback(tmp_path):
     image.SetSpacing((1.0, 1.0, 1.0))
     sitk.WriteImage(image, str(image_path))
 
-    # Set metadata: unit=bqml, modality=pet, weight=75.0, activity=250.0
+    # Set metadata: unit=bqml, modality=pet, weight=75.0, activity=250.0, scan at the injection time
     manage_metadata(
-        image_path, modality="pet", unit="bqml", weight=75.0, activity=250.0
+        image_path,
+        modality="pet",
+        unit="bqml",
+        weight=75.0,
+        activity=250.0,
+        injection_date="2026-01-10 10:00:00",
+        acquisition_date="2026-01-10 10:00:00",
     )
+    _set_radionuclide(image_path, "F18")
 
     runner = CliRunner()
     # Run conversion without specifying --from-unit, --weight, or --activity (should read from metadata)
@@ -201,6 +209,7 @@ def test_convert_bqml_to_sul_james():
         height=175.0,
         sex="male",
         lbm_method="james",
+        decay_factor=1.0,
     )
     res_arr = sitk.GetArrayFromImage(converted)
     assert res_arr[0, 0, 0] == pytest.approx(0.22608, rel=1e-3)
@@ -227,7 +236,10 @@ def test_convert_units_cli_sul(tmp_path):
         activity=250.0,
         height=175.0,
         sex="male",
+        injection_date="2026-01-10 10:00:00",
+        acquisition_date="2026-01-10 10:00:00",
     )
+    _set_radionuclide(image_path, "F18")
 
     runner = CliRunner()
     output_path = tmp_path / "out_sul.nii.gz"
@@ -265,23 +277,24 @@ def test_compute_decay_correction():
     assert delay == pytest.approx(67.71, rel=1e-3)
     assert factor == pytest.approx(2.0, rel=1e-3)
 
-    # Tracer alias 'psma' should map to Ga-68
-    factor_psma, delay_psma = compute_decay_correction(
+    # F-18 (half-life = 109.77 min), other date format
+    factor_f18, delay_f18 = compute_decay_correction(
         injection_date="2021/04/28, 10:00:00",
-        acquisition_date="2021/04/28, 11:07:43",
-        radionuclide="psma",
+        acquisition_date="2021/04/28, 11:49:46.2",
+        radionuclide="F18",
     )
-    assert delay_psma == pytest.approx(67.7166, rel=1e-3)
-    assert factor_psma == pytest.approx(2.0, rel=1e-3)
+    assert delay_f18 == pytest.approx(109.77, rel=1e-3)
+    assert factor_f18 == pytest.approx(2.0, rel=1e-3)
 
-    # FDG (half-life = 109.77 min)
-    factor_fdg, delay_fdg = compute_decay_correction(
-        injection_date="2021-04-28 10:00:00",
-        acquisition_date="2021-04-28 11:49:46.2",
-        radionuclide="fdg",
-    )
-    assert delay_fdg == pytest.approx(109.77, rel=1e-3)
-    assert factor_fdg == pytest.approx(2.0, rel=1e-3)
+    # A tracer name is not a radionuclide ('psma' can be Ga-68 or Lu-177)
+    for tracer in ("psma", "fdg"):
+        with pytest.raises(ValueError):
+            compute_decay_correction("2021-04-28 10:00:00", "2021-04-28 11:00:00", tracer)
+    # acquisition before injection, unreadable date
+    with pytest.raises(ValueError):
+        compute_decay_correction("2021-04-28 10:00:00", "2021-04-28 09:00:00", "F18")
+    with pytest.raises(ValueError):
+        compute_decay_correction("28 April", "2021-04-28 11:00:00", "F18")
 
     # Explicit decay factor
     factor_exp, _ = compute_decay_correction(decay_factor=1.85)
@@ -381,3 +394,85 @@ def test_convert_units_cli_with_decay(tmp_path):
     assert sidecar["decay_delay_minutes"] == pytest.approx(67.71, rel=1e-3)
     assert sidecar["decay_correction_reference"] == "injection_time"
     assert "sha256" in sidecar
+
+
+def _pet(tmp_path, **meta):
+    from radot.meta import manage_metadata
+
+    image_path = tmp_path / "pet.nii.gz"
+    image = sitk.GetImageFromArray(np.full((5, 5, 5), 1000.0, dtype=np.float32))
+    sitk.WriteImage(image, str(image_path))
+    rad = meta.pop("radionuclide", None)
+    manage_metadata(image_path, modality="pet", unit="bqml", weight=75.0, activity=250.0, **meta)
+    if rad:
+        _set_radionuclide(image_path, rad)
+    return image_path
+
+
+def test_convert_suv_decay_required(tmp_path):
+    from radot.cli import main
+
+    # no radionuclide nor dates: explicit error, not a silent conversion without decay
+    image_path = _pet(tmp_path)
+    with pytest.raises(ValueError, match="radionuclide, injection_date, acquisition_date"):
+        convert_image_units(sitk.ReadImage(str(image_path)), to_unit="suv", image_path=image_path)
+    result = CliRunner().invoke(main, ["convert-units", str(image_path), "-t", "suv"])
+    assert result.exit_code != 0 and "decay-factor" in result.output
+    # explicitly without decay
+    out = tmp_path / "out.nii.gz"
+    result = CliRunner().invoke(main, ["convert-units", str(image_path), "-t", "suv", "--decay-factor", "1", "-o", str(out)])
+    assert result.exit_code == 0, result.output
+    assert sitk.GetArrayFromImage(sitk.ReadImage(str(out)))[0, 0, 0] == pytest.approx(0.3)
+
+
+def test_convert_suv_decay_from_sidecar(tmp_path):
+    import json
+    from radot.cli import main
+
+    # F-18, one half-life after injection: SUV doubled; decay keys in the output sidecar
+    image_path = _pet(tmp_path, radionuclide="F18", injection_date="2021-04-28 10:00:00", acquisition_date="2021-04-28 11:49:46")
+    out = tmp_path / "out_suv.nii.gz"
+    result = CliRunner().invoke(main, ["convert-units", str(image_path), "-t", "suv", "-o", str(out)])
+    assert result.exit_code == 0, result.output
+    assert sitk.GetArrayFromImage(sitk.ReadImage(str(out)))[0, 0, 0] == pytest.approx(0.6, rel=1e-3)
+    meta = json.loads((tmp_path / "out_suv.json").read_text())
+    assert meta["decay_correction_factor"] == pytest.approx(2.0, rel=1e-3)
+    assert meta["decay_correction_reference"] == "injection_time"
+    # back to Bq/mL: activity at the acquisition time again, no decay keys
+    back = tmp_path / "back.nii.gz"
+    result = CliRunner().invoke(main, ["convert-units", str(out), "-t", "bqml", "-o", str(back)])
+    assert result.exit_code == 0, result.output
+    assert sitk.GetArrayFromImage(sitk.ReadImage(str(back)))[0, 0, 0] == pytest.approx(1000.0, rel=1e-3)
+    assert "decay_correction_reference" not in json.loads((tmp_path / "back.json").read_text())
+
+
+def test_convert_suv_decay_admin(tmp_path):
+    import json
+
+    # image decay-corrected to the injection time (DICOM ADMIN): the injected activity is not decayed
+    image_path = _pet(tmp_path, radionuclide="F18", injection_date="2021-04-28 10:00:00", acquisition_date="2021-04-28 11:49:46")
+    sidecar = tmp_path / "pet.json"
+    meta = json.loads(sidecar.read_text())
+    meta["decay_correction"] = "admin"
+    sidecar.write_text(json.dumps(meta))
+    converted = convert_image_units(sitk.ReadImage(str(image_path)), to_unit="suv", image_path=image_path)
+    assert sitk.GetArrayFromImage(converted)[0, 0, 0] == pytest.approx(0.3, rel=1e-3)
+
+
+def _set_radionuclide(image_path, radionuclide):
+    """Radionuclide in the sidecar (radot meta has no option for it on this branch)."""
+    import json
+    from radot.meta import get_sidecar_path
+
+    sidecar = get_sidecar_path(image_path)
+    meta = json.loads(sidecar.read_text())
+    meta["radionuclide"] = radionuclide
+    sidecar.write_text(json.dumps(meta))
+
+
+def test_convert_suv_to_sul_no_dates(tmp_path):
+    # SUV -> SUL: the decayed activity cancels out, no dates needed
+    image = sitk.GetImageFromArray(np.full((5, 5, 5), 2.0, dtype=np.float32))
+    sul = convert_image_units(image, from_unit="suv", to_unit="sul", weight=70.0, activity=250.0, height=175.0, sex="male")
+    # SUL = SUV x LBM / W, LBM (James, male 70 kg 175 cm) = 56.52 kg
+    assert sitk.GetArrayFromImage(sul)[0, 0, 0] == pytest.approx(2.0 * 56.52 / 70.0, rel=1e-3)

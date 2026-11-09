@@ -106,7 +106,9 @@ def compute_decay_correction(
         factor = 2.0 ** (delay_minutes / half_life_minutes)
     such that:
         A_scan = A_inj / factor
-    Returns (factor, delay_minutes). If dates or radionuclide cannot be parsed, returns (1.0, None).
+    Returns (factor, delay_minutes); (1.0, None) if a date or the radionuclide is missing (the caller
+    decides whether that is an error). Raises ValueError for an unknown radionuclide, an unreadable date
+    or an acquisition before the injection.
     """
 
     def _parse_dt(val):
@@ -150,43 +152,82 @@ def compute_decay_correction(
     if not injection_date or not acquisition_date or not radionuclide:
         return 1.0, None
 
-    tracer_clean = str(radionuclide).strip().lower()
-    tracer_map = {
-        "psma": "Ga-68",
-        "ga68": "Ga-68",
-        "ga-68": "Ga-68",
-        "fdg": "F-18",
-        "f18": "F-18",
-        "f-18": "F-18",
-        "dotatate": "Ga-68",
-    }
-    isotope = tracer_map.get(tracer_clean, str(radionuclide).strip())
+    # A radionuclide, not a tracer name: 'PSMA' or 'DOTATATE' can be Ga-68 or Lu-177
+    from radot.db import get_physical_half_life_h
 
-    try:
-        from radot.db import get_physical_half_life_h
-
-        half_life_minutes = get_physical_half_life_h(isotope) * 60.0
-    except Exception as e:
-        logger.warning(
-            f"Could not resolve half-life for radionuclide '{radionuclide}': {e}"
-        )
-        return 1.0, None
+    half_life_minutes = get_physical_half_life_h(str(radionuclide).strip()) * 60.0
 
     if delay_minutes is None:
         t_inj = _parse_dt(injection_date)
         t_acq = _parse_dt(acquisition_date)
         if t_inj is None or t_acq is None:
-            return 1.0, None
+            bad = injection_date if t_inj is None else acquisition_date
+            raise ValueError(f"Invalid date '{bad}' for the decay correction (expected YYYY-MM-DD HH:MM:SS).")
         delay_minutes = (t_acq - t_inj).total_seconds() / 60.0
 
     if delay_minutes < 0:
-        logger.warning(
-            f"Negative scan delay ({delay_minutes:.1f} min): acquisition ({t_acq}) before injection ({t_inj})."
+        raise ValueError(
+            f"Negative scan delay ({delay_minutes:.1f} min): acquisition ({acquisition_date}) before injection ({injection_date})."
         )
-        return 1.0, None
 
     factor = 2.0 ** (delay_minutes / half_life_minutes)
     return float(factor), float(delay_minutes)
+
+
+def from_unit_is_activity(unit: Optional[str]) -> bool:
+    return (unit or "").lower() in ("bq", "bqml")
+
+
+def resolve_decay_factor(
+    image: Optional[sitk.Image],
+    image_path: Optional[Path] = None,
+    radionuclide: Optional[str] = None,
+    injection_date: Optional[Union[str, datetime]] = None,
+    acquisition_date: Optional[Union[str, datetime]] = None,
+    decay_factor: Optional[float] = None,
+) -> float:
+    """
+    Decay factor of the injected activity to the acquisition time, for SUV/SUL: options first, then the
+    image metadata. 1.0 if the image is decay-corrected to the injection time (DICOM decay correction
+    ADMIN). Raises ValueError if the radionuclide or a date is missing: give them (radot meta), or
+    decay_factor=1.0 to convert without decay correction on purpose.
+    """
+    from radot.meta import get_metadata_case_insensitive
+
+    if decay_factor is not None:
+        if float(decay_factor) <= 0:
+            raise ValueError("The decay factor must be positive.")
+        return float(decay_factor)
+    reference = get_metadata_case_insensitive(image, "decay_correction", image_path)
+    if reference is not None and reference.strip().lower() == "admin":
+        logger.info("Image decay-corrected to the injection time (ADMIN): no decay of the injected activity.")
+        return 1.0
+    if radionuclide is None:
+        radionuclide = get_metadata_case_insensitive(
+            image, "radionuclide", image_path
+        ) or get_metadata_case_insensitive(image, "isotope", image_path)
+    if injection_date is None:
+        injection_date = get_metadata_case_insensitive(image, "injection_date", image_path)
+    if acquisition_date is None:
+        acquisition_date = get_metadata_case_insensitive(image, "acquisition_date", image_path)
+    missing = [
+        name
+        for name, value in (
+            ("radionuclide", radionuclide),
+            ("injection_date", injection_date),
+            ("acquisition_date", acquisition_date),
+        )
+        if not value
+    ]
+    if missing:
+        raise ValueError(
+            f"SUV/SUL conversion: the injected activity must be decayed to the acquisition time, but "
+            f"{', '.join(missing)} not found in the options or the image metadata. Set them (radot meta), "
+            f"or give --decay-factor 1 to convert without decay correction."
+        )
+    factor, delay = compute_decay_correction(injection_date, acquisition_date, radionuclide)
+    logger.info(f"Decay of the injected activity: {delay:.1f} min, factor {factor:.4f}")
+    return factor
 
 
 def convert_image_units(
@@ -261,27 +302,13 @@ def convert_image_units(
         if activity <= 0:
             raise ValueError("Activity must be positive.")
 
-    # 3. Resolve decay correction parameters if converting bqml to SUV/SUL
-    if decay_factor is None:
-        if radionuclide is None:
-            radionuclide = get_metadata_case_insensitive(
-                image, "radionuclide", image_path
-            ) or get_metadata_case_insensitive(image, "isotope", image_path)
-        if injection_date is None:
-            injection_date = get_metadata_case_insensitive(
-                image, "injection_date", image_path
-            )
-        if acquisition_date is None:
-            acquisition_date = get_metadata_case_insensitive(
-                image, "acquisition_date", image_path
-            )
-
-    decay_corr_factor, _ = compute_decay_correction(
-        injection_date=injection_date,
-        acquisition_date=acquisition_date,
-        radionuclide=radionuclide,
-        decay_factor=decay_factor,
-    )
+    # 3. Decay of the injected activity to the acquisition time, between an activity unit and SUV/SUL
+    # (from SUV to SUL, or back, the decayed activity cancels out)
+    decay_corr_factor = 1.0
+    if from_unit_is_activity(from_unit) != from_unit_is_activity(to_unit):
+        decay_corr_factor = resolve_decay_factor(
+            image, image_path, radionuclide, injection_date, acquisition_date, decay_factor
+        )
 
     effective_activity = activity
     if (
@@ -538,23 +565,29 @@ def convert_image_units_file(
     if final_radionuclide:
         new_meta["radionuclide"] = str(final_radionuclide)
 
-    # Compute decay correction parameters for metadata
-    decay_corr_factor, decay_delay_mins = compute_decay_correction(
-        injection_date=final_injection_date,
-        acquisition_date=final_acquisition_date,
-        radionuclide=final_radionuclide,
-        decay_factor=decay_factor,
-    )
-
-    if (
-        decay_factor is not None
-        or decay_delay_mins is not None
-        or (decay_corr_factor != 1.0 and to_unit in ("suv", "sul"))
-    ):
-        new_meta["decay_correction_factor"] = float(decay_corr_factor)
-        if decay_delay_mins is not None:
-            new_meta["decay_delay_minutes"] = float(decay_delay_mins)
+    if to_unit in ("suv", "sul") and not from_unit_is_activity(resolved_from_unit):
+        # SUV <-> SUL: same decay as the source
+        source = {}
+        sidecar = get_sidecar_path(image_path)
+        if sidecar.exists():
+            source = json.loads(sidecar.read_text())
+        for key in ("decay_correction_factor", "decay_delay_minutes", "decay_correction_reference"):
+            if key in source:
+                new_meta[key] = source[key]
+    elif to_unit in ("suv", "sul"):
+        # SUV/SUL: normalised by the injected activity decayed to the acquisition time
+        new_meta["decay_correction_factor"] = resolve_decay_factor(
+            image, image_path, final_radionuclide, final_injection_date, final_acquisition_date, decay_factor
+        )
+        if final_injection_date and final_acquisition_date and decay_factor is None:
+            _, delay = compute_decay_correction(final_injection_date, final_acquisition_date, final_radionuclide)
+            new_meta["decay_delay_minutes"] = delay
         new_meta["decay_correction_reference"] = "injection_time"
+    else:
+        # activity image: same time reference as the source (DICOM decay correction START/ADMIN/NONE)
+        reference = get_metadata_case_insensitive(image, "decay_correction", image_path)
+        if reference and from_unit_is_activity(resolved_from_unit):
+            new_meta["decay_correction"] = reference
 
     sha = compute_file_sha256(output_path)
     if sha:
