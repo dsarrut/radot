@@ -9,6 +9,8 @@ Two engines:
 
 **Output**: the dose image has `unit` `gy` (or `gy/h`) and `modality` `dose` in its sidecar. With labels, both the image and the ROI table are written (`-o dose.nii.gz` → `dose.nii.gz` and `dose_rois.json`). **ROI mean**: the mass-weighted mean of the voxel doses in the ROI, $\bar{D} = \sum_i D_i m_i / \sum_i m_i$ (voxel masses from the CT density).
 
+**Viewing**: `vvv ct.nii.gz,dose.nii.gz + labels.nii.gz` shows the dose map with isodoses and the DVH of each ROI (see [Viewing with vvv](viewing.md)).
+
 ---
 
 ## 1. Local Deposition Model (`ldm`)

@@ -32,9 +32,9 @@ radot meta-list
 # Segment CT using TotalSegmentator with dynamic AAPM TG-263 remapping
 radot segment ct.nii.gz -o labels.nii.gz
 
-# Check with vvv
+# Check with vvv (pip install open-vvv): segmentation, then SPECT/CT registration
 vvv ct.nii.gz + labels.nii.gz
-vvv ct.nii.gz, spect.nii.gz, jet
+vvv ct.nii.gz,spect.nii.gz,jet + labels.nii.gz
 
 # Compute stats on CT
 radot stats labels.nii.gz -i ct.nii.gz
@@ -76,6 +76,9 @@ radot dose spect.nii.gz -m ldm  --isotope lu177 --resample like_activity --verbo
 radot dose spect.nii.gz -m ldm  --isotope lu177 --resample like_activity --verbose --ct ct.nii.gz --dose-rate -o dose_rate.nii.gz
 
 radot stats labels_all.nii.gz -i dose.nii.gz --unit Gy --rois Liver --rois Kidney_L
+
+# Look at the dose map: isodoses and DVH per ROI in the vvv Dose tool
+vvv ct.nii.gz,dose.nii.gz + labels_all.nii.gz
 
 # list available methods
 radot dose-list
