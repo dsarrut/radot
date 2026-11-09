@@ -144,6 +144,7 @@ Refer to these Markdown documents in the `docs/` directory for detailed specific
 *   [5b_opendose.md](docs/5b_opendose.md): OpenDose S-values and phantom caching.
 *   [3c_peak.md](docs/3c_peak.md): SUVpeak equations, spherical volume integration, and Gaussian filtering.
 *   [1c_check.md](docs/1c_check.md): `radot check`, input quality checks, levels, thresholds.
+*   [viewing.md](docs/viewing.md): Viewing radot images with vvv (units and labels read from the sidecars, use cases, `.tfm` trap).
 *   [logging.md](docs/logging.md): Configuration and levels of the package logging system.
 *   [python.md](docs/python.md): Python API reference and integration recipes.
 *   [7_validation_opengate.md](docs/7_validation_opengate.md): Generated comparison with OpenGATE (do not edit).

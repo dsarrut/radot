@@ -53,6 +53,18 @@ compute_roi_dose_file(
 
 For more examples and workflows, see the [Quickstart Guide](quickstart.md).
 
+## Viewing the Images
+
+radot has no viewer: use [vvv](https://github.com/dsarrut/vvv) (`pip install open-vvv`), which reads the radot sidecars (units, organ names) and shows dose maps with isodoses and DVH:
+
+```bash
+vvv ct.nii.gz + labels.nii.gz                        # segmentation
+vvv ct.nii.gz,spect.nii.gz,jet + labels.nii.gz       # SPECT/CT registration
+vvv ct.nii.gz,dose.nii.gz + labels.nii.gz            # dose map, DVH per ROI
+```
+
+See [Viewing with vvv](viewing.md).
+
 ## Core Modules
 
 1. **DICOM Conversion**: Converts CT, SPECT, and PET series to NIfTI/NRRD with structured JSON metadata sidecars ([Documentation](1a_dicom.md)).

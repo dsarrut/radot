@@ -76,6 +76,8 @@ $ radot meta spect.nii.gz --rad Lu177       # a missing radionuclide
 | `roi.mass` | With a CT: mass (density from HU, as in `radot stats`) of whole organs (liver, spleen, kidneys, pancreas, thyroid, prostate, brain) vs the OpenDose reference mass for the patient sex (male if unknown). Lobes, vessels and muscles are parts of an OpenDose organ and are not compared. Truncated organs are not compared. |
 | `roi.density` | With a CT: mean HU of lungs, bones and soft-tissue organs in a plausible range; many failures mean labels misaligned with the CT. |
 
+A geometry or ROI warning is easiest to understand on the images: `vvv ct.nii.gz,spect.nii.gz,jet + labels.nii.gz` shows the activity, the organs and the shift (see [Viewing with vvv](viewing.md)).
+
 ## Thresholds
 
 The default thresholds are in `radot/data/check_thresholds.json`, one section per topic (`patient`, `time_from_injection`, `injected_activity_mbq` per radionuclide, `ct`, `activity_image`, `suv`, `dose`, `activity_balance`, `geom`, `roi`). They are heuristics, generous on purpose. A user file with the same sections overrides the values it contains, e.g. for a dosimetric study with low activities:

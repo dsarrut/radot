@@ -60,6 +60,7 @@ nav:
   - Getting Started:
       - Quickstart: quickstart.md
       - Python API: python.md
+      - Viewing with vvv: viewing.md
   - Image Processing:
       - DICOM Conversion: 1a_dicom.md
       - Metadata Sidecars: 1b_meta.md
