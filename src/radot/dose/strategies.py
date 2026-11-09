@@ -412,7 +412,8 @@ def compute_dose_generic(
                     raise ValueError(
                         f"Dosimetry Halt: {e}\n"
                         "Note: OpenDose lacks a single 'Skeleton' compartment and instead requires specific cortical/spongiosa targets.\n"
-                        "To proceed, you must explicitly provide an external S-value override file via the CLI parameters (e.g., using --custom-s-values override.json) or adjust your input sidecar JSON mapping definitions to explicitly match target OpenDose bone/tissue definitions."
+                        "To proceed: rename the ROI in the labels sidecar to an OpenDose organ (radot roi match), remove it "
+                        "from --rois, or use a method without S-values (hanscheid2017 for Lu177, ldm, or --dose-rate-map)."
                     )
             else:
                 raise e

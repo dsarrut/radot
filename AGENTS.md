@@ -11,7 +11,7 @@ pytest -q                         # unit tests + validation levels that need no 
 
 *   Never commit patient data or anything under `data/`. The SNMMI challenge data (CC BY-NC) and the outputs derived from it are never committed or redistributed.
 *   Commits use conventional prefixes (`feat:`, `fix:`, `docs:`, `test:`, ...).
-*   Planning and status notes are in `dev_docs/` (gitignored); start with `dev_docs/dev_readme_070_consolidate.md`.
+*   Planning and status notes are in `dev_docs/` (gitignored); start with `dev_docs/dev_readme_000_status.md` (work in progress, next steps, open plans).
 
 ---
 
@@ -28,7 +28,7 @@ pytest -q                         # unit tests + validation levels that need no 
 *   **`src/radot/db.py`**: Coordinates radionuclide physical data (using `icrp107-database`), decay chain network trees and cumulative secular equilibrium yields from curated IAEA LiveChart data (`decay_chains.json`), and OpenDose reference masses and S-values (CC BY-SA 4.0): masses and Lu177 shipped, the rest downloaded once from Zenodo (checksum) into the user cache (`$RADOT_DATA_DIR` or `~/.cache/radot`), OpenDose website as fallback. Never write into the installed package.
 *   **`src/radot/nomenclature.py`**: Encapsulates the 3-stage cascading mapping dictionary logic between segmentations (TotalSegmentator), clinical naming standards (AAPM TG-263), and reference phantoms (OpenDose).
 *   **`src/radot/convert.py`**: Handles conversion of image voxel values and files between radioactivity units (`bq`, `bqml`, `suv`, `sul`), using patient weight, injected activity, height, sex, and Lean Body Mass (LBM) calculation methods.
-*   **`src/radot/check.py`**: `radot check`, quality control of the dosimetry inputs. Registry of checks (`register_check`, code `category.name`, declared inputs), `Finding` with a `Level` (OK, INFO, WARN, FAIL), thresholds in `data/check_thresholds.json` (sections, merged with a user file). Only reads the files and reports; never raises on a suspicious value. Plan: `dev_docs/dev_readme_075_check_qc.md`.
+*   **`src/radot/check.py`**: `radot check`, quality control of the dosimetry inputs. Registry of checks (`register_check`, code `category.name`, declared inputs), `Finding` with a `Level` (OK, INFO, WARN, FAIL), thresholds in `data/check_thresholds.json` (sections, merged with a user file). Only reads the files and reports; never raises on a suspicious value. Plan and history: `dev_docs/old/dev_readme_075_check_qc.md`.
 *   **`src/radot/log.py`**: Configures package-level logging levels (`QUIET`, `INFO`, `DEBUG`) and formats standard outputs.
 *   **`src/radot/dose/`**: Dosimetry sub-package. The public API is re-exported by `radot/dose/__init__.py`: always import from `radot.dose`, and add any new public name there.
     *   `models.py`: dose formulas, voxel-level Local Deposition Model (LDM, with optional secular-equilibrium daughter cascade) and organ-level Hänscheid 2017/2018, Madsen 2018, S-value (TIA).
@@ -44,7 +44,10 @@ pytest -q                         # unit tests + validation levels that need no 
 *   **`tests/`**: Unit tests. They must run without patient data and without TotalSegmentator (tests needing it are skipped when it is not installed). `tests/conftest.py` mocks the OpenDose S-values with a module-scoped fixture (it must not leak into `validation/`).
 *   **`validation/opengate/`**: Comparison of radot organ doses with OpenGATE Monte Carlo on one patient CT (p142). Not part of the `radot` package. See section 3.
 *   **`docs/`**: mkdocs user documentation (`mkdocs.yml`). `docs/7_validation_opengate.md` and `docs/8_validation_snmmi.md` are generated, never edit them by hand.
-*   **`dev_docs/`**: Developer notes, numbered `dev_readme_NNN_<topic>.md` (gitignored, local only). Obsolete notes go to `dev_docs/old/`.
+*   **`dev_docs/`**: Developer notes, numbered `dev_readme_NNN_<topic>.md` (gitignored, local only).
+    *   `dev_readme_000_status.md`: one line per work item in progress (note, branch/PR, next step), the next steps and the open plans. Add a line when a work item starts.
+    *   `dev_readme_999_later.md`: postponed items, one section per closed note.
+    *   Closing a note: copy its postponed items into 999, remove its line from 000, move the note to `dev_docs/old/`. Picking up a postponed item: move it from 999 into a new note and add a line in 000.
 *   **`scripts/`**: Maintenance scripts (`update_decay_chains.py`, `compare_dosimetry.py`).
 *   **`.github/workflows/tests.yml`**: CI, `pip install -e ".[dev]"` then `pytest -q` on Python 3.11–3.14.
 
@@ -127,7 +130,9 @@ pytest -q                         # unit tests + validation levels that need no 
 
 Refer to these Markdown documents in the `docs/` directory for detailed specifications and user guides:
 *   [quickstart.md](docs/quickstart.md): End-to-end CLI usage and Python API workflows.
-*   [6a_dose.md](docs/6a_dose.md): Mathematical formulations for LDM, Hänscheid, and Madsen dosimetry models.
+*   [6a_dose.md](docs/6a_dose.md): Dosimetry overview: organ vs voxel level, energy deposition × time model table, choosing a method, inputs/outputs, CLI and API.
+*   [6b_dose_organ.md](docs/6b_dose_organ.md): Organ-level methods (S-values, mass scaling, Hänscheid 2017/2018, Madsen 2018, svalue, Jackson 2013).
+*   [6c_dose_voxel.md](docs/6c_dose_voxel.md): Voxel-level methods (LDM, cascade, dose rate, external Monte Carlo map, ROI uncertainty).
 *   [3a_images_units.md](docs/3a_images_units.md): Unit conversions (`bq`, `bqml`, `suv`, `sul`) and LBM strategies.
 *   [5a_radionuclide.md](docs/5a_radionuclide.md): ICRP-107 and IAEA LiveChart decay cascade data integration and prioritization.
 *   [1a_dicom.md](docs/1a_dicom.md): DICOM conversion, series sorting, and sidecar metadata extraction.
@@ -135,7 +140,7 @@ Refer to these Markdown documents in the `docs/` directory for detailed specific
 *   [2a_segmentation.md](docs/2a_segmentation.md): TotalSegmentator automation and TG-263 label mapping.
 *   [4_images_resample.md](docs/4_images_resample.md): Grid resampling and total activity preservation.
 *   [2b_roi_names.md](docs/2b_roi_names.md): Comprehensive ROI mapping policy and cascade stages.
-*   [6b_stats.md](docs/6b_stats.md): Volume, mass, and statistical dosimetry reporting.
+*   [6d_stats.md](docs/6d_stats.md): Volume, mass, and statistical dosimetry reporting.
 *   [5b_opendose.md](docs/5b_opendose.md): OpenDose S-values and phantom caching.
 *   [3c_peak.md](docs/3c_peak.md): SUVpeak equations, spherical volume integration, and Gaussian filtering.
 *   [1c_check.md](docs/1c_check.md): `radot check`, input quality checks, levels, thresholds.
@@ -145,12 +150,11 @@ Refer to these Markdown documents in the `docs/` directory for detailed specific
 *   [8_validation_snmmi.md](docs/8_validation_snmmi.md): Generated comparison with the SNMMI challenge participants (do not edit).
 *   [validation/opengate/README.md](validation/opengate/README.md): How the OpenGATE reference was produced and how to run each validation level.
 *   [validation/snmmi/README.md](validation/snmmi/README.md): SNMMI challenge data, how to prepare them and run T5.
-*   [dev_docs/dev_readme_083_sul.md](dev_docs/dev_readme_083_sul.md): SUL methods (done) and the proposed CT-based LBM method (`--lbm-method ct`, TODO).
-*   [dev_docs/dev_readme_070_consolidate.md](dev_docs/dev_readme_070_consolidate.md): Status of the work towards v0.1 (start here for planning).
-*   [dev_docs/old/dev_readme_060_opendose.md](dev_docs/old/dev_readme_060_opendose.md): OpenDose data hosting (Zenodo record 23841128, user cache, licence CC BY-SA 4.0), done.
-*   [dev_docs/old/dev_readme_080_opengate_validation.md](dev_docs/old/dev_readme_080_opengate_validation.md): OpenGATE validation history and decisions (done).
-*   [dev_docs/dev_readme_090_dose_engine_time_model.md](dev_docs/dev_readme_090_dose_engine_time_model.md): `--dose-rate-map` (external Monte Carlo dose rate) and the planned dose-rate engine × time model refactor.
-*   [dev_docs/dev_readme_075_check_qc.md](dev_docs/dev_readme_075_check_qc.md): Plan and status (step 1-2 done: framework, metadata checks, CLI) of `radot check`, a QC of the inputs (metadata, units, activity balance, geometry, ROIs).
+*   [dev_docs/dev_readme_000_status.md](dev_docs/dev_readme_000_status.md): Start here: work in progress, next steps, open plans.
+*   [dev_docs/dev_readme_999_later.md](dev_docs/dev_readme_999_later.md): Postponed items, by closed note.
 *   [dev_docs/dev_readme_082_snmmi_challenge.md](dev_docs/dev_readme_082_snmmi_challenge.md): Plan and status (T5 done) to evaluate radot with the SNMMI 177Lu Dosimetry Challenge data.
+*   [dev_docs/dev_readme_083_sul.md](dev_docs/dev_readme_083_sul.md): SUL methods (done) and the proposed CT-based LBM method (`--lbm-method ct`, TODO).
 *   [dev_docs/dev_readme_085_lesion_validation.md](dev_docs/dev_readme_085_lesion_validation.md): Plan (not started) for synthetic lesions in the OpenGATE validation and a sphere S-value model.
+*   [dev_docs/dev_readme_090_dose_engine_time_model.md](dev_docs/dev_readme_090_dose_engine_time_model.md): `--dose-rate-map` (external Monte Carlo dose rate) and the planned dose-rate engine × time model refactor.
+*   Closed notes in `dev_docs/old/`: 060 OpenDose hosting (Zenodo record 23841128), 070 consolidation towards v0.1, 075 `radot check`, 080 OpenGATE validation (history and decisions).
 

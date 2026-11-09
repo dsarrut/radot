@@ -664,11 +664,15 @@ def dose_list():
     sys.stdout.write(
         "  - hanscheid2018: Hanscheid 2018 method (uses OpenDose S-value database for phantom-specific regional dosimetry)\n"
     )
-    sys.stdout.write("                   Equation: Dose = TIA * S * mass_scaling\n")
+    sys.stdout.write(
+        "                   Equation: Dose = A(t) * Teff / ln2 * S / mass_scaling (Teff = 2t by default; mass_scaling = patient / phantom mass)\n"
+    )
     sys.stdout.write(
         "  - madsen2018: Madsen 2018 method (uses OpenDose S-value database for phantom-specific regional dosimetry and effective half-life)\n"
     )
-    sys.stdout.write("                Equation: Dose = TIA * S * mass_scaling\n")
+    sys.stdout.write(
+        "                Equation: Dose = A(t) * exp(k t) / k * S / mass_scaling (k = ln2 / Teff)\n"
+    )
     sys.stdout.write(
         "  - ldm: Local Deposition Model (3D voxel-level physical deposition dosimetry using non-penetrating decay emissions)\n"
     )
