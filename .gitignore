@@ -12,7 +12,8 @@ activate_*
 .DS_Store
 .vscode
 
-# work notes, local only (docs_dev/ is committed)
+# developer notes, local only
+docs_dev/
 docs_wip/
 *-workspace
 uv.lock
