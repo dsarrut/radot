@@ -11,7 +11,7 @@ pytest -q                         # unit tests + validation levels that need no 
 
 *   Never commit patient data or anything under `data/`. The SNMMI challenge data (CC BY-NC) and the outputs derived from it are never committed or redistributed.
 *   Commits use conventional prefixes (`feat:`, `fix:`, `docs:`, `test:`, ...).
-*   Read `docs_dev/` first: the values (001) and core principles (002) of radot; they decide what belongs in radot. Planning and status notes are in `docs_wip/` (gitignored); start with `docs_wip/dev_readme_000_status.md` (work in progress, next steps, open plans).
+*   If present, read `docs_dev/` first (local, gitignored): direction notes that decide what belongs in radot. Planning and status notes are in `docs_wip/` (gitignored); start with `docs_wip/dev_readme_000_status.md` (work in progress, next steps, open plans).
 
 ---
 
@@ -44,7 +44,7 @@ pytest -q                         # unit tests + validation levels that need no 
 *   **`tests/`**: Unit tests. They must run without patient data and without TotalSegmentator (tests needing it are skipped when it is not installed). `tests/conftest.py` mocks the OpenDose S-values with a module-scoped fixture (it must not leak into `validation/`).
 *   **`validation/opengate/`**: Comparison of radot organ doses with OpenGATE Monte Carlo on one patient CT (p142). Not part of the `radot` package. See section 3.
 *   **`docs/`**: mkdocs user documentation (`mkdocs.yml`). `docs/7_validation_opengate.md` and `docs/8_validation_snmmi.md` are generated, never edit them by hand.
-*   **`docs_dev/`**: Developer notes kept in git, never closed: `dev_readme_001_values.md` (why radot is worth developing now that agents write code: validation, reviewed decisions, curated data, QC, provenance) and `dev_readme_002_principles.md` (scope rule, three layers core / adapters / glue, explicit over silent, provenance, status per item). Change them only when the direction changes, and keep them consistent with section 2 below (the binding rules).
+*   **`docs_dev/`**: Direction notes (gitignored, local only), never closed. Change them only when the direction changes, and keep them consistent with section 2 below (the binding rules).
 *   **`docs_wip/`**: Work notes, numbered `dev_readme_NNN_<topic>.md` (gitignored, local only).
     *   `dev_readme_000_status.md`: one line per work item in progress (note, branch/PR, next step), the next steps and the open plans. Add a line when a work item starts.
     *   `dev_readme_999_later.md`: postponed items, one section per closed note.
@@ -152,8 +152,6 @@ Refer to these Markdown documents in the `docs/` directory for detailed specific
 *   [8_validation_snmmi.md](docs/8_validation_snmmi.md): Generated comparison with the SNMMI challenge participants (do not edit).
 *   [validation/opengate/README.md](validation/opengate/README.md): How the OpenGATE reference was produced and how to run each validation level.
 *   [validation/snmmi/README.md](validation/snmmi/README.md): SNMMI challenge data, how to prepare them and run T5.
-*   [docs_dev/dev_readme_001_values.md](docs_dev/dev_readme_001_values.md): The values of radot (direction).
-*   [docs_dev/dev_readme_002_principles.md](docs_dev/dev_readme_002_principles.md): Core principles (scope, layers, provenance), status per item.
 *   [docs_wip/dev_readme_000_status.md](docs_wip/dev_readme_000_status.md): Start here: work in progress, next steps, open plans.
 *   [docs_wip/dev_readme_999_later.md](docs_wip/dev_readme_999_later.md): Postponed items, by closed note.
 *   [docs_wip/dev_readme_082_snmmi_challenge.md](docs_wip/dev_readme_082_snmmi_challenge.md): Plan and status (T5 done) to evaluate radot with the SNMMI 177Lu Dosimetry Challenge data.
