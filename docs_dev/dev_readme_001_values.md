@@ -18,7 +18,7 @@ So radot's value is not its code. It is everything that makes a dose value trust
 
 ### 2.1 Validation evidence (the main asset)
 - A script written by an agent for one study is not validated. radot is compared with OpenGATE Monte Carlo (p142: Lu177, Y90, I131, Ac225) and with the SNMMI 177Lu Dosimetry Challenge participants, and `pytest validation` keeps these comparisons as regression tests.
-- A statement such as "liver self-dose within 2 % of Monte Carlo for Lu177 (LDM)" is worth more than the code that produces it.
+- A statement such as "liver self-dose within 0.4 % of OpenGATE Monte Carlo for Lu177 with LDM; Ac225 with the decay cascade within 2.7 %" is worth more than the code that produces it.
 - Consequence: **radot is worth as much as its validation covers.** Where a method is not validated, radot is barely better than an agent's script.
 
 ### 2.2 Domain decisions, written down and reviewed
@@ -37,7 +37,7 @@ So radot's value is not its code. It is everything that makes a dose value trust
 
 ### 2.5 Comparable and reproducible results between centres
 - The SNMMI challenge showed a large spread between participants. If every group has an agent write its own pipeline, the spread grows.
-- A shared, versioned, citable tool ("radot x.y, madsen2018, OpenDose v1.2") makes results comparable. This matters **more** now that code is cheap, not less.
+- A shared, versioned, citable tool ("radot x.y, madsen2018, OpenDose Zenodo record 23841128 v1.0") makes results comparable. This matters **more** now that code is cheap, not less.
 
 ### 2.6 Provenance (to build)
 - Every output records how it was obtained: versions, data checksums, parameters and where each came from, fallbacks and decisions, QC findings.

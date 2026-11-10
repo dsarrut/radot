@@ -26,8 +26,8 @@ Second bound: **the core does not grow faster than what can be validated and mai
 | Nomenclature TS → TG-263 → OpenDose | wrong mapping = wrong S-value, silently |
 | Units, SUV/SUL, LBM (`convert`) | formula and unit traps |
 | Activity-preserving resampling | the invariants are the value, SimpleITK does the rest |
-| Mass from CT density, DVH, SUVpeak, ROI stats | definitions must be identical everywhere |
-| DICOM **metadata** extraction | injection time and activity, decay-correction flags, vendor SPECT scaling |
+| Mass from CT density, SUVpeak, ROI stats; DVH **[todo]** (mass-weighted; today only in vvv, per voxel) | definitions must be identical everywhere |
+| DICOM **metadata** extraction | injection time and activity, decay-correction flags; vendor SPECT scaling **[todo]** |
 | Sidecar and results schemas | the contract between tools |
 | `radot check` | QC |
 | Provenance | see section 6 |
@@ -87,9 +87,11 @@ Second bound: **the core does not grow faster than what can be validated and mai
 
 ---
 
-## 6. Provenance **[todo]**
+## 6. Provenance **[partial]**
 
 Every result carries the record of how it was produced, so any dose can be traced, reproduced and explained without asking who ran it.
+
+Today: `convert-units` writes the output `sha256` and the decay-correction keys (`decay_correction_factor`, `decay_correction_reference`) in the sidecar; downloaded OpenDose data are checksummed. No `provenance` block yet; these keys move into it.
 
 ### 6.1 Content
 A `provenance` block in every output sidecar and results JSON:
@@ -121,7 +123,7 @@ A `provenance` block in every output sidecar and results JSON:
 
 ## 8. Agent-legible by design **[partial]**
 
-- Structured outputs: every command can write JSON (`--json` / `-o *.json`) **[partial]**.
+- Structured outputs: every command can write JSON **[partial]**: today only through `-o *.json` (`dose`, `stats`, `check`); `meta`, `radionuclide`, `opendose`, `roi` print text only; no `--json` option yet.
 - Stable names and schemas (sidecar, results, check report), versioned.
 - Errors that state the fix (section 3).
 - A **user-facing** agent guide (skill / `SKILL.md`): pipeline, method choice, traps, `radot check` first **[todo]**. `AGENTS.md` stays the developer guide.
