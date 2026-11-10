@@ -3,7 +3,7 @@
 radot reads and writes plain images (NIfTI, MHD, NRRD) with a JSON sidecar; it has no viewer. To look at the images, use [vvv](https://github.com/dsarrut/vvv), a fast 3D/4D viewer from the same author:
 
 ```bash
-pip install open-vvv      # the package is open-vvv, the command is vvv
+pip install "open-vvv>=0.8"      # the package is open-vvv, the command is vvv
 ```
 
 vvv reads the same sidecars as radot: the radot images open with their **units** and the label maps with their **organ names**, without conversion. Look at the images at each step: most wrong doses come from the inputs (segmentation, registration, units), and they show at a glance.
@@ -26,7 +26,7 @@ vvv reads the same sidecars as radot: the radot images open with their **units**
 vvv only changes its own keys (`unit`, labels) when it saves: the radot keys (radionuclide, activity, dates, weight, ...) are kept.
 
 !!! note "vvv version"
-    The units `bq` (per voxel), `bqs`, `bqsml`, `gy/h`, `gy/s`, and the Dose tool on dose rates, need a vvv version after 0.7.0 ([vvv issue 53](https://github.com/dsarrut/vvv/issues/53)). vvv 0.7.0 shows `bq` as Bq/mL, the others as raw text, and turns a file named `dose_rate` into Gy.
+    The units `bq` (per voxel), `bqs`, `bqsml`, `gy/h`, `gy/s`, and the Dose tool on dose rates, need vvv 0.8.0 or later ([vvv issue 53](https://github.com/dsarrut/vvv/issues/53)). Older versions show `bq` as Bq/mL, the others as raw text, and turns a file named `dose_rate` into Gy.
 
 ---
 

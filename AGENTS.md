@@ -157,5 +157,5 @@ Refer to these Markdown documents in the `docs/` directory for detailed specific
 *   [dev_docs/dev_readme_083_sul.md](dev_docs/dev_readme_083_sul.md): SUL methods (done) and the proposed CT-based LBM method (`--lbm-method ct`, TODO).
 *   [dev_docs/dev_readme_085_lesion_validation.md](dev_docs/dev_readme_085_lesion_validation.md): Plan (not started) for synthetic lesions in the OpenGATE validation and a sphere S-value model.
 *   [dev_docs/dev_readme_090_dose_engine_time_model.md](dev_docs/dev_readme_090_dose_engine_time_model.md): `--dose-rate-map` (external Monte Carlo dose rate) and the planned dose-rate engine × time model refactor.
-*   Closed notes in `dev_docs/old/`: 060 OpenDose hosting (Zenodo record 23841128), 070 consolidation towards v0.1, 075 `radot check`, 080 OpenGATE validation (history and decisions).
+*   Closed notes in `dev_docs/old/`: 060 OpenDose hosting (Zenodo record 23841128), 070 consolidation towards v0.1, 075 `radot check`, 080 OpenGATE validation (history and decisions), 095 docs (organ vs voxel dosimetry, vvv page).
 
