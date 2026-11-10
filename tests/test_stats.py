@@ -462,8 +462,8 @@ def test_stats_onthefly_unit_conversion_and_units_table(tmp_path):
         activity=100.0,
         injection_date="2026-01-10 10:00:00",
         acquisition_date="2026-01-10 10:00:00",
+        radionuclide="F18",
     )
-    _set_radionuclide(image_path, "F18")
 
     runner = CliRunner()
     # Convert on the fly to SUV (should print unit suv in header)
@@ -674,14 +674,3 @@ def test_compute_stats_dose_rate_map(tmp_path):
     # check that mean dose rate value 0.750 is in the output table and unit gy/h is correct
     assert "0.750" in result.output
     assert "gy/h" in result.output.lower()
-
-
-def _set_radionuclide(image_path, radionuclide):
-    """Radionuclide in the sidecar (radot meta has no option for it on this branch)."""
-    import json
-    from radot.meta import get_sidecar_path
-
-    sidecar = get_sidecar_path(image_path)
-    meta = json.loads(sidecar.read_text())
-    meta["radionuclide"] = radionuclide
-    sidecar.write_text(json.dumps(meta))
