@@ -107,8 +107,8 @@ def test_convert_metadata_fallback(tmp_path):
         activity=250.0,
         injection_date="2026-01-10 10:00:00",
         acquisition_date="2026-01-10 10:00:00",
+        radionuclide="F18",
     )
-    _set_radionuclide(image_path, "F18")
 
     runner = CliRunner()
     # Run conversion without specifying --from-unit, --weight, or --activity (should read from metadata)
@@ -238,8 +238,8 @@ def test_convert_units_cli_sul(tmp_path):
         sex="male",
         injection_date="2026-01-10 10:00:00",
         acquisition_date="2026-01-10 10:00:00",
+        radionuclide="F18",
     )
-    _set_radionuclide(image_path, "F18")
 
     runner = CliRunner()
     output_path = tmp_path / "out_sul.nii.gz"
@@ -402,10 +402,7 @@ def _pet(tmp_path, **meta):
     image_path = tmp_path / "pet.nii.gz"
     image = sitk.GetImageFromArray(np.full((5, 5, 5), 1000.0, dtype=np.float32))
     sitk.WriteImage(image, str(image_path))
-    rad = meta.pop("radionuclide", None)
     manage_metadata(image_path, modality="pet", unit="bqml", weight=75.0, activity=250.0, **meta)
-    if rad:
-        _set_radionuclide(image_path, rad)
     return image_path
 
 
@@ -457,17 +454,6 @@ def test_convert_suv_decay_admin(tmp_path):
     sidecar.write_text(json.dumps(meta))
     converted = convert_image_units(sitk.ReadImage(str(image_path)), to_unit="suv", image_path=image_path)
     assert sitk.GetArrayFromImage(converted)[0, 0, 0] == pytest.approx(0.3, rel=1e-3)
-
-
-def _set_radionuclide(image_path, radionuclide):
-    """Radionuclide in the sidecar (radot meta has no option for it on this branch)."""
-    import json
-    from radot.meta import get_sidecar_path
-
-    sidecar = get_sidecar_path(image_path)
-    meta = json.loads(sidecar.read_text())
-    meta["radionuclide"] = radionuclide
-    sidecar.write_text(json.dumps(meta))
 
 
 def test_convert_suv_to_sul_no_dates(tmp_path):
