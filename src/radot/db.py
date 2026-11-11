@@ -311,6 +311,18 @@ def _find_matching_key(d: dict, key: str) -> Optional[str]:
     return None
 
 
+def _closest_hint(name: str, od_keys) -> str:
+    """' Closest names: ... (radot roi match).' for a 'not found' error; suggestions only."""
+    from radot.nomenclature import find_closest_matches
+
+    matches = find_closest_matches(name, n=3, extra=[(k, "OpenDose") for k in od_keys], cutoff=0.6)
+    lesion = " A lesion or custom structure has no OpenDose organ (do not rename it to one)."
+    if not matches:
+        return lesion + " See radot roi match."
+    names = ", ".join(f"{m} ({src})" for m, src in matches)
+    return f" Closest names: {names}.{lesion} See radot roi match."
+
+
 def get_reference_mass(phantom: str, organ: str) -> float:
     """Get the reference mass for an organ in grams under the specified phantom."""
     norm_phantom = normalize_phantom(phantom)
@@ -323,6 +335,7 @@ def get_reference_mass(phantom: str, organ: str) -> float:
 
     raise ValueError(
         f"RADOT Database: Organ '{organ}' (resolved as '{resolved_organ}') not found in phantom '{phantom}' masses."
+        + _closest_hint(organ, masses.keys())
     )
 
 
@@ -341,6 +354,7 @@ def get_s_value(
     if src_key is None:
         raise ValueError(
             f"RADOT Database: Source organ '{source_organ}' (resolved as '{resolved_src}') not found in S-value matrix."
+            + _closest_hint(source_organ, s_matrix.keys())
         )
 
     tgt_matrix = s_matrix[src_key]
@@ -351,6 +365,7 @@ def get_s_value(
 
     raise ValueError(
         f"RADOT Database: Target organ '{target_organ}' (resolved as '{resolved_tgt}') not found in S-value matrix for source '{resolved_src}'."
+        + _closest_hint(target_organ, tgt_matrix.keys())
     )
 
 
