@@ -77,18 +77,22 @@ def test_find_matching_key_case_and_separators():
 
 @pytest.mark.parametrize(
     "name, expected",
-    [("kidney left", "Kidney_L (TG-263)"), ("Splen", "Spleen (OpenDose)"), ("Small intestine", "Small intestine wall (OpenDose)")],
+    [
+        ("kidney left", "Did you mean: Kidney_L (→ Left kidney C+M+P)?"),
+        ("Splen", "Did you mean: Spleen?"),
+        ("Small intestine", "Did you mean: Bowel_Sm (→ Small intestine wall), Small intestine contents?"),
+    ],
 )
 def test_not_found_suggests_closest_names(real_opendose, name, expected):
     # suggestions in the error message only: the name is never resolved to them
-    with pytest.raises(ValueError, match="Closest names") as e:
+    with pytest.raises(ValueError, match="Did you mean") as e:
         db.get_s_value("male", "lu177", name, name)
     assert expected in str(e.value) and "radot roi match" in str(e.value)
-    with pytest.raises(ValueError, match="Closest names"):
+    with pytest.raises(ValueError, match="Did you mean"):
         db.get_reference_mass("male", name)
 
 
 def test_not_found_no_organ_suggested_for_a_lesion(real_opendose):
     with pytest.raises(ValueError) as e:
         db.get_s_value("male", "lu177", "Lesion_1", "Lesion_1")
-    assert "Closest names" not in str(e.value) and "has no OpenDose organ" in str(e.value)
+    assert "Did you mean" not in str(e.value) and "has no OpenDose organ" in str(e.value)

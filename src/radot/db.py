@@ -311,16 +311,51 @@ def _find_matching_key(d: dict, key: str) -> Optional[str]:
     return None
 
 
-def _closest_hint(name: str, od_keys) -> str:
-    """' Closest names: ... (radot roi match).' for a 'not found' error; suggestions only."""
-    from radot.nomenclature import find_closest_matches
+def _closest_hint(name: str, od_keys, n: int = 3, cutoff: float = 0.6) -> str:
+    """' Did you mean: ...?' for a 'not found' error. Suggestions only, never applied.
 
-    matches = find_closest_matches(name, n=3, extra=[(k, "OpenDose") for k in od_keys], cutoff=0.6)
+    The query is compared with every accepted name (TotalSegmentator, TG-263, OpenDose); each match
+    is shown once, as its TG-263 name with the OpenDose organ it leads to, or as the OpenDose name
+    when no TG-263 name maps to it. Only names leading to an organ of od_keys are suggested.
+    """
+    import difflib
+    from radot.nomenclature import TS_TO_TG263, TG263_TO_OD, TS_TO_OD_FALLBACK
+
+    od_keys = set(od_keys)
+    od_to_tg = {}  # one TG-263 name per OpenDose organ (the first in the table)
+    for tg, od in TG263_TO_OD.items():
+        od_to_tg.setdefault(od, tg)
+
+    def show(od):
+        tg = od_to_tg.get(od)
+        return od if tg is None or tg == od else f"{tg} (→ {od})"
+
+    # accepted name -> OpenDose organ it leads to
+    leads = {tg: od for tg, od in TG263_TO_OD.items()}
+    leads.update({ts: TG263_TO_OD.get(tg) for ts, (_, tg) in TS_TO_TG263.items()})
+    leads.update(TS_TO_OD_FALLBACK)
+    leads.update({od: od for od in od_keys})
+
+    query = re.sub(r"[-_\s]+", " ", name.strip().lower())
+    scored = sorted(
+        (
+            (difflib.SequenceMatcher(None, query, re.sub(r"[-_\s]+", " ", c.lower())).ratio(), od)
+            for c, od in leads.items()
+            if od in od_keys
+        ),
+        reverse=True,
+    )
+    suggestions = []
+    best = scored[0][0] if scored else 0.0
+    for ratio, od in scored:
+        if ratio < max(cutoff, best - 0.15) or len(suggestions) == n:
+            break
+        if show(od) not in suggestions:
+            suggestions.append(show(od))
     lesion = " A lesion or custom structure has no OpenDose organ (do not rename it to one)."
-    if not matches:
+    if not suggestions:
         return lesion + " See radot roi match."
-    names = ", ".join(f"{m} ({src})" for m, src in matches)
-    return f" Closest names: {names}.{lesion} See radot roi match."
+    return f" Did you mean: {', '.join(suggestions)}?{lesion} See radot roi match."
 
 
 def get_reference_mass(phantom: str, organ: str) -> float:

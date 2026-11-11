@@ -124,16 +124,10 @@ def get_all_mappings() -> List[Tuple[str, str, str]]:
     return sorted(mappings, key=lambda x: x[0])
 
 
-def find_closest_matches(
-    query: str, n: int = 10, extra: Optional[List[Tuple[str, str]]] = None, cutoff: float = 0.4
-) -> List[Tuple[str, str]]:
-    """Find closest nomenclature matches for a query string using string distance.
-
-    extra: more (name, source) candidates, e.g. the OpenDose keys of a masses or S-value file.
-    Suggestions only: never used to resolve a name during a run.
-    """
+def find_closest_matches(query: str, n: int = 10) -> List[Tuple[str, str]]:
+    """Find closest nomenclature matches for a query string using string distance."""
     query_clean = query.strip().lower()
-    candidates = list(extra or [])
+    candidates = []
 
     for name in TS_TO_TG263.keys():
         candidates.append((name, "TotalSegmentator"))
@@ -148,7 +142,7 @@ def find_closest_matches(
     scored = []
     for cand_name, source in candidates:
         ratio = difflib.SequenceMatcher(None, query_clean, cand_name.lower()).ratio()
-        if ratio >= cutoff:
+        if ratio >= 0.4:
             scored.append((ratio, cand_name, source))
 
     scored.sort(key=lambda x: x[0], reverse=True)
