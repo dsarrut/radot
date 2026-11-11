@@ -88,7 +88,7 @@ radot dose -c <config_json> [options]
 * --cascade / --no-cascade: `ldm`: include the decay chain in secular equilibrium (default: no).
 * --dose-rate-map <path>: External dose-rate image (e.g. OpenGATE), see [voxel level](6c_dose_voxel.md#2-external-dose-rate-map-monte-carlo).
 * --dose-rate-map-activity <float>: Activity (MBq) that produced the dose-rate map. Default: the map sidecar key `source_activity_mbq`, else the map is an absolute dose rate.
-* --phantom <male|female>: OpenDose phantom for the S-values. Default: male.
+* --phantom <male|female>: OpenDose phantom for the S-value methods. Default: the patient sex in the image sidecar (`sex`); if neither is given, radot stops with an error (no default phantom). Not needed by `hanscheid2017`, `ldm` and a dose-rate map.
 * --resample <like_activity|like_labels|like_ct>: Grid to resample the images to when they differ.
 * -o, --output <output_path>: ROI table (`.json`) or dose image (see [inputs and outputs](#3-inputs-and-outputs)).
 

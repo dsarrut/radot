@@ -13,6 +13,8 @@ from radot.dose.mtp import compute_roi_dose_mtp
 from radot.dose.rate_map import DOSE_RATE_MAP_METHODS, dose_from_rate_map
 from radot.dose.strategies import (
     DOSIMETRY_STRATEGIES,
+    S_VALUE_METHODS,
+    resolve_phantom,
     TIA_METHODS,
     TIA_UNITS,
     compute_dose_generic,
@@ -251,6 +253,12 @@ def compute_roi_dose(
                 raise ValueError(
                     "CT image grid does not match activity image grid. Please resample CT first."
                 )
+
+    # OpenDose phantom (S-value methods; a dose-rate map uses none): option/config, else the
+    # patient sex in the sidecar, else an error. Resolved here, before a unit conversion of the image.
+    if method_key in S_VALUE_METHODS and dose_rate_map is None:
+        method_params = dict(method_params or {})
+        method_params["phantom"] = resolve_phantom(method_params, image, image_path)
 
     # 3. Unit and timing extraction
     unit = get_metadata_case_insensitive(image, "unit", image_path)

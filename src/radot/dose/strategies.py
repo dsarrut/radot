@@ -15,6 +15,38 @@ from radot.dose.models import (
 logger = logging.getLogger("radot")
 
 
+# Methods that use OpenDose S-values (and so a phantom)
+S_VALUE_METHODS = {"hanscheid2018", "madsen2018", "svalue", "jackson2013"}
+
+
+def resolve_phantom(method_params: Optional[Dict[str, Any]], image=None, image_path=None) -> str:
+    """The OpenDose phantom: method_params['phantom'] (option or config), else the patient sex of the
+    image sidecar; else an explicit error (no default phantom)."""
+    from radot.db import normalize_phantom
+    from radot.meta import get_metadata_case_insensitive
+
+    phantom = (method_params or {}).get("phantom")
+    if phantom is not None:
+        normalize_phantom(phantom)  # validates the name
+        return phantom
+    sex = get_metadata_case_insensitive(image, "sex", image_path) if (image is not None or image_path) else None
+    if sex is not None and str(sex).strip().lower() in ("male", "female"):
+        phantom = str(sex).strip().lower()
+        logger.info(f"OpenDose phantom: {phantom} (patient sex from the sidecar)")
+        return phantom
+    raise ValueError(
+        "OpenDose phantom not provided: give --phantom male|female, or set the patient sex in the image "
+        "sidecar (radot meta IMAGE --sex male|female)."
+    )
+
+
+def _phantom(method_params: Optional[Dict[str, Any]]) -> str:
+    phantom = (method_params or {}).get("phantom")
+    if phantom is None:
+        raise ValueError("OpenDose phantom not provided (method_params['phantom']); see resolve_phantom.")
+    return phantom
+
+
 def strategy_hanscheid2017(
     image_arr: np.ndarray,
     mask: np.ndarray,
@@ -104,10 +136,9 @@ def strategy_hanscheid2018(
     """Strategy implementation for Hanscheid 2018 method."""
     from radot.db import resolve_organ_name, get_s_value, get_reference_mass
 
-    phantom = "male"
+    phantom = _phantom(method_params)
     teff = None
     if method_params:
-        phantom = method_params.get("phantom", "male")
         if roi_name in method_params:
             teff = method_params[roi_name].get("teff")
 
@@ -187,10 +218,9 @@ def strategy_madsen2018(
     """Strategy implementation for Madsen 2018 method."""
     from radot.db import resolve_organ_name, get_s_value, get_reference_mass
 
-    phantom = "male"
+    phantom = _phantom(method_params)
     teff = None
     if method_params:
-        phantom = method_params.get("phantom", "male")
         if roi_name in method_params:
             teff = method_params[roi_name].get("teff")
 
@@ -266,9 +296,7 @@ def strategy_svalue(
     """Strategy implementation for the S-value method on a TIA image (Bq.s per voxel)."""
     from radot.db import resolve_organ_name, get_s_value, get_reference_mass
 
-    phantom = "male"
-    if method_params:
-        phantom = method_params.get("phantom", "male")
+    phantom = _phantom(method_params)
 
     # Standardize phantom/organ/rad
     opendose_organ = resolve_organ_name(roi_name, phantom)

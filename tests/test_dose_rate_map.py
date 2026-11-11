@@ -114,7 +114,7 @@ def test_map_cli(tmp_path):
     sitk.WriteImage(make_image(1e12, "bqsml"), str(tia_path))
     sitk.WriteImage(make_labels(), str(labels_path))
     sitk.WriteImage(svalue_map(), str(map_path))
-    (tmp_path / "tia.json").write_text(json.dumps({"modality": "spect", "unit": "bqsml"}))
+    (tmp_path / "tia.json").write_text(json.dumps({"modality": "spect", "unit": "bqsml", "sex": "male"}))
     (tmp_path / "labels.json").write_text(json.dumps({"1": ROI}))
 
     args = ["dose", str(tia_path), "-l", str(labels_path), "-m", "svalue", "--isotope", "Lu177",

@@ -326,13 +326,13 @@ def test_cli_option_wins_over_config(dummy_study, captured, cfg, args, key, expe
         ({"method_params": {"phantom": "female"}}, ["--phantom", "male"], "male"),
         ({"phantom": "female"}, [], "female"),
         ({"method_params": {"phantom": "female"}}, [], "female"),
-        ({}, [], "male"),
+        ({}, [], None),  # not set by the CLI: resolved from the sidecar sex (resolve_phantom)
     ],
 )
 def test_cli_phantom_wins_over_config(dummy_study, captured, cfg, args, expected):
     result = CliRunner().invoke(main, ["dose", "-c", str(_config(dummy_study, **cfg))] + args)
     assert result.exit_code == 0, result.output
-    assert captured["method_params"]["phantom"] == expected
+    assert captured["method_params"].get("phantom") == expected
 
 
 def test_api_explicit_argument_wins_over_config(dummy_study, captured):

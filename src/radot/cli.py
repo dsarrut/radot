@@ -817,8 +817,8 @@ def dose_list():
 )
 @click.option(
     "--phantom",
-    default="male",
-    help="OpenDose phantom name (e.g. male, female).",
+    default=None,
+    help="OpenDose phantom (male, female) for the S-value methods. Default: the patient sex in the image sidecar.",
 )
 @click.option(
     "--cascade/--no-cascade",
@@ -978,7 +978,7 @@ def dose(
 
     # config method_params (per-ROI Teff, phantom), then the command line wins
     method_params = dict(config_dict.get("method_params", {}))
-    if param_from_cli("phantom") or "phantom" not in method_params:
+    if phantom is not None and (param_from_cli("phantom") or "phantom" not in method_params):
         method_params["phantom"] = phantom
 
     if teff:

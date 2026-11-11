@@ -19,6 +19,7 @@ def make_image(value, unit, time_from_injection=None):
     image = sitk.Image([5, 5, 5], sitk.sitkFloat32)
     image.SetSpacing((10.0, 10.0, 10.0))
     image.SetMetaData("unit", unit)
+    image.SetMetaData("sex", "male")  # the patient sex gives the OpenDose phantom
     if time_from_injection is not None:
         image.SetMetaData("time_from_injection", str(time_from_injection))
     image[2, 2, 2] = value
@@ -149,7 +150,7 @@ def test_svalue_cli(tmp_path):
     sitk.WriteImage(make_image(1e12, "bqsml"), str(tia_path))
     sitk.WriteImage(make_labels(), str(labels_path))
     # Sidecars: the TIA unit (no time point needed) and the label names
-    (tmp_path / "tia.json").write_text(json.dumps({"modality": "spect", "unit": "bqsml"}))
+    (tmp_path / "tia.json").write_text(json.dumps({"modality": "spect", "unit": "bqsml", "sex": "male"}))
     (tmp_path / "labels.json").write_text(json.dumps({"1": "Left kidney"}))
 
     result = CliRunner().invoke(

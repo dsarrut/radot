@@ -252,7 +252,7 @@ def required_fields(unit: Optional[str], method: Optional[str]) -> Dict[str, tup
     Sidecar fields needed for an activity image: {field: (level if missing, reason)}.
     Without a method, the fields of a generic dosimetry are expected (missing = WARN).
     """
-    from radot.dose.strategies import TIA_UNITS
+    from radot.dose.strategies import S_VALUE_METHODS, TIA_UNITS
 
     need = Level.FAIL if method else Level.WARN
     unit = (unit or "").lower()
@@ -272,7 +272,9 @@ def required_fields(unit: Optional[str], method: Optional[str]) -> Dict[str, tup
         fields["sex"] = (Level.WARN, "lean body mass (james, janmahasatian)")
     fields.setdefault("activity", (Level.INFO, "injected activity: activity balance, SUV"))
     fields.setdefault("weight", (Level.INFO, "SUV conversion"))
-    fields.setdefault("sex", (Level.INFO, "phantom of the S-values (male by default)"))
+    if method and method.lower() in S_VALUE_METHODS:
+        fields.setdefault("sex", (Level.WARN, f"OpenDose phantom for {method}: else give --phantom to radot dose"))
+    fields.setdefault("sex", (Level.INFO, "OpenDose phantom of the S-value methods (else --phantom)"))
     return fields
 
 
