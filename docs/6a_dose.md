@@ -120,6 +120,8 @@ radot dose -c dose_config.json                      # explicit flag
 radot dose dose_config.json -o custom_output.json   # any setting can be overridden
 ```
 
+An option given on the command line (or an argument given to `compute_roi_dose_file` in Python) always wins over the config file, including `--no-cascade`, `--hu-threshold -800` and `--phantom` (also over a `phantom` in `method_params`).
+
 #### Examples
 
 ```bash

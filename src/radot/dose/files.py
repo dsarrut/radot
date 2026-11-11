@@ -24,10 +24,10 @@ def compute_roi_dose_file(
     method_params: Optional[Dict[str, Any]] = None,
     output_path: Optional[Union[str, Path]] = None,
     resample_target: Optional[str] = None,
-    verbose: bool = False,
-    hu_threshold: Optional[float] = -800.0,
-    dose_rate: bool = False,
-    cascade: bool = False,
+    verbose: Optional[bool] = None,
+    hu_threshold: Optional[float] = None,
+    dose_rate: Optional[bool] = None,
+    cascade: Optional[bool] = None,
     config: Optional[Union[str, Path, Dict[str, Any]]] = None,
     timepoints: Optional[List[Any]] = None,
     dose_rate_map_path: Optional[Union[str, Path]] = None,
@@ -68,14 +68,15 @@ def compute_roi_dose_file(
             output_path = cfg.get("output_path")
         if resample_target is None:
             resample_target = cfg.get("resample_target")
-        if not verbose and cfg.get("verbose"):
-            verbose = True
-        if hu_threshold == -800.0 and "hu_threshold" in cfg:
-            hu_threshold = cfg["hu_threshold"]
-        if not dose_rate and cfg.get("dose_rate"):
-            dose_rate = True
-        if not cascade and cfg.get("cascade"):
-            cascade = True
+        # an explicit argument (not None) always wins over the config
+        if verbose is None:
+            verbose = cfg.get("verbose")
+        if hu_threshold is None:
+            hu_threshold = cfg.get("hu_threshold")
+        if dose_rate is None:
+            dose_rate = cfg.get("dose_rate")
+        if cascade is None:
+            cascade = cfg.get("cascade")
         if dose_rate_map_path is None:
             dose_rate_map_path = cfg.get("dose_rate_map_path")
         if dose_rate_map_activity_mbq is None:
@@ -85,6 +86,12 @@ def compute_roi_dose_file(
         if method_params is not None:
             cfg_mp.update(method_params)
         method_params = cfg_mp
+
+    # defaults, after the config
+    verbose = bool(verbose) if verbose is not None else False
+    hu_threshold = float(hu_threshold) if hu_threshold is not None else -800.0
+    dose_rate = bool(dose_rate) if dose_rate is not None else False
+    cascade = bool(cascade) if cascade is not None else False
 
     # Multi-timepoint (MTP) dispatch
     if timepoints is not None or isinstance(image_path, (list, tuple)):
