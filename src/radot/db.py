@@ -316,7 +316,7 @@ def _closest_hint(name: str, od_keys, n: int = 3, cutoff: float = 0.6) -> str:
 
     The query is compared with every accepted name (TotalSegmentator, TG-263, OpenDose); each match
     is shown once, as its TG-263 name with the OpenDose organ it leads to, or as the OpenDose name
-    when no TG-263 name maps to it. Only names leading to an organ of od_keys are suggested.
+    when no TG-263 name maps to it; each with its naming system written out. Only names leading to an organ of od_keys are suggested.
     """
     import difflib
     from radot.nomenclature import TS_TO_TG263, TG263_TO_OD, TS_TO_OD_FALLBACK
@@ -328,7 +328,11 @@ def _closest_hint(name: str, od_keys, n: int = 3, cutoff: float = 0.6) -> str:
 
     def show(od):
         tg = od_to_tg.get(od)
-        return od if tg is None or tg == od else f"{tg} (→ {od})"
+        if tg is None:
+            return f"{od} (OpenDose organ)"
+        if tg == od:
+            return f"{tg} (TG-263 and OpenDose)"
+        return f"{tg} (TG-263, OpenDose organ '{od}')"
 
     # accepted name -> OpenDose organ it leads to
     leads = {tg: od for tg, od in TG263_TO_OD.items()}

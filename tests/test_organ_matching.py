@@ -78,9 +78,9 @@ def test_find_matching_key_case_and_separators():
 @pytest.mark.parametrize(
     "name, expected",
     [
-        ("kidney left", "Did you mean: Kidney_L (→ Left kidney C+M+P)?"),
-        ("Splen", "Did you mean: Spleen?"),
-        ("Small intestine", "Did you mean: Bowel_Sm (→ Small intestine wall), Small intestine contents?"),
+        ("kidney left", "Did you mean: Kidney_L (TG-263, OpenDose organ 'Left kidney C+M+P')?"),
+        ("Splen", "Did you mean: Spleen (TG-263 and OpenDose)?"),
+        ("Small intestine", "Did you mean: Bowel_Sm (TG-263, OpenDose organ 'Small intestine wall'), Small intestine contents (OpenDose organ)?"),
     ],
 )
 def test_not_found_suggests_closest_names(real_opendose, name, expected):
