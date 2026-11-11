@@ -51,7 +51,7 @@ from radot.db import get_s_value, get_reference_mass, resolve_organ_name, get_ph
 
 get_s_value("male", "lu177", "Liver", "Liver")     # mGy/(MBq.s), self-dose S-value
 get_reference_mass("female", "Kidney_L")           # g
-resolve_organ_name("Kidney_L")                     # 'Left kidney' (TG-263 -> OpenDose name)
+resolve_organ_name("Kidney_L")                     # 'Left kidney C+M+P' (TG-263 -> OpenDose name)
 get_physical_half_life_h("Lu177")                  # h, from ICRP 107
 ```
 

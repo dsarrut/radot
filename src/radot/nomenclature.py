@@ -1,4 +1,5 @@
 import json
+import re
 import importlib.resources
 import difflib
 from pathlib import Path
@@ -20,6 +21,8 @@ OPENDOSE_PASSIVE_TARGETS: List[str] = _load_json_data("opendose_passive_targets.
 # Load TG-263 to OpenDose mapping and invert it for reverse lookup
 TG263_TO_OD: Dict[str, str] = _load_json_data("tg263_to_od.json")
 OD_TO_TG263: Dict[str, str] = {v: k for k, v in TG263_TO_OD.items()}
+# Explicit short names for OpenDose organs whose key is not the usual name (no fuzzy matching)
+OD_ALIASES: Dict[str, str] = _load_json_data("od_aliases.json")
 
 
 # Reserved label-ID ranges shared across radot and downstream consumers (e.g. pet_segment).
@@ -75,7 +78,13 @@ def resolve_roi_name_to_opendose(name: str) -> str:
     clean_name = name.strip()
     lower_name = clean_name.lower()
 
-    # 0. Check if already a standard OpenDose name (case-insensitive)
+    # 0. Explicit alias of an OpenDose name (e.g. 'Left kidney' -> 'Left kidney C+M+P')
+    sep_name = re.sub(r"[-_\s]+", " ", lower_name)
+    for alias, od_name in OD_ALIASES.items():
+        if re.sub(r"[-_\s]+", " ", alias.lower()) == sep_name:
+            return od_name
+
+    # Already a standard OpenDose name (case-insensitive)
     for od_name in OD_TO_TG263:
         if od_name.lower() == lower_name:
             return od_name

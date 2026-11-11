@@ -20,20 +20,22 @@ When the dosimetry engine looks up an S-value matrix ($S(\text{Target} \leftarro
 ### Stage 1: The Standard TG-263 Route
 The segmented name is translated to its official TG-263 alphanumeric code via `TS_TO_TG263`. This code is then mapped to the OpenDose string using the loaded `TG263_TO_OD` lookup.
 
-*Example:* `kidney_left` → `Kidney_L` → `Left kidney`
+*Example:* `kidney_left` → `Kidney_L` → `Left kidney C+M+P` (the whole kidney: cortex, medulla and pelvis)
 
 ### Stage 2: The Direct TS-to-OD Bypass Bridge
 If a structure exists in both TotalSegmentator and OpenDose phantoms but lacks a standard or specific designation in TG-263 guidelines, the mapping completely bypasses the TG-263 layer using `TS_TO_OD_FALLBACK`.
 
-*Example:* `portal_vein_and_splenic_vein` → `Blood vessels, trunk`
+*Example:* `iliopsoas_left` → `Muscle`
 
 ### Stage 3: Absolute Raw Retain Fallback & Safeguard
 If no explicit mapping exists anywhere in the cross-walk dictionaries, the initial name is preserved exactly as it appears in the user sidecar (e.g., custom manual segmentations like `Tumor_Lesion_1`). 
 
+**Exact names only.** The OpenDose organ must then match an OpenDose name exactly, ignoring case and separators (spaces, `_`, `-`): `liver`, `LIVER` and `Liver` are the same organ. There is no partial or approximate matching: `Liver_met1`, `Spleen_2`, `Kidney` or `Lung` do not get the S-value or mass of an organ, they have none. A few usual short names are explicit aliases (`src/radot/data/od_aliases.json`): `Left kidney` and `Right kidney` → `Left kidney C+M+P`, `Right kidney C+M+P`. Bilateral organs are not merged: `Eye_L` and `Eye_R` map to `Eye bulb, left` and `Eye bulb, right`.
+
 Crucial Safety Rule (Strict Dosimetry Halt vs Loop Warning):
 If a segmented label lacks S-value mappings in the active phantom (such as sex-specific organs like Prostate when using a female model, or unmapped bone targets):
 - Generic Label Loop: When looping over all labels present in the image (no explicit --rois option specified), `radot` prints a warning to stderr and skips calculation for that specific ROI, allowing the other organs to compute successfully.
-- Explicit ROI Request: When the user explicitly requests a specific ROI via the --rois parameter, `radot` halts execution immediately by raising a `click.ClickException`. To proceed, the user must supply a custom S-value override file (e.g., --custom-s-values override.json) or adjust their input sidecar mappings.
+- Explicit ROI Request: When the user explicitly requests a specific ROI via the --rois parameter, `radot` halts execution immediately by raising a `click.ClickException`. To proceed, rename the label in the sidecar to a mapped name, or drop it from `--rois` (an ROI without an OpenDose organ, e.g. a lesion, can use `hanscheid2017` or a voxel-level method).
 
 ---
 

@@ -13,7 +13,7 @@ The organ-level methods give one mean absorbed dose per ROI (organ or lesion), f
   S_{\text{patient}} = \frac{S}{\text{mass-scaling}}, \qquad \text{mass-scaling} = \frac{m_{\text{patient}}}{m_{\text{reference}}}
   $$
   where $m_{\text{patient}}$ is the ROI mass from the CT density ($\rho = 1 + \text{HU}/1000$; without CT, 1 g/mL) and $m_{\text{reference}}$ the OpenDose phantom organ mass.
-* **ROI names**: each ROI name is mapped to an OpenDose organ (TotalSegmentator → TG-263 → OpenDose, see [ROI names](2b_roi_names.md)); the matching is case-insensitive and ignores minor suffixes ("contents", "wall", "lobe", ...).
+* **ROI names**: each ROI name is mapped to an OpenDose organ (TotalSegmentator → TG-263 → OpenDose, see [ROI names](2b_roi_names.md)); the OpenDose name must match exactly, ignoring case and separators only: no partial matching, so a lesion named `Liver_met1` gets no liver S-value.
 * **ROIs without an OpenDose organ** (lesions, custom structures): no S-value. When looping over all the labels, they are skipped with a warning. When requested with `--rois`, radot stops with an error. `hanscheid2017` needs no S-value and works for any ROI.
 
 Then the dose is the time-integrated activity $\tilde{A}$ in the ROI (MBq·s) times the scaled S-value:

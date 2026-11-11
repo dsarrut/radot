@@ -290,31 +290,24 @@ def _load_s_values(phantom: str, isotope: str) -> Dict[str, Dict[str, float]]:
     return _s_values_cache[key]
 
 
+def _normalize_organ_key(name: str) -> str:
+    """Case and separators only (spaces, '_', '-'): 'left_kidney C+M+P' == 'Left kidney C+M+P'."""
+    return re.sub(r"[-_\s]+", " ", name.strip()).lower()
+
+
 def _find_matching_key(d: dict, key: str) -> Optional[str]:
-    """Helper to find a key in a dictionary with flexible matches."""
+    """The key of d equal to key, ignoring case and separators; None otherwise.
+
+    No fuzzy matching (prefix, suffix stripping): a name that is not an OpenDose organ must not
+    silently get the S-value or mass of another one (e.g. 'Liver_met1' is not 'Liver'). Names
+    that differ from the OpenDose keys are mapped explicitly in the nomenclature tables.
+    """
     if key in d:
         return key
+    norm = _normalize_organ_key(key)
     for k in d.keys():
-        if k.lower() == key.lower():
+        if _normalize_organ_key(k) == norm:
             return k
-
-    def normalize_key(name: str) -> str:
-        name = name.lower()
-        name = re.sub(r"\s+c\+m\+p$", "", name)
-        name = re.sub(r"\s+lobe$", "", name)
-        name = re.sub(r"\s+wall$", "", name)
-        name = re.sub(r"\s+contents$", "", name)
-        return re.sub(r"[-_\s]+", "", name)
-
-    norm_key = normalize_key(key)
-    for k in d.keys():
-        if normalize_key(k) == norm_key:
-            return k
-
-    for k in d.keys():
-        if k.lower().startswith(key.lower()) or key.lower().startswith(k.lower()):
-            return k
-
     return None
 
 

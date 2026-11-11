@@ -45,8 +45,10 @@ def test_normalize_isotope():
 
 def test_resolve_organ_name():
     # Test TG-263 nomenclature mappings
-    assert resolve_organ_name("Kidney_L") == "Left kidney"
-    assert resolve_organ_name("kidney_r") == "Right kidney"
+    assert resolve_organ_name("Kidney_L") == "Left kidney C+M+P"
+    assert resolve_organ_name("kidney_r") == "Right kidney C+M+P"
+    # explicit alias (od_aliases.json)
+    assert resolve_organ_name("Left kidney") == "Left kidney C+M+P"
     assert resolve_organ_name("bladder") == "Urinary bladder wall"
     assert resolve_organ_name("liver") == "Liver"
     
