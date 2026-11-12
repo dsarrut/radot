@@ -201,7 +201,7 @@ def test_resample_image_file_like(tmp_path):
     out_path.unlink()
 
     # 6. Fail if both provided and they are different (e.g. meta="spect", parameter="ct")
-    with pytest.raises(ValueError, match="Modality mismatch"):
+    with pytest.raises(ValueError, match="Image type mismatch"):
         resample_image_file_like(src_path, like_path, out_path, type="ct")
 
 
@@ -332,3 +332,54 @@ def test_resample_labels_sidecar_copied(tmp_path):
     out = tmp_path / "labels_2mm.nii.gz"
     resample_image_file(path, (2.0, 2.0, 2.0), image_type="labels", output_path=out)
     assert json.loads(get_sidecar_path(out).read_text()) == {"1": "Liver", "2": "Spleen"}
+
+
+# Audit B4-B5: the image type and unit are never guessed nor overridden silently
+
+@pytest.mark.parametrize("image_type", ["mask", "seg", "label", None])
+def test_resample_image_unknown_or_missing_type_errors(image_type):
+    image = sitk.Image([4, 4, 4], sitk.sitkUInt8)
+    with pytest.raises(ValueError, match="Unknown image type|Image type is required"):
+        resample_image(image, (2.0, 2.0, 2.0), image_type=image_type)
+
+
+def test_resample_image_type_case_insensitive_labels_nearest():
+    arr = np.zeros((4, 4, 4), dtype=np.uint8)
+    arr[:, :, 2:] = 7
+    image = sitk.GetImageFromArray(arr)
+    out = resample_image(image, (0.5, 0.5, 0.5), image_type="Labels")
+    assert set(np.unique(sitk.GetArrayFromImage(out))) <= {0, 7}
+
+
+def test_resample_file_sidecar_unknown_modality_errors(tmp_path):
+    path = _activity_file(tmp_path, "m.nii.gz", {"modality": "mask"})
+    with pytest.raises(ValueError, match="Unknown image type 'mask'"):
+        resample_image_file(path, (2.0, 2.0, 2.0), output_path=tmp_path / "o.nii.gz")
+
+
+@pytest.mark.parametrize("like", [False, True])
+@pytest.mark.parametrize("opt, match", [
+    ({"type": "ct"}, "Image type mismatch: the sidecar says 'spect', the option says 'ct'"),
+    ({"unit": "bq"}, "Unit mismatch: the sidecar says 'bqml', the option says 'bq'"),
+])
+def test_resample_option_contradicts_sidecar_errors(tmp_path, like, opt, match):
+    """--spacing and --like: an option that contradicts the sidecar is an error (was: silently used with
+    --spacing, the unit relabelled without conversion)."""
+    from radot.resampling import resample_image_file_like
+
+    path = _activity_file(tmp_path, "s.nii.gz", {"modality": "spect", "unit": "bqml"})
+    out = tmp_path / "o.nii.gz"
+    with pytest.raises(ValueError, match=match):
+        if like:
+            resample_image_file_like(path, path, out, type=opt.get("type"), unit=opt.get("unit"))
+        else:
+            resample_image_file(path, (2.0, 2.0, 2.0), image_type=opt.get("type"), unit=opt.get("unit"),
+                                output_path=out)
+    assert not out.exists()
+
+
+def test_resample_option_same_as_sidecar_ok(tmp_path):
+    path = _activity_file(tmp_path, "s.nii.gz", {"modality": "spect", "unit": "bqml"})
+    out = tmp_path / "o.nii.gz"
+    resample_image_file(path, (2.0, 2.0, 2.0), image_type="SPECT", unit="BQML", output_path=out)
+    assert out.exists()

@@ -19,14 +19,14 @@ radot resample <image_path> [options]
 * -l, --like <reference_image_path>: Resample the input image to match the spatial grid (size, spacing, origin, and direction) of the reference image.
 
 #### Other Options:
-* -t, --type <ct|labels|pet|spect|dose>: Modality type of the input image. If omitted, it is automatically resolved from the image's companion JSON sidecar.
+* -t, --type <ct|labels|pet|spect|dose>: Modality type of the input image. If omitted, it is automatically resolved from the image's companion JSON sidecar. A type that differs from the sidecar modality is an error (fix the sidecar with `radot meta`); a sidecar modality that is not one of these types is an error too (a mask or a segmentation is `labels`).
 * -o, --output <output_path>: Path for the resampled output file. If omitted, a name is automatically generated (e.g., image_4mm.nii.gz or image_like_reference.nii.gz).
-* --unit <hu|suv|sul|bqml|bq|bqs|bqsml|gy>: Units of the image voxels. If omitted, it is resolved from the companion JSON sidecar (hu for a CT without one; an error for PET/SPECT). The per-voxel units bq (activity) and bqs (time-integrated activity) automatically enable total preservation.
+* --unit <hu|suv|sul|bqml|bq|bqs|bqsml|gy>: Units of the image voxels. If omitted, it is resolved from the companion JSON sidecar (hu for a CT without one; an error for PET/SPECT). A unit that differs from the sidecar unit is an error: resampling does not convert units (use `radot convert-units`). The per-voxel units bq (activity) and bqs (time-integrated activity) automatically enable total preservation.
 * --preserve-total: Scales voxel values by the volume change ratio (new voxel volume / old voxel volume). This is critical when working with per-voxel quantities (Bq, Bq·s) to ensure the total in an organ remains constant. With --like, activity outside the reference grid is lost (cropping).
 * --gaussian / --no-gaussian: Applies a Gaussian anti-aliasing filter along axes being downsampled. Enabled by default for continuous images to prevent aliasing artifacts. Disabled automatically for discrete label maps.
 
 #### Behavior:
-1. Interpolation Choice: Automatically uses linear interpolation for continuous modalities (CT, PET, SPECT) and nearest neighbor interpolation for discrete label maps.
+1. Interpolation Choice: Automatically uses linear interpolation for continuous modalities (CT, PET, SPECT) and nearest neighbor interpolation for discrete label maps (type `labels`). In the Python API, `resample_image` needs `image_type` (no default).
 2. Background Value: Sets background voxels outside the original image boundary to -1000 for CT scans (standard air value in HU) and 0 for all other image types.
 3. Companion JSON: the output sidecar (e.g. output.json) keeps the keys of the input sidecar, with the resolved `modality` and `unit` and the `sha256` of the new file. A label map sidecar (`{"1": "Liver", ...}`) is copied as is.
 

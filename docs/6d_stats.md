@@ -16,13 +16,13 @@ radot stats [labels_path] -i <image_path> [options]
 
 #### Options:
 * -i, --image <image_path>: Path to the intensity image (CT, PET, SPECT, or Dose) to analyze.
-* -t, --type <ct|pet|spect|dose>: Specifies the intensity image modality. If omitted, the module reads this from the image companion JSON sidecar.
+* -t, --type <ct|pet|spect|dose>: Specifies the intensity image modality. If omitted, the module reads this from the image companion JSON sidecar. A type that differs from the sidecar modality is an error.
 * -o, --output <output_path>: Path to save the statistics as a JSON file. If omitted, a formatted table is printed directly to the console.
 * --labels <id1,id2,...>: Comma-separated list of numeric label IDs to include (filters out other labels).
 * --rois <name>: ROI name to include. Can be specified multiple times or comma-separated.
 * --resample-to <labels|image>: Specifies which grid layout to align to if the image grid does not match the labels grid. Defaults to labels.
 * --sigma <float>: Specifies the standard deviation in millimeters of the Gaussian smoothing kernel used for peak value computation. Defaults to 5.0 mm for SPECT/PET and 3.0 mm for Dose.
-* --unit <hu|suv|bqml|bq|gy>: Specifies the image intensity units. Required for PET, SPECT, and Dose if not present in the sidecar.
+* --unit <hu|suv|bqml|bq|gy>: Specifies the image intensity units. Required for PET and SPECT if not present in the sidecar. When it differs from the sidecar unit, a PET/SPECT activity image is converted on the fly (`bq`, `bqml`, `suv`, `sul`); for other images it is an error (never a relabelling).
 
 #### Behavior:
 1. Grid Alignment: If the label mask and intensity image grids differ, the module automatically resamples one to match the other using the --resample-to strategy. Label maps use Nearest Neighbor interpolation; intensity images use Linear interpolation.

@@ -50,7 +50,15 @@ def compute_stats(
     if stored_unit is None:
         stored_unit = get_metadata_case_insensitive(image, "unit", image_path)
 
-    # 1. Resolve image_type (modality)
+    # 1. Resolve image_type (modality); an option that contradicts the sidecar is an error
+    if image_type is not None:
+        stored_type = meta.get("modality") or get_metadata_case_insensitive(image, "modality", image_path)
+        if stored_type is not None and stored_type.lower() != image_type.lower():
+            raise ValueError(
+                f"Image type mismatch: the sidecar says '{stored_type.lower()}', the option says "
+                f"'{image_type.lower()}'. Fix the sidecar (radot meta IMAGE --modality "
+                f"{image_type.lower()}) or drop the option."
+            )
     if image_type is None:
         image_type = meta.get("modality")
         if image_type is None:
@@ -75,6 +83,12 @@ def compute_stats(
                     to_unit=unit,
                     from_unit=stored_unit,
                     image_path=image_path
+                )
+            else:
+                raise ValueError(
+                    f"Unit mismatch: the image sidecar says '{stored_unit}', --unit says '{unit}'. Only "
+                    f"PET/SPECT activity units are converted; fix the sidecar (radot meta IMAGE --unit "
+                    f"{unit}) or drop --unit."
                 )
     else:
         unit = stored_unit
