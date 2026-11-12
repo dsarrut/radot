@@ -252,3 +252,87 @@ def test_metadata_radionuclide(tmp_path):
     assert result.exit_code == 0, result.output
     assert get_metadata_case_insensitive(None, "radionuclide", image_path) == "Y90"
     assert get_metadata_case_insensitive(None, "modality", image_path) == "spect"
+
+
+# Audit B7: an unreadable sidecar is an error, never rewritten from scratch nor ignored
+
+def _image(tmp_path, sidecar_text=None):
+    import SimpleITK as sitk
+
+    path = tmp_path / "img.nii.gz"
+    sitk.WriteImage(sitk.Image([2, 2, 2], sitk.sitkFloat32), str(path))
+    if sidecar_text is not None:
+        (tmp_path / "img.json").write_text(sidecar_text)
+    return path
+
+
+@pytest.mark.parametrize("text", ['{"unit": "bqml", "radionuclide": "Lu177",', '["bqml"]'])
+def test_unreadable_sidecar_not_rewritten(tmp_path, text):
+    from radot.meta import write_metadata
+
+    path = _image(tmp_path, text)
+    with pytest.raises(ValueError, match="img.json"):
+        write_metadata(path, weight=70.0)
+    assert (tmp_path / "img.json").read_text() == text  # untouched
+
+
+def test_unreadable_sidecar_read_errors(tmp_path):
+    from radot.meta import get_metadata_case_insensitive
+
+    path = _image(tmp_path, "{ broken")
+    with pytest.raises(ValueError, match="cannot be read"):
+        get_metadata_case_insensitive(None, "unit", path)
+
+
+def test_unreadable_sidecar_cli_meta(tmp_path):
+    from click.testing import CliRunner
+    from radot.cli import main
+
+    path = _image(tmp_path, "{ broken")
+    result = CliRunner().invoke(main, ["meta", str(path), "--weight", "70"])
+    assert result.exit_code != 0
+    assert "cannot be read" in result.output
+    assert (tmp_path / "img.json").read_text() == "{ broken"
+
+
+def test_unreadable_sidecar_check_errors(tmp_path):
+    from radot.check import run_checks
+
+    path = _image(tmp_path, "{ broken")
+    with pytest.raises(ValueError, match="cannot be read"):
+        run_checks(activity=path)
+
+
+# Audit B8: time_from_injection key and dates
+
+def _tfi(tmp_path, sidecar):
+    import json
+    from radot.meta import get_time_from_injection_h
+
+    path = _image(tmp_path, json.dumps(sidecar))
+    return get_time_from_injection_h(None, path)
+
+
+DATES = {"injection_date": "2026-01-01 10:00:00", "acquisition_date": "2026-01-02 10:00:00"}
+
+
+def test_time_from_injection_key_and_dates_agree(tmp_path):
+    assert _tfi(tmp_path, {**DATES, "time_from_injection": 24.0}) == pytest.approx(24.0)
+
+
+def test_time_from_injection_key_and_dates_disagree_errors(tmp_path):
+    with pytest.raises(ValueError, match=r"time_from_injection \(48 h\) differs from the dates \(24 h"):
+        _tfi(tmp_path, {**DATES, "time_from_injection": 48.0})
+
+
+def test_time_from_injection_key_only(tmp_path):
+    assert _tfi(tmp_path, {"time_from_injection": 6.5}) == pytest.approx(6.5)
+
+
+@pytest.mark.parametrize("sidecar, match", [
+    ({"time_from_injection": "2:15:30"}, "not a number of hours"),
+    ({"injection_date": "2026-01-01", "acquisition_date": "2026-01-02 10:00:00"}, "YYYY-MM-DD HH:MM:SS"),
+])
+def test_time_from_injection_malformed_errors(tmp_path, sidecar, match):
+    with pytest.raises(ValueError, match=match):
+        _tfi(tmp_path, sidecar)

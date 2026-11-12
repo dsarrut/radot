@@ -1198,9 +1198,13 @@ def run_checks(
         method=method,
         thresholds=th,
     )
+    from radot.meta import _read_sidecar
+
     for p in ctx.activity + [x for x in (ctx.ct, ctx.labels, ctx.dose) if x]:
         if not p.exists():
             raise FileNotFoundError(f"Image file not found: {p}")
+        if get_sidecar_path(p).exists():
+            _read_sidecar(get_sidecar_path(p))  # an unreadable sidecar stops here, with its name
     available = ctx.available()
     findings = []
     for code, check in CHECKS.items():
