@@ -141,6 +141,47 @@ def check_dosimetry_inputs(
     return labels_map
 
 
+# Methods that use a per-ROI effective half-life (single time point, also with a dose-rate map)
+TEFF_METHODS = ("hanscheid2017", "hanscheid2018", "madsen2018")
+
+
+def check_unused_options(
+    method: str,
+    multi_tp: bool = False,
+    dose_rate_map: bool = False,
+    cascade: Optional[bool] = None,
+    hu_threshold: Optional[float] = None,
+    dose_rate: Optional[bool] = None,
+    total_activity_mbq: Optional[float] = None,
+    resample: Optional[str] = None,
+    method_params: Optional[Dict[str, Any]] = None,
+) -> None:
+    """An option that the chosen computation does not use is an error (it would be ignored silently)."""
+    m = method.lower()
+    ldm_voxel = m == "ldm" and not dose_rate_map and not multi_tp
+    unused = []
+    if cascade and not ldm_voxel:
+        unused.append("cascade (only ldm without a dose-rate map)")
+    if hu_threshold is not None and not ldm_voxel:
+        unused.append("hu_threshold (only ldm without a dose-rate map)")
+    if dose_rate and not (dose_rate_map or (m == "ldm" and not multi_tp)):
+        unused.append("dose_rate (only ldm, or a dose-rate map)")
+    if multi_tp and total_activity_mbq is not None:
+        unused.append("total_activity_mbq (single time point only)")
+    if multi_tp and resample:
+        unused.append("resample (single time point only)")
+    teff_rois = [r for r, v in (method_params or {}).items() if isinstance(v, dict) and "teff" in v]
+    if teff_rois and (multi_tp or m not in TEFF_METHODS):
+        unused.append(
+            f"teff for {', '.join(teff_rois)} (only {', '.join(TEFF_METHODS)}, single time point)"
+        )
+    if unused:
+        where = "multiple time points" if multi_tp else f"method '{m}'"
+        if dose_rate_map and not multi_tp:
+            where += " with a dose-rate map"
+        raise ValueError(f"Not used with {where}: " + "; ".join(unused) + ". Remove it.")
+
+
 def compute_roi_dose(
     image: Any,
     method: str,
@@ -156,7 +197,7 @@ def compute_roi_dose(
     verbose: bool = False,
     ct_path: Optional[Any] = None,
     teff_params: Optional[Dict[str, float]] = None,
-    hu_threshold: Optional[float] = -800.0,
+    hu_threshold: Optional[float] = None,
     dose_rate: bool = False,
     cascade: bool = False,
     dose_rate_map: Optional[Any] = None,
@@ -168,6 +209,21 @@ def compute_roi_dose(
     With dose_rate_map (an external Monte Carlo dose-rate image), the map replaces the S-value
     or the local deposition and the method selects the time integration (see dose_from_rate_map).
     """
+    # Options the chosen computation would ignore are errors
+    all_params = dict(method_params or {})
+    for roi, teff in (teff_params or {}).items():
+        all_params[roi] = {**(all_params.get(roi) or {}), "teff": teff}
+    check_unused_options(
+        method,
+        multi_tp=isinstance(image, (list, tuple)),
+        dose_rate_map=dose_rate_map is not None or dose_rate_map_path is not None,
+        cascade=cascade,
+        hu_threshold=hu_threshold,
+        dose_rate=dose_rate,
+        total_activity_mbq=total_activity_mbq,
+        method_params=all_params,
+    )
+
     # Check if multiple images (MTP) were passed
     if isinstance(image, (list, tuple)):
         if dose_rate_map is not None or dose_rate_map_path is not None:
@@ -370,7 +426,7 @@ def compute_roi_dose(
             time_from_injection_h=time_from_injection_h,
             isotope=isotope,
             ct_arr=ct_arr,
-            hu_threshold=hu_threshold,
+            hu_threshold=-800.0 if hu_threshold is None else hu_threshold,
             dose_rate=dose_rate,
             cascade=cascade,
             tia=is_tia,

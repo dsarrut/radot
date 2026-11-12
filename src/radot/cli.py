@@ -780,14 +780,13 @@ def dose_list():
 @click.option(
     "--hu-threshold",
     type=float,
-    default=-800.0,
-    show_default=True,
-    help="Voxels with CT HU below this value will have dose set to 0. Only used if CT is provided.",
+    default=None,
+    help="LDM: voxels with CT HU below this value get no dose (only with a CT). Default: -800.",
 )
 @click.option(
     "--dose-rate",
     is_flag=True,
-    help="Compute instantaneous dose rate (in Gy/h) instead of absorbed dose (in Gy). Only available for LDM.",
+    help="Compute instantaneous dose rate (in Gy/h) instead of absorbed dose (in Gy). Only for ldm, or with --dose-rate-map.",
 )
 @click.option(
     "--dose-rate-map",
@@ -954,10 +953,6 @@ def dose(
         dose_rate_map_activity = config_dict.get("dose_rate_map_activity_mbq")
 
     method_key = method.lower()
-    if dose_rate and method_key != "ldm":
-        raise click.UsageError(
-            "Option '--dose-rate' is only supported with the 'ldm' method."
-        )
     has_tp_labels = False
     if timepoints and isinstance(timepoints, (list, tuple)):
         has_tp_labels = any(

@@ -310,7 +310,7 @@ def _config(study, **extra):
         ({"cascade": False}, ["--cascade"], "cascade", True),
         ({"hu_threshold": -500}, ["--hu-threshold", "-800"], "hu_threshold", -800.0),
         ({"hu_threshold": -500}, [], "hu_threshold", -500.0),
-        ({}, [], "hu_threshold", -800.0),
+        ({}, [], "hu_threshold", None),  # not given: ldm applies -800
     ],
 )
 def test_cli_option_wins_over_config(dummy_study, captured, cfg, args, key, expected):
