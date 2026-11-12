@@ -35,24 +35,25 @@ Date/Time           | Modality     | Patient ID | Slices | Description          
 Converts a single DICOM file or an entire DICOM series directory into standard continuous formats (e.g., `.nii.gz`, `.nrrd`, `.mhd`).
 
 ```bash
-radot dicom <input_path> -o <output_path> [--all-tags]
+radot dicom <input_path> -o <output_path> [--series UID] [--all-tags]
 ```
 
 #### Options:
 * `-o, --output <output_path>`: The output image file path. 
   > [!WARNING]
   > Writing back to DICOM format is not supported. Use formats like NIfTI (`.nii.gz`), NRRD (`.nrrd`), or MetaImage (`.mhd`).
+* `--series <UID part>`: The series to convert when the folder holds several: a unique part of its Series Instance UID. A folder with several series and no `--series` is an error that lists them (UID, modality, number of files, description); radot never picks one.
 * `--all-tags`: Print all DICOM tags present in the header (only works when the `-o` / `--output` option is omitted).
 
 #### Behavior:
 1. Header Inspection: Inspects the primary header file.
 2. Metadata Extraction: Extracts key metadata:
    - Modality (e.g. `ct`, `pet`, `spect`)
-   - Unit from the DICOM Units tag (e.g. `hu` for CT; `bqml` or `suv` for PET/SPECT). Without a Units tag, PET/SPECT images are assumed to be in `bqml`.
+   - Unit from the DICOM Units tag (e.g. `hu` for CT; `bqml` or `suv` for PET/SPECT). Without a Units tag, the PET/SPECT unit is not written (a WARNING says so; it may be counts): set it with `radot meta IMAGE --unit ...`, else the tools that need it stop with an error.
    - Patient's weight (in kg), height (Patient's Size, converted from m to cm) and sex (`male` / `female`)
    - Radionuclide injected activity (converted from Bq to MBq)
    - Radionuclide (e.g. `Lu177`), parsed from the Radionuclide Code Sequence (e.g. "177 Lutetium") or the Radiopharmaceutical name
-   - Acquisition and Injection date/time stamps
+   - Acquisition and Injection date/time stamps. A date is only used with its time (never a midnight default). The acquisition date comes from the Acquisition DateTime, else Acquisition Date/Time, else Series, else Study Date/Time (a WARNING names the tags when it is not an acquisition tag). The injection date comes from the Radiopharmaceutical Start DateTime only: with an injection time but no date, `injection_date` is not written (a WARNING gives the time), because a late time point is acquired days after the injection.
    - Decay correction reference (`none`, `start` or `admin`, DICOM tag Decay Correction)
 
    The injected activity, injection date/time and radionuclide are read from the Radiopharmaceutical Information Sequence (0054,0016), where PET and SPECT scanners store them; top-level tags are used as a fallback.
