@@ -384,3 +384,80 @@ def test_cli_json_config_mtp_per_tp_labels_override(tmp_path):
     assert data["Liver"]["activities_mbq"][0] > 0.0
     assert data["Liver"]["activities_mbq"][1] > 0.0
     assert data["Liver"]["activities_mbq"][2] > 0.0
+
+
+# Audit B10: per time point, the given time, else the sidecar; never all dropped
+
+def _mtp_files(tmp_path, dates=True):
+    labels_arr = np.zeros((10, 10, 10), dtype=np.uint8)
+    labels_arr[2:5, 2:5, 2:5] = 1
+    labels_img = sitk.GetImageFromArray(labels_arr)
+    labels_img.SetSpacing((2.0, 2.0, 2.0))
+    labels_path = tmp_path / "labels.nii.gz"
+    sitk.WriteImage(labels_img, str(labels_path))
+    (tmp_path / "labels.json").write_text(json.dumps({"1": "Liver"}))
+    paths = []
+    for i, (t_h, acq) in enumerate(zip([5.0, 24.0, 120.0],
+                                       ["2024-01-01 15:00:00", "2024-01-02 10:00:00", "2024-01-06 10:00:00"])):
+        arr = np.where(labels_arr == 1, 1e4 * np.exp(-0.03 * t_h), 0).astype(np.float32)
+        img = sitk.GetImageFromArray(arr)
+        img.SetSpacing((2.0, 2.0, 2.0))
+        path = tmp_path / f"spect_tp{i+1}.nii.gz"
+        sitk.WriteImage(img, str(path))
+        sc = {"unit": "bqml", "modality": "spect", "activity": 5000.0, "sex": "male"}
+        if dates:
+            sc.update({"injection_date": "2024-01-01 10:00:00", "acquisition_date": acq})
+        (tmp_path / f"spect_tp{i+1}.json").write_text(json.dumps(sc))
+        paths.append(path)
+    return paths, labels_path
+
+
+def _cfg(paths, labels_path, timepoints):
+    return {"method": "jackson2013", "radionuclide": "Lu177", "labels": str(labels_path),
+            "timepoints": timepoints}
+
+
+def test_mtp_config_time_on_some_time_points(tmp_path, caplog):
+    """time_h on time point 1 only: used there (with a warning, it differs from the sidecar); the
+    others from their sidecar. Before: all the given times were dropped."""
+    paths, labels = _mtp_files(tmp_path)
+    tps = [{"image": str(paths[0]), "time_h": 6.0}, {"image": str(paths[1])}, {"image": str(paths[2])}]
+    res = compute_roi_dose_file(config=_cfg(paths, labels, tps))
+    assert np.allclose(res["Liver"]["times_h"], [6.0, 24.0, 120.0])
+    assert "given time 6 h used, the sidecar gives 5 h" in caplog.text
+
+
+def test_mtp_config_all_times_given(tmp_path):
+    """time_h on every time point, no sidecar dates: the given times."""
+    paths, labels = _mtp_files(tmp_path, dates=False)
+    tps = [{"image": str(p), "time_h": t} for p, t in zip(paths, [5.0, 24.0, 120.0])]
+    res = compute_roi_dose_file(config=_cfg(paths, labels, tps))
+    assert np.allclose(res["Liver"]["times_h"], [5.0, 24.0, 120.0])
+
+
+def test_mtp_config_mixed_path_and_dict_aligned(tmp_path):
+    """A plain path and a dict with time_h: each time stays with its image (was misaligned)."""
+    paths, labels = _mtp_files(tmp_path)
+    tps = [str(paths[0]), {"image": str(paths[1]), "time_h": 24.0}, str(paths[2])]
+    res = compute_roi_dose_file(config=_cfg(paths, labels, tps))
+    assert np.allclose(res["Liver"]["times_h"], [5.0, 24.0, 120.0])
+
+
+def test_mtp_time_missing_for_one_time_point_errors(tmp_path):
+    paths, labels = _mtp_files(tmp_path, dates=False)
+    tps = [{"image": str(paths[0]), "time_h": 5.0}, {"image": str(paths[1])}, {"image": str(paths[2]), "time_h": 120.0}]
+    with pytest.raises(ValueError, match="Time point 2 \\(spect_tp2.nii.gz\\)"):
+        compute_roi_dose_file(config=_cfg(paths, labels, tps))
+
+
+def test_mtp_times_h_wrong_length_errors(tmp_path):
+    paths, labels = _mtp_files(tmp_path)
+    with pytest.raises(ValueError, match="times_h has 2 values for 3 time points"):
+        compute_roi_dose_mtp(images=paths, labels=labels, isotope="Lu177", times_h=[5.0, 24.0])
+
+
+def test_mtp_config_time_point_without_image_errors(tmp_path):
+    paths, labels = _mtp_files(tmp_path)
+    tps = [{"image": str(paths[0])}, {"time_h": 24.0}, {"image": str(paths[2])}]
+    with pytest.raises(ValueError, match="Time point 2: no image"):
+        compute_roi_dose_file(config=_cfg(paths, labels, tps))
