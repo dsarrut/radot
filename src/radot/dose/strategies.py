@@ -398,7 +398,9 @@ def compute_dose_generic(
         roi_volume_ml = np.sum(mask) * voxel_volume_ml
 
         if ct_arr is not None:
-            density = np.maximum(0.0, 1.0 + (ct_arr[mask] / 1000.0))
+            from radot.stats import ct_density_g_ml
+
+            density = ct_density_g_ml(ct_arr[mask])
             roi_mass_g = np.sum(density) * voxel_volume_ml
         else:
             roi_mass_g = roi_volume_ml

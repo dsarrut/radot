@@ -199,9 +199,12 @@ def compute_roi_dose_mtp(
     ct_path: Optional[Union[Path, List[Optional[Path]]]] = None,
     method_params: Optional[Dict[str, Any]] = None,
     verbose: bool = False,
+    resample: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Computes multiple timepoint (MTP) absorbed doses for specified regions of interest.
+    An image or CT not on the grid of its labels is an error, unless resample="like_labels" (then
+    resampled to the labels grid), as for one time point.
     Currently supports the Jackson 2013 tri-exponential method.
     Supports either a single segmentation (registered across all timepoints)
     or independent segmentations per timepoint.
@@ -231,8 +234,16 @@ def compute_roi_dose_mtp(
                 resolved_paths.append(None)
 
     num_tp = len(itk_images)
-    if not isotope:
-        raise ValueError("Radionuclide (isotope) is required.")
+    rois = list(rois) if rois else None  # an empty ROI list is no filter: all the ROIs
+    # Radionuclide: option, else the sidecars (all the time points must agree)
+    from radot.dose.compute import resolve_isotope
+
+    isotope = resolve_isotope(isotope, itk_images, resolved_paths)
+    if resample not in (None, "like_labels"):
+        raise ValueError(
+            f"resample '{resample}' is not available with multiple time points: only 'like_labels' "
+            f"(each image and CT to the grid of its labels)."
+        )
     method_key = method.lower()
     if method_key == "jackson2013" and num_tp != 3:
         raise ValueError(
@@ -372,6 +383,11 @@ def compute_roi_dose_mtp(
         preserve_total = unit == "bq"
 
         if not has_same_grid(img, lbl):
+            if resample != "like_labels":
+                raise ValueError(
+                    f"Time point {i+1}: the image grid does not match its labels grid. Resample "
+                    f"first, or give resample like_labels (--resample like_labels)."
+                )
             logger.info(
                 f"Timepoint {i+1} image grid does not match its labels grid. Resampling to labels grid..."
             )
@@ -389,6 +405,11 @@ def compute_roi_dose_mtp(
         ct_aligned = None
         if ct is not None:
             if not has_same_grid(ct, lbl):
+                if resample != "like_labels":
+                    raise ValueError(
+                        f"Time point {i+1}: the CT grid does not match its labels grid. Resample "
+                        f"first, or give resample like_labels (--resample like_labels)."
+                    )
                 logger.info(
                     f"Timepoint {i+1} CT grid does not match its labels grid. Resampling CT to labels grid..."
                 )
@@ -409,7 +430,9 @@ def compute_roi_dose_mtp(
 
         if ct_aligned is not None:
             ct_arr = sitk.GetArrayFromImage(ct_aligned)
-            density_arr = np.maximum(0.0, 1.0 + (ct_arr / 1000.0))
+            from radot.stats import ct_density_g_ml
+
+            density_arr = ct_density_g_ml(ct_arr)
         else:
             density_arr = np.ones_like(lbl_arr, dtype=float)
 

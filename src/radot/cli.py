@@ -917,8 +917,6 @@ def dose(
 
     if isotope is None:
         isotope = config_dict.get("isotope")
-    if not isotope:
-        raise click.UsageError("Missing option '--isotope'.")
 
     if labels_path is None:
         labels_path = config_dict.get("labels_path")

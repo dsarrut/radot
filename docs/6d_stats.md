@@ -27,7 +27,7 @@ radot stats [labels_path] -i <image_path> [options]
 #### Behavior:
 1. Grid Alignment: If the label mask and intensity image grids differ, the module automatically resamples one to match the other using the --resample-to strategy. Label maps use Nearest Neighbor interpolation; intensity images use Linear interpolation.
 2. Modality-Specific Calculations:
-   - CT Modality: Estimates physical tissue density (g/cm3) using the formula density = 1.0 + (mean_hu / 1000.0) and computes the total mass of each ROI in grams or kilograms.
+   - CT Modality: Estimates the voxel density (g/cm3) as density = 1.0 + HU / 1000, floored at 0.001 (air below −1000 HU), and the ROI mass as the sum of the voxel masses (the same rule as the dosimetry).
    - PET/SPECT Modality: Computes the total activity in Bq or MBq within each ROI if the units are specified as bq or bqml.
    - Dose Modality: Computes absorbed dose (in Gy) or dose rate (in Gy/h) metrics (Mean, Min, Max, Peak, StdDev) for each ROI.
 3. Peak Value Estimation: Computes the maximum intensity value within each ROI after applying a Gaussian smoothing filter (using the specified --sigma).

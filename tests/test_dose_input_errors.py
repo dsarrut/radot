@@ -194,5 +194,5 @@ def test_mtp_requested_roi_absent_everywhere_errors(tmp_path):
 # B12: no default radionuclide
 def test_mtp_no_isotope_errors(tmp_path):
     spects, labels = _mtp_study(tmp_path)
-    with pytest.raises(ValueError, match="Radionuclide \\(isotope\\) is required"):
+    with pytest.raises(ValueError, match="Radionuclide not given"):
         compute_roi_dose_mtp(images=spects, labels=labels, method_params={"phantom": "male"})

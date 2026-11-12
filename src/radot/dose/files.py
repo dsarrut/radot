@@ -6,7 +6,12 @@ from typing import List, Optional, Dict, Any, Union
 import SimpleITK as sitk
 from pathlib import Path
 
-from radot.dose.compute import check_dosimetry_inputs, check_unused_options, compute_roi_dose
+from radot.dose.compute import (
+    check_dosimetry_inputs,
+    check_unused_options,
+    compute_roi_dose,
+    resolve_isotope,
+)
 from radot.dose.config import load_dose_config
 from radot.dose.mtp import compute_roi_dose_mtp
 
@@ -92,6 +97,7 @@ def compute_roi_dose_file(
     hu_threshold = float(hu_threshold) if hu_threshold is not None else None  # ldm: -800
     dose_rate = bool(dose_rate) if dose_rate is not None else False
     cascade = bool(cascade) if cascade is not None else False
+    rois = list(rois) if rois else None  # an empty ROI list is no filter: all the ROIs
 
     # Multi-timepoint (MTP) dispatch
     if timepoints is not None or isinstance(image_path, (list, tuple)):
@@ -156,8 +162,7 @@ def compute_roi_dose_file(
 
         if not method:
             raise ValueError("Dosimetry method ('method') must be provided.")
-        if not isotope:
-            raise ValueError("Radionuclide ('isotope' / 'radionuclide') must be provided.")
+        isotope = resolve_isotope(isotope, [None] * len(extracted_paths), extracted_paths)
 
         for idx, lbl in enumerate(resolved_labels):
             if lbl is None:
@@ -205,6 +210,7 @@ def compute_roi_dose_file(
             ct_path=resolved_cts if any(c is not None for c in resolved_cts) else None,
             method_params=method_params,
             verbose=verbose,
+            resample=resample_target,
         )
 
         if output_path:
@@ -221,8 +227,7 @@ def compute_roi_dose_file(
         raise ValueError("Activity image path ('image') must be provided.")
     if not method:
         raise ValueError("Dosimetry method ('method') must be provided.")
-    if not isotope:
-        raise ValueError("Radionuclide ('isotope' / 'radionuclide') must be provided.")
+    isotope = resolve_isotope(isotope, [None], [image_path] if image_path else [None])
 
     image_path = Path(image_path)
     if labels_path is not None:

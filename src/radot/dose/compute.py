@@ -168,8 +168,8 @@ def check_unused_options(
         unused.append("dose_rate (only ldm, or a dose-rate map)")
     if multi_tp and total_activity_mbq is not None:
         unused.append("total_activity_mbq (single time point only)")
-    if multi_tp and resample:
-        unused.append("resample (single time point only)")
+    if multi_tp and resample not in (None, "like_labels"):
+        unused.append(f"resample '{resample}' (multiple time points: like_labels only)")
     teff_rois = [r for r, v in (method_params or {}).items() if isinstance(v, dict) and "teff" in v]
     if teff_rois and (multi_tp or m not in TEFF_METHODS):
         unused.append(
@@ -209,6 +209,8 @@ def compute_roi_dose(
     With dose_rate_map (an external Monte Carlo dose-rate image), the map replaces the S-value
     or the local deposition and the method selects the time integration (see dose_from_rate_map).
     """
+    rois = list(rois) if rois else None  # an empty ROI list is no filter: all the ROIs
+
     # Options the chosen computation would ignore are errors
     all_params = dict(method_params or {})
     for roi, teff in (teff_params or {}).items():
@@ -252,6 +254,9 @@ def compute_roi_dose(
         if image_path is None:
             image_path = Path(image)
         image = sitk.ReadImage(str(image))
+
+    # Radionuclide: option, else the image sidecar
+    isotope = resolve_isotope(isotope, [image], [image_path])
 
     if labels is not None and isinstance(labels, (str, Path)):
         if labels_path is None:
@@ -451,7 +456,9 @@ def compute_roi_dose(
 
         # Compute voxel mass array for region-absorbed dose aggregation
         if ct_image is not None:
-            density_arr = np.clip(1.0 + (ct_arr / 1000.0), 1e-3, None)
+            from radot.stats import ct_density_g_ml
+
+            density_arr = ct_density_g_ml(ct_arr)
         else:
             density_arr = np.ones_like(image_arr)
         voxel_mass_g = voxel_volume_ml * density_arr
@@ -529,3 +536,38 @@ def check_requested_rois_present(rois, labels_map: Dict[int, str], labels) -> No
             f"Requested ROI(s) with no voxel in the label image: {', '.join(missing)}. "
             f"Check the segmentation, or remove them from rois."
         )
+
+
+def resolve_isotope(isotope: Optional[str], images, paths) -> str:
+    """Radionuclide: the option/config, else the activity image sidecar(s) `radionuclide`, else an
+    error. An option that contradicts a sidecar, or time points that disagree, is an error."""
+    from radot.db import normalize_isotope
+    from radot.meta import get_metadata_case_insensitive
+
+    found = []
+    for img, p in zip(images, paths):
+        p = Path(p) if p is not None else None
+        v = get_metadata_case_insensitive(img, "radionuclide", p) or get_metadata_case_insensitive(
+            img, "isotope", p
+        )
+        if v:
+            found.append((p.name if p is not None else "image", v.strip()))
+    if isotope:
+        bad = [(n, v) for n, v in found if normalize_isotope(v) != normalize_isotope(isotope)]
+        if bad:
+            raise ValueError(
+                f"Radionuclide mismatch: the option says '{isotope}', the sidecar of {bad[0][0]} says "
+                f"'{bad[0][1]}'. Fix the sidecar (radot meta IMAGE --radionuclide) or drop the option."
+            )
+        return isotope
+    if not found:
+        raise ValueError(
+            "Radionuclide not given (--isotope) and not in the image sidecar (radionuclide): set it "
+            "with radot meta IMAGE --radionuclide Lu177, or give --isotope."
+        )
+    if len({normalize_isotope(v) for _, v in found}) > 1:
+        raise ValueError(
+            "The time points have different radionuclides in their sidecars: "
+            + ", ".join(f"{n}: {v}" for n, v in found)
+        )
+    return found[0][1]

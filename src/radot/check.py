@@ -21,6 +21,7 @@ import numpy as np
 import SimpleITK as sitk
 
 from radot.meta import get_sidecar_path, read_metadata
+from radot.stats import ct_density_g_ml
 
 logger = logging.getLogger("radot")
 
@@ -184,7 +185,9 @@ class CheckContext:
         hu_sum = None
         if self.ct:
             ct = sitk.Resample(self.image(self.ct), img, sitk.Transform(), sitk.sitkLinear, -1000.0)
-            hu_sum = np.bincount(ids, weights=sitk.GetArrayViewFromImage(ct)[idx], minlength=n)
+            hu = sitk.GetArrayViewFromImage(ct)[idx]
+            hu_sum = np.bincount(ids, weights=hu, minlength=n)
+            density_sum = np.bincount(ids, weights=ct_density_g_ml(hu), minlength=n)
         stats = {}
         for i in np.nonzero(counts)[0]:
             c = counts[i]
@@ -196,6 +199,7 @@ class CheckContext:
                 "centroid": point,
                 "border": bool(n_border[i] > 0),
                 "mean_hu": float(hu_sum[i] / c) if hu_sum is not None else None,
+                "mass_g": float(density_sum[i] * voxel_ml) if hu_sum is not None else None,
             }
         self._roi_stats = stats
         return stats
@@ -1102,7 +1106,7 @@ def check_roi_mass(ctx: CheckContext) -> List[Finding]:
             ref = get_reference_mass(phantom, roi)
         except Exception:
             continue
-        mass = s["volume_ml"] * max(0.0, 1.0 + s["mean_hu"] / 1000.0)
+        mass = s["mass_g"]
         ratio = mass / ref
         lo, hi = th[organ]
         if s["border"]:

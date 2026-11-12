@@ -122,7 +122,9 @@ def dose_from_rate_map(
     spacing = image.GetSpacing()
     voxel_volume_ml = (spacing[0] * spacing[1] * spacing[2]) / 1000.0
     if ct_image is not None:
-        density_arr = np.clip(1.0 + (sitk.GetArrayFromImage(ct_image) / 1000.0), 1e-3, None)
+        from radot.stats import ct_density_g_ml
+
+        density_arr = ct_density_g_ml(sitk.GetArrayFromImage(ct_image))
     else:
         density_arr = np.ones_like(rate_arr)
     voxel_mass_g = voxel_volume_ml * density_arr
