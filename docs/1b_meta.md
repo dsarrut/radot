@@ -58,6 +58,9 @@ Supported image metadata keys:
                     Format: YYYY-MM-DD HH:MM:SS
   - acquisition_date: Acquisition date and time.
                       Format: YYYY-MM-DD HH:MM:SS
+                      The only date format of radot (sidecars, options, configs; an optional
+                      fraction of second is accepted). Any other format (day first, slashes,
+                      date without time) is an error.
   - time_from_injection: Time elapsed from injection to acquisition (computed helper option, not stored directly).
                          Format: day:hours:min (e.g. 1:12:30)
                          The tools use the dates. A `time_from_injection` key in hours (written by other

@@ -111,34 +111,15 @@ def compute_decay_correction(
     or an acquisition before the injection.
     """
 
-    def _parse_dt(val):
-        if isinstance(val, datetime):
-            return val
-        if not val:
-            return None
-        val_str = str(val).strip()
-        for fmt in (
-            "%Y-%m-%d %H:%M:%S",
-            "%Y-%m-%d %H:%M:%S.%f",
-            "%Y-%m-%dT%H:%M:%S",
-            "%Y-%m-%dT%H:%M:%S.%f",
-            "%Y/%m/%d, %H:%M:%S",
-            "%Y/%m/%d, %H:%M:%S.%f",
-            "%Y/%m/%d %H:%M:%S",
-            "%d/%m/%Y %H:%M:%S",
-            "%Y%m%d%H%M%S",
-            "%Y-%m-%d",
-        ):
-            try:
-                return datetime.strptime(val_str, fmt)
-            except ValueError:
-                continue
-        return None
+    from radot.meta import parse_date
+
+    def _parse_dt(val, name):
+        return parse_date(val, name) if val else None
 
     delay_minutes = None
     if injection_date and acquisition_date:
-        t_inj = _parse_dt(injection_date)
-        t_acq = _parse_dt(acquisition_date)
+        t_inj = _parse_dt(injection_date, "injection_date")
+        t_acq = _parse_dt(acquisition_date, "acquisition_date")
         if t_inj is not None and t_acq is not None:
             delay_minutes = (t_acq - t_inj).total_seconds() / 60.0
 
@@ -158,11 +139,8 @@ def compute_decay_correction(
     half_life_minutes = get_physical_half_life_h(str(radionuclide).strip()) * 60.0
 
     if delay_minutes is None:
-        t_inj = _parse_dt(injection_date)
-        t_acq = _parse_dt(acquisition_date)
-        if t_inj is None or t_acq is None:
-            bad = injection_date if t_inj is None else acquisition_date
-            raise ValueError(f"Invalid date '{bad}' for the decay correction (expected YYYY-MM-DD HH:MM:SS).")
+        t_inj = _parse_dt(injection_date, "injection_date")
+        t_acq = _parse_dt(acquisition_date, "acquisition_date")
         delay_minutes = (t_acq - t_inj).total_seconds() / 60.0
 
     if delay_minutes < 0:
@@ -431,6 +409,14 @@ def convert_image_units_file(
     """
     if not image_path.exists():
         raise FileNotFoundError(f"Input image not found: {image_path}")
+
+    # Dates given as options are written to the output sidecar: same strict format as everywhere
+    from radot.meta import parse_date
+
+    if injection_date is not None:
+        injection_date = parse_date(injection_date, "injection_date")
+    if acquisition_date is not None:
+        acquisition_date = parse_date(acquisition_date, "acquisition_date")
 
     to_unit = to_unit.lower()
 

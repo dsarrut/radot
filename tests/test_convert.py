@@ -277,10 +277,10 @@ def test_compute_decay_correction():
     assert delay == pytest.approx(67.71, rel=1e-3)
     assert factor == pytest.approx(2.0, rel=1e-3)
 
-    # F-18 (half-life = 109.77 min), other date format
+    # F-18 (half-life = 109.77 min)
     factor_f18, delay_f18 = compute_decay_correction(
-        injection_date="2021/04/28, 10:00:00",
-        acquisition_date="2021/04/28, 11:49:46.2",
+        injection_date="2021-04-28 10:00:00",
+        acquisition_date="2021-04-28 11:49:46.2",
         radionuclide="F18",
     )
     assert delay_f18 == pytest.approx(109.77, rel=1e-3)
@@ -462,3 +462,43 @@ def test_convert_suv_to_sul_no_dates(tmp_path):
     sul = convert_image_units(image, from_unit="suv", to_unit="sul", weight=70.0, activity=250.0, height=175.0, sex="male")
     # SUL = SUV x LBM / W, LBM (James, male 70 kg 175 cm) = 56.52 kg
     assert sitk.GetArrayFromImage(sul)[0, 0, 0] == pytest.approx(2.0 * 56.52 / 70.0, rel=1e-3)
+
+
+# Audit B14: one date format everywhere (YYYY-MM-DD HH:MM:SS, optional fraction of second)
+@pytest.mark.parametrize("bad", [
+    "28/04/2021 11:00:00",     # day first (ambiguous with month first)
+    "2021/04/28, 11:00:00",
+    "2021-04-28T11:00:00",
+    "20210428110000",
+    "2021-04-28",              # date without time (was midnight)
+])
+def test_decay_correction_other_date_formats_rejected(bad):
+    from radot.convert import compute_decay_correction
+
+    with pytest.raises(ValueError, match="not in the format 'YYYY-MM-DD HH:MM:SS'"):
+        compute_decay_correction("2021-04-28 10:00:00", bad, "F18")
+
+
+def test_convert_units_cli_bad_date_option_errors(tmp_path):
+    from click.testing import CliRunner
+    from radot.cli import main
+
+    image_path = _pet(tmp_path, radionuclide="F18", injection_date="2021-04-28 10:00:00",
+                      acquisition_date="2021-04-28 11:49:46")
+    result = CliRunner().invoke(main, ["convert-units", str(image_path), "-t", "bq",
+                                       "--injection-date", "28/04/2021 10:00:00"])
+    assert result.exit_code != 0
+    assert "injection_date '28/04/2021 10:00:00' is not in the format" in result.output
+
+
+def test_meta_and_dose_time_same_date_rule(tmp_path):
+    import SimpleITK as sitk
+    from radot.meta import get_time_from_injection_h, parse_date
+
+    assert parse_date("2021-04-28 11:07:42.6").microsecond == 600000
+    path = tmp_path / "a.nii.gz"
+    sitk.WriteImage(sitk.Image([2, 2, 2], sitk.sitkFloat32), str(path))
+    (tmp_path / "a.json").write_text(
+        '{"injection_date": "28/04/2021 10:00:00", "acquisition_date": "2021-04-28 11:00:00"}')
+    with pytest.raises(ValueError, match="injection_date '28/04/2021 10:00:00'"):
+        get_time_from_injection_h(None, path)
