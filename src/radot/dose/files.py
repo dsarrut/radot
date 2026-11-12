@@ -288,15 +288,14 @@ def compute_roi_dose_file(
     # Perform resampling if target is specified
     if resample_target:
         logger.info(f"Resampling images to align grids: target is {resample_target}")
-        from radot.resampling import resample_image
+        from radot.resampling import PER_VOXEL_UNITS, resample_image
         from radot.meta import get_metadata_case_insensitive
 
         modality = (
             get_metadata_case_insensitive(image, "modality", image_path) or "spect"
         )
         unit = get_metadata_case_insensitive(image, "unit", image_path)
-        # Per-voxel quantities (Bq, Bq.s) keep their total when resampled
-        preserve_total = unit is not None and unit.lower() in ("bq", "bqs")
+        preserve_total = unit is not None and unit.lower() in PER_VOXEL_UNITS
 
         if resample_target == "like_activity":
             if labels is not None:
