@@ -21,6 +21,30 @@ from radot.dose.strategies import (
 logger = logging.getLogger("radot")
 
 
+def load_labels_map(labels_path) -> Dict[int, str]:
+    """ROI names of a label image, from its sidecar {"1": "Liver", ...}. A missing, unreadable or
+    empty sidecar is an error: without names the ROIs cannot be checked, matched or reported."""
+    from radot.meta import get_sidecar_path
+
+    labels_path = Path(labels_path)
+    json_path = get_sidecar_path(labels_path)
+    if not json_path.exists():
+        raise ValueError(
+            f"Label image '{labels_path.name}' has no sidecar '{json_path.name}': the ROI names are "
+            f"unknown. radot segment writes it; else write it as {{\"1\": \"Liver\", \"2\": \"Kidney_L\"}}."
+        )
+    try:
+        raw_map = json.loads(json_path.read_text())
+        labels_map = {int(k): str(v) for k, v in raw_map.items()}
+    except Exception as e:
+        raise ValueError(
+            f"Label sidecar '{json_path}' cannot be read as {{\"<label id>\": \"<ROI name>\"}}: {e}"
+        ) from e
+    if not labels_map:
+        raise ValueError(f"Label sidecar '{json_path}' has no ROI.")
+    return labels_map
+
+
 def check_dosimetry_inputs(
     method: str,
     isotope: str,
@@ -53,17 +77,7 @@ def check_dosimetry_inputs(
     # Load label mapping
     labels_map = {}
     if labels_path is not None:
-        labels_path = Path(labels_path)
-        from radot.meta import get_sidecar_path
-
-        json_path = get_sidecar_path(labels_path)
-        if json_path.exists():
-            try:
-                with open(json_path, "r") as f:
-                    raw_map = json.load(f)
-                    labels_map = {int(k): v for k, v in raw_map.items()}
-            except Exception:
-                pass
+        labels_map = load_labels_map(labels_path)
 
     if labels_map:
         norm_to_std = {v.lower(): v for v in labels_map.values()}

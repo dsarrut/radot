@@ -37,7 +37,7 @@ The validation against Monte Carlo and the SNMMI challenge is in [OpenGATE valid
 ## 3. Inputs and outputs
 
 * **Activity image**: `bq` (per voxel), `bqml`, or `suv`/`sul` (converted to activity with the sidecar, see [units](3a_images_units.md)); time from injection from the sidecar dates. **TIA image**: unit `bqs` (Bq·s per voxel) or `bqsml` (Bq·s/mL); see [TIA images](#time-integrated-activity-tia-images).
-* **Labels**: a label image and its sidecar (`{"1": "Liver", ...}`); names resolved to OpenDose organs (see [ROI names](2b_roi_names.md)). Required for the organ methods, optional for `ldm`.
+* **Labels**: a label image and its sidecar (`{"1": "Liver", ...}`); names resolved to OpenDose organs (see [ROI names](2b_roi_names.md)). Required for the organ methods, optional for `ldm`. A label image without a readable sidecar is an error (the ROI names are unknown).
 * **CT**: voxel density $\rho = 1 + \text{HU}/1000$, used for the ROI mass (S-value mass scaling, mass-weighted means) and the LDM voxel mass; with LDM, voxels below `--hu-threshold` (−800 HU, air) get no dose.
 * **ROI table** (JSON): per ROI `mean_dose_gy`, `roi_mass_g`, `roi_volume_ml`, plus the method values (`roi_teff_h`, `tia_mbq_s`, `fit_params`, ...).
 * **Dose image**: `unit` `gy` (or `gy/h` with `--dose-rate`) and `modality` `dose` in its sidecar.
@@ -112,7 +112,7 @@ A dosimetry study can be described in a JSON file, for reproducibility:
 }
 ```
 
-*(The ROIs and their effective half-lives can also be given separately: `"rois": ["Liver", "Kidney_L"]` and `"teff": {"Liver": 45.0, "Kidney_L": 32.0}`.)* Relative paths are resolved from the folder of the JSON file. Multiple time points use `"timepoints"` (see [Jackson 2013](6b_dose_organ.md#jackson-2013-jackson2013)).
+*(The ROIs and their effective half-lives can also be given separately: `"rois": ["Liver", "Kidney_L"]` and `"teff": {"Liver": 45.0, "Kidney_L": 32.0}`.)* A Teff that is not a number of hours, or a `teff` item not in `ROI:hours` form, is an error. Relative paths are resolved from the folder of the JSON file. Multiple time points use `"timepoints"` (see [Jackson 2013](6b_dose_organ.md#jackson-2013-jackson2013)).
 
 ```bash
 radot dose dose_config.json                         # positional
