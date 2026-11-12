@@ -655,8 +655,11 @@ def _load_decay_chains() -> dict:
             p = importlib.resources.files("radot").joinpath("data", "decay_chains.json")
             with open(str(p), "r", encoding="utf-8") as f:
                 _decay_chains_cache = json.load(f)
-        except Exception:
-            _decay_chains_cache = {"chains": {}}
+        except Exception as e:
+            # No silent fallback to "no chain": the cascade would become single-nuclide
+            raise RuntimeError(
+                f"radot data file decay_chains.json cannot be read ({e}); reinstall radot."
+            ) from e
     return _decay_chains_cache
 
 
@@ -704,10 +707,14 @@ def get_cascade_energy_constant_mev(
         branch_yield = float(daughter.get("yield", 1.0))
         try:
             delta_i = get_non_penetrating_energy_constant_mev(nuclide)
-            contrib = branch_yield * delta_i
-            total_delta += contrib
-            contributions[nuclide] = contrib
-        except Exception:
-            pass
+        except ValueError as e:
+            raise ValueError(
+                f"Cascade of {isotope}: no ICRP 107 data for the daughter {nuclide} "
+                f"(cumulative yield {branch_yield:g}), the cascade energy would miss it. "
+                f"Without the cascade (--no-cascade), only {isotope} is counted."
+            ) from e
+        contrib = branch_yield * delta_i
+        total_delta += contrib
+        contributions[nuclide] = contrib
 
     return total_delta, contributions

@@ -1801,11 +1801,14 @@ def radionuclide_info(isotope):
         if chain and "daughters" in chain:
             daughters = [d for d in chain["daughters"] if not d.get("is_stable", False)]
             if len(daughters) > 1:
-                total_cascade_mev, _ = get_cascade_energy_constant_mev(
-                    isotope, cascade=True
-                )
+                try:
+                    total_cascade_mev, _ = get_cascade_energy_constant_mev(
+                        isotope, cascade=True
+                    )
+                    cascade_error = None
+                except ValueError as e:
+                    total_cascade_mev, cascade_error = None, str(e)
                 parent_mev = get_non_penetrating_energy_constant_mev(isotope)
-                factor = total_cascade_mev / parent_mev if parent_mev > 0 else 1.0
 
                 sys.stdout.write(
                     "Decay Chain Cascade (Secular Equilibrium - Source: IAEA LiveChart):\n"
@@ -1834,10 +1837,14 @@ def radionuclide_info(isotope):
                                 f"{nuc:<10} | {hl:<12} | {y:<12.4f} | {'N/A':<18} | {'N/A':<14}\n"
                             )
                 sys.stdout.write("─" * 74 + "\n")
-                sys.stdout.write(
-                    f"Total Cascade Non-Penetrating Energy: {total_cascade_mev:.4f} MeV "
-                    f"(Parent: {parent_mev:.4f} MeV, Cascade Factor: {factor:.2f}x)\n\n"
-                )
+                if cascade_error is not None:
+                    sys.stdout.write(f"Total Cascade Non-Penetrating Energy: not available ({cascade_error})\n\n")
+                else:
+                    factor = total_cascade_mev / parent_mev if parent_mev > 0 else 1.0
+                    sys.stdout.write(
+                        f"Total Cascade Non-Penetrating Energy: {total_cascade_mev:.4f} MeV "
+                        f"(Parent: {parent_mev:.4f} MeV, Cascade Factor: {factor:.2f}x)\n\n"
+                    )
 
     except Exception as e:
         handle_cli_exception(e)

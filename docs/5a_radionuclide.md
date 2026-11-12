@@ -28,6 +28,7 @@ $$\Delta_{\text{local, cascade}} = \sum_{i \in \text{chain}} Y_i \cdot \Delta_{\
 where:
 - $Y_i$ is the cumulative yield (branching weight) of progeny nuclide $i$ computed from IAEA decay branching paths ($Y_{\text{parent}} = 1.0$).
 - $\Delta_{\text{local, ICRP107}}(i)$ is the non-penetrating energy constant for nuclide $i$ evaluated from ICRP 107 transitions (alpha, beta-, beta+, Auger electrons, internal conversion electrons, and recoil nuclei).
+- Every unstable daughter must have ICRP 107 data: a daughter without it is an error (the sum would be too low), and `radot radionuclide info` shows it as `N/A` with the reason instead of a total.
 - The **Cascade Factor** is defined as:
   $$\text{Cascade Factor} = \frac{\Delta_{\text{local, cascade}}}{\Delta_{\text{local, parent}}}$$
 
