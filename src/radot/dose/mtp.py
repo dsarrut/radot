@@ -321,10 +321,10 @@ def compute_roi_dose_mtp(
     resolved_ct_paths = [resolved_ct_paths[i] for i in sort_idx]
     times_h = [times_h[i] for i in sort_idx]
 
-    # 5. Resolve phantom
-    phantom = "male"
-    if method_params and "phantom" in method_params:
-        phantom = method_params["phantom"]
+    # 5. Resolve phantom: option/config, else the patient sex of the first time point sidecar, else an error
+    from radot.dose.strategies import resolve_phantom
+
+    phantom = resolve_phantom(method_params, itk_images[0], resolved_paths[0] if resolved_paths else None)
 
     # 6. Process each timepoint: alignment, mass, and activity extraction
     tp_data = []

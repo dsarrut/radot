@@ -275,3 +275,69 @@ def test_load_dose_config_grouped_rois(dummy_study):
     assert loaded2["method_params"]["Liver"]["teff"] == 45.2
     assert loaded2["method_params"]["Spleen"]["teff"] == 38.0
 
+
+
+# --- precedence: an explicit option (CLI or API) wins over the config -------------------------
+
+
+@pytest.fixture
+def captured(monkeypatch):
+    """The arguments that reach compute_roi_dose (no dose computed)."""
+    calls = {}
+
+    def fake(**kwargs):
+        calls.update(kwargs)
+        return {}
+
+    monkeypatch.setattr("radot.dose.files.compute_roi_dose", fake)
+    return calls
+
+
+def _config(study, **extra):
+    cfg = {"image": "spect.nii.gz", "labels": "labels.nii.gz", "ct": "ct.nii.gz", "method": "hanscheid2018",
+           "radionuclide": "Lu177", "output": str(study["dir"] / "out.json")}
+    cfg.update(extra)
+    path = study["dir"] / "cfg.json"
+    path.write_text(json.dumps(cfg))
+    return path
+
+
+@pytest.mark.parametrize(
+    "cfg, args, key, expected",
+    [
+        ({"cascade": True}, ["--no-cascade"], "cascade", False),
+        ({"cascade": True}, [], "cascade", True),
+        ({"cascade": False}, ["--cascade"], "cascade", True),
+        ({"hu_threshold": -500}, ["--hu-threshold", "-800"], "hu_threshold", -800.0),
+        ({"hu_threshold": -500}, [], "hu_threshold", -500.0),
+        ({}, [], "hu_threshold", -800.0),
+    ],
+)
+def test_cli_option_wins_over_config(dummy_study, captured, cfg, args, key, expected):
+    result = CliRunner().invoke(main, ["dose", "-c", str(_config(dummy_study, **cfg))] + args)
+    assert result.exit_code == 0, result.output
+    assert captured[key] == expected
+
+
+@pytest.mark.parametrize(
+    "cfg, args, expected",
+    [
+        ({"phantom": "female"}, ["--phantom", "male"], "male"),
+        ({"method_params": {"phantom": "female"}}, ["--phantom", "male"], "male"),
+        ({"phantom": "female"}, [], "female"),
+        ({"method_params": {"phantom": "female"}}, [], "female"),
+        ({}, [], None),  # not set by the CLI: resolved from the sidecar sex (resolve_phantom)
+    ],
+)
+def test_cli_phantom_wins_over_config(dummy_study, captured, cfg, args, expected):
+    result = CliRunner().invoke(main, ["dose", "-c", str(_config(dummy_study, **cfg))] + args)
+    assert result.exit_code == 0, result.output
+    assert captured["method_params"].get("phantom") == expected
+
+
+def test_api_explicit_argument_wins_over_config(dummy_study, captured):
+    cfg = _config(dummy_study, cascade=True, hu_threshold=-500, dose_rate=True)
+    compute_roi_dose_file(config=cfg, cascade=False, hu_threshold=-800.0, dose_rate=False)
+    assert captured["cascade"] is False and captured["hu_threshold"] == -800.0 and captured["dose_rate"] is False
+    compute_roi_dose_file(config=cfg)
+    assert captured["cascade"] is True and captured["hu_threshold"] == -500.0 and captured["dose_rate"] is True

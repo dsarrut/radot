@@ -84,6 +84,7 @@ def test_madsen2018():
             isotope="Lu177",
             labels_map=labels_map,
             rois=None,
+            method_params={"phantom": "male"},
         )
 
     res = compute_roi_dose(

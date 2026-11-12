@@ -7,7 +7,7 @@ The organ-level methods give one mean absorbed dose per ROI (organ or lesion), f
 ## 1. Principles
 
 * **Self-dose only**: the dose to an ROI comes from the activity in that ROI (the S-value of the organ to itself). The cross-doses from the other organs, and the photons that leave the organ, are not included; use a [Monte Carlo map](6c_dose_voxel.md#2-external-dose-rate-map-monte-carlo) for them. For Lu-177 the self-dose dominates in the kidneys, the liver and the spleen.
-* **OpenDose S-values**: the self S-value $S$ of the organ (mGy/(MBq·s)) for the ICRP 110 adult male or female phantom (`--phantom`, default male), from the [OpenDose](5b_opendose.md) data (shipped for Lu-177, downloaded once from Zenodo for the other radionuclides).
+* **OpenDose S-values**: the self S-value $S$ of the organ (mGy/(MBq·s)) for the ICRP 110 adult male or female phantom (`--phantom`; default: the patient `sex` in the image sidecar; neither given: an error), from the [OpenDose](5b_opendose.md) data (shipped for Lu-177, downloaded once from Zenodo for the other radionuclides).
 * **Mass scaling**: the phantom S-value is scaled to the patient organ mass:
   $$
   S_{\text{patient}} = \frac{S}{\text{mass-scaling}}, \qquad \text{mass-scaling} = \frac{m_{\text{patient}}}{m_{\text{reference}}}

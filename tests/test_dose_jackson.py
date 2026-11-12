@@ -194,6 +194,7 @@ def test_compute_roi_dose_mtp_synthetic(tmp_path):
                 {
                     "unit": "bqml",
                     "modality": "spect",
+                    "sex": "male",
                     "injection_date": "2024-01-01 10:00:00",
                     "acquisition_date": acq_date,
                     "activity": 5000.0,
@@ -258,6 +259,7 @@ def test_cli_json_config_mtp(tmp_path):
                 {
                     "unit": "bqml",
                     "modality": "spect",
+                    "sex": "male",
                     "injection_date": "2024-01-01 10:00:00",
                     "acquisition_date": f"2024-01-{i+1:02d} 10:00:00",
                 },
@@ -341,6 +343,7 @@ def test_cli_json_config_mtp_per_tp_labels_override(tmp_path):
                 {
                     "unit": "bqml",
                     "modality": "spect",
+                    "sex": "male",
                     "injection_date": "2024-01-01 10:00:00",
                     "acquisition_date": f"2024-01-{i+1:02d} 10:00:00",
                 },

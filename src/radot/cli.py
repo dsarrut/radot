@@ -817,8 +817,8 @@ def dose_list():
 )
 @click.option(
     "--phantom",
-    default="male",
-    help="OpenDose phantom name (e.g. male, female).",
+    default=None,
+    help="OpenDose phantom (male, female) for the S-value methods. Default: the patient sex in the image sidecar.",
 )
 @click.option(
     "--cascade/--no-cascade",
@@ -976,9 +976,10 @@ def dose(
     if not rois_list:
         rois_list = None
 
-    method_params = {"phantom": phantom}
-    if "method_params" in config_dict:
-        method_params.update(config_dict["method_params"])
+    # config method_params (per-ROI Teff, phantom), then the command line wins
+    method_params = dict(config_dict.get("method_params", {}))
+    if phantom is not None and (param_from_cli("phantom") or "phantom" not in method_params):
+        method_params["phantom"] = phantom
 
     if teff:
         for t in teff:
@@ -1016,11 +1017,12 @@ def dose(
             method_params=method_params,
             output_path=output_path,
             resample_target=resample,
-            verbose=verbose,
+            verbose=cli_verbose,
             hu_threshold=hu_threshold,
             dose_rate=dose_rate,
             cascade=cascade,
-            config=config_path,
+            # the config is already merged above (command line first): not merged a second time
+            config=None,
             timepoints=timepoints,
             dose_rate_map_path=dose_rate_map_path,
             dose_rate_map_activity_mbq=dose_rate_map_activity,
