@@ -60,6 +60,9 @@ Supported image metadata keys:
                       Format: YYYY-MM-DD HH:MM:SS
   - time_from_injection: Time elapsed from injection to acquisition (computed helper option, not stored directly).
                          Format: day:hours:min (e.g. 1:12:30)
+                         The tools use the dates. A `time_from_injection` key in hours (written by other
+                         software, never by radot) is used only without dates; with dates and a
+                         difference above one minute, it is an error.
   - height: Patient height (in cm).
             Format: floating point number
   - sex: Patient sex.
@@ -71,7 +74,7 @@ Supported image metadata keys:
 ---
 
 ### Writing Metadata: `radot meta` with options
-Applies metadata edits to the image JSON sidecar file. Only the specified options are modified; unspecified fields are merged and preserved.
+Applies metadata edits to the image JSON sidecar file. Only the specified options are modified; unspecified fields are merged and preserved. A sidecar that is not valid JSON (or not a JSON object) is an error, for writing and for reading: it is never rewritten from scratch nor ignored; fix it, or delete it to start again.
 
 ```bash
 radot meta <image_path> [options]

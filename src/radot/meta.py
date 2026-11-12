@@ -74,6 +74,20 @@ def get_sidecar_path(image_path: Path) -> Path:
     return image_path.with_suffix(".json")
 
 
+def _read_sidecar(sidecar_path: Path) -> dict:
+    """Content of a JSON sidecar. An unreadable sidecar is an error: its values are never replaced by
+    the header ones or dropped when it is rewritten."""
+    try:
+        data = json.loads(Path(sidecar_path).read_text())
+    except Exception as e:
+        raise ValueError(
+            f"Sidecar {sidecar_path} cannot be read ({e}). Fix it, or delete it to start again."
+        ) from e
+    if not isinstance(data, dict):
+        raise ValueError(f"Sidecar {sidecar_path} is not a JSON object ({{\"key\": value, ...}}).")
+    return data
+
+
 def get_metadata_case_insensitive(
     image: Optional[sitk.Image], key: str, image_path: Optional[Path] = None
 ) -> Optional[str]:
@@ -84,17 +98,11 @@ def get_metadata_case_insensitive(
     if image_path is not None:
         sidecar_path = get_sidecar_path(image_path)
         if sidecar_path.exists():
-            try:
-                with open(sidecar_path, "r") as f:
-                    data = json.load(f)
-                # Case-insensitive lookup in JSON dict
-                for k, v in data.items():
-                    if k.lower() == lower_key:
-                        return str(v) if v is not None else None
-            except Exception as e:
-                logger.warning(
-                    f"Failed to read metadata from sidecar {sidecar_path}: {e}"
-                )
+            data = _read_sidecar(sidecar_path)
+            # Case-insensitive lookup in JSON dict
+            for k, v in data.items():
+                if k.lower() == lower_key:
+                    return str(v) if v is not None else None
 
     # 2. Try parsing headers using ImageFileReader (no pixel loading)
     if image_path is not None and image_path.exists():
@@ -372,13 +380,7 @@ def write_metadata(
 
     # Write to JSON sidecar, keeping the keys not managed here (e.g. radionuclide, decay_correction)
     sidecar_path = get_sidecar_path(image_path)
-    meta_dict = {}
-    if sidecar_path.exists():
-        try:
-            with open(sidecar_path, "r") as f:
-                meta_dict = json.load(f)
-        except Exception:
-            meta_dict = {}
+    meta_dict = _read_sidecar(sidecar_path) if sidecar_path.exists() else {}
     if final_modality is not None:
         meta_dict["modality"] = final_modality
     if final_unit is not None:
@@ -530,26 +532,41 @@ def manage_metadata(
 def get_time_from_injection_h(
     image: sitk.Image, image_path: Optional[Path] = None
 ) -> float:
-    """Retrieve or compute the time from injection in hours."""
-    # 1. Try reading directly
+    """Time from injection in hours: from the injection and acquisition dates, or from a
+    `time_from_injection` key (hours). Both present and different, or one malformed, is an error."""
     t_str = get_metadata_case_insensitive(image, "time_from_injection", image_path)
+    t_key = None
     if t_str is not None:
         try:
-            return float(t_str)
+            t_key = float(t_str)
         except ValueError:
-            pass
+            raise ValueError(
+                f"time_from_injection '{t_str}' is not a number of hours."
+            ) from None
 
-    # 2. Try calculating from acquisition and injection dates
+    t_dates = None
     inj_val = get_metadata_case_insensitive(image, "injection_date", image_path)
     acq_val = get_metadata_case_insensitive(image, "acquisition_date", image_path)
     if inj_val and acq_val:
         try:
             inj_dt = datetime.strptime(inj_val, "%Y-%m-%d %H:%M:%S")
             acq_dt = datetime.strptime(acq_val, "%Y-%m-%d %H:%M:%S")
-            time_diff = acq_dt - inj_dt
-            return time_diff.total_seconds() / 3600.0
-        except Exception:
-            pass
+        except ValueError:
+            raise ValueError(
+                f"injection_date '{inj_val}' or acquisition_date '{acq_val}' is not in the format "
+                f"'YYYY-MM-DD HH:MM:SS'."
+            ) from None
+        t_dates = (acq_dt - inj_dt).total_seconds() / 3600.0
+
+    if t_key is not None and t_dates is not None and abs(t_key - t_dates) > 1.0 / 60.0:
+        raise ValueError(
+            f"time_from_injection ({t_key:g} h) differs from the dates ({t_dates:.4g} h: injection "
+            f"{inj_val}, acquisition {acq_val}). Remove one of them."
+        )
+    if t_dates is not None:
+        return t_dates
+    if t_key is not None:
+        return t_key
 
     raise ValueError(
         "Time from injection is required but was not found in the image metadata."
