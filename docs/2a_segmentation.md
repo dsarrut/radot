@@ -104,4 +104,6 @@ The segmentation module maps major organs, glands, cardiovascular structures, bo
 * Vertebrae: Cervical (C1-C7), Thoracic (T1-T12), Lumbar (L1-L5), and Sacral (S1) vertebrae are mapped to IDs 94-118 and named Bone_V_C01 through Bone_V_S01.
 
 ### Fallback Mechanism:
-* Unmapped/Unrecognized classes are assigned a sequential ID starting at 1000 (or their original TotalSegmentator ID if the class name is not found in the mode map) and labeled as unknown_<id> to ensure compatibility and completeness.
+* A TotalSegmentator class not yet mapped to TG-263 keeps its TotalSegmentator name and gets an ID from the reserved fallback range (`FALLBACK_UNMAPPED_ID_RANGE`), with a WARNING listing the classes.
+* A label ID without class name in the task map (TotalSegmentator version mismatch) is named `unknown_ts_<id>` and also gets a fallback-range ID, never its own ID (it could be a TG-263 ID and merge two structures), with a WARNING.
+* An unknown task (`--mode`) is an error before TotalSegmentator runs.

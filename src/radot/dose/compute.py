@@ -141,6 +141,22 @@ def check_dosimetry_inputs(
     return labels_map
 
 
+def check_requested_rois_present(rois, labels_map: Dict[int, str], labels) -> None:
+    """A ROI requested explicitly must have voxels in the label image: it is never silently
+    absent from the results (the loop over the labels would not see it)."""
+    if not rois:
+        return
+    present = {int(v) for v in np.unique(sitk.GetArrayViewFromImage(labels))}
+    missing = [
+        r for r in rois if not any(lid in present for lid, name in labels_map.items() if name == r)
+    ]
+    if missing:
+        raise ValueError(
+            f"Requested ROI(s) with no voxel in the label image: {', '.join(missing)}. "
+            f"Check the segmentation, or remove them from rois."
+        )
+
+
 def compute_roi_dose(
     image: Any,
     method: str,
@@ -267,6 +283,12 @@ def compute_roi_dose(
                 raise ValueError(
                     "CT image grid does not match activity image grid. Please resample CT first."
                 )
+
+    # Requested ROIs must be in the label image
+    if rois and labels is None:
+        raise ValueError("rois needs a label image (labels).")
+    if labels is not None:
+        check_requested_rois_present(rois, labels_map, labels)
 
     # OpenDose phantom (S-value methods; a dose-rate map uses none): option/config, else the
     # patient sex in the sidecar, else an error. Resolved here, before a unit conversion of the image.

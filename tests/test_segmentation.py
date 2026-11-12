@@ -194,3 +194,40 @@ def test_segment_ct_fallback_range_exhausted_raises(tmp_path):
         with pytest.raises(RuntimeError, match="Exhausted FALLBACK_UNMAPPED_ID_RANGE"):
             segment_ct(ct_path, output_path, mode="body", fast=True)
 
+
+
+# Audit B13: a TotalSegmentator id without class name never keeps its id (no voxels merged)
+
+def test_remap_ts_id_without_class_name_gets_fallback_id(caplog):
+    import logging
+    import numpy as np
+    from radot.segmentation import remap_ts_labels
+
+    seg = np.zeros((4, 4, 4), dtype=np.uint16)
+    seg[0, 0, 0] = 5    # liver in the fake class map
+    seg[1, 1, 1] = 99   # no class name
+    ts_names = {5: "liver"}
+    liver_id = get_tg263_id("liver")
+    seg[2, 2, 2] = liver_id  # a TS id equal to a TG-263 id, without class name
+    with caplog.at_level(logging.WARNING, logger="radot"):
+        arr, names = remap_ts_labels(seg, ts_names)
+    assert names[liver_id] == "Liver"
+    lo, hi = FALLBACK_UNMAPPED_ID_RANGE
+    unknown = {i: n for i, n in names.items() if n.startswith("unknown_ts_")}
+    assert set(unknown.values()) == {"unknown_ts_99", f"unknown_ts_{liver_id}"}
+    assert all(lo <= i <= hi for i in unknown)
+    # the liver voxel and the unnamed voxel with the liver id are not merged
+    assert arr[0, 0, 0] == liver_id and arr[2, 2, 2] != liver_id
+    assert "without class name" in caplog.text
+
+
+@requires_ts
+def test_segment_ct_unknown_task_errors_before_running(tmp_path):
+    from unittest.mock import patch
+
+    ct_path = tmp_path / "ct.nii.gz"
+    sitk.WriteImage(sitk.Image([4, 4, 4], sitk.sitkInt16), str(ct_path))
+    with patch("totalsegmentator.python_api.totalsegmentator") as ts:
+        with pytest.raises(ValueError, match="task 'no_such_task' has no class map"):
+            segment_ct(ct_path, tmp_path / "labels.nii.gz", mode="no_such_task")
+        ts.assert_not_called()

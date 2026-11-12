@@ -127,3 +127,72 @@ def test_mtp_labels_sidecar_missing_errors(tmp_path):
     with pytest.raises(ValueError, match="has no sidecar"):
         compute_roi_dose_mtp(images=spects, labels=labels, isotope="Lu177",
                              method_params={"phantom": "male"})
+
+
+# B11: a ROI requested with rois but with no voxel is an error (was: absent from the results)
+def _with_empty_spleen(tmp_path):
+    """Labels sidecar names Liver (1) and Spleen (2); only Liver has voxels."""
+    labels = _write(tmp_path / "labels.nii.gz", _labels_arr(spleen=False), {"1": "Liver", "2": "Spleen"})
+    image = sitk.GetImageFromArray(np.ones((10, 10, 10), dtype=np.float32))
+    image.SetSpacing((2.0, 2.0, 2.0))
+    image.SetMetaData("time_from_injection", "24.0")
+    image.SetMetaData("unit", "bq")
+    return image, labels
+
+
+@pytest.mark.parametrize("method, extra", [
+    ("hanscheid2017", {}),
+    ("hanscheid2018", {"method_params": {"phantom": "male"}}),
+    ("ldm", {}),
+])
+def test_requested_roi_without_voxel_errors(tmp_path, method, extra):
+    image, labels = _with_empty_spleen(tmp_path)
+    with pytest.raises(ValueError, match="no voxel in the label image: Spleen"):
+        compute_roi_dose(image=image, labels=sitk.ReadImage(str(labels)), labels_path=labels,
+                         method=method, isotope="Lu177", rois=["Liver", "Spleen"], **extra)
+
+
+def test_requested_roi_without_voxel_rate_map_errors(tmp_path):
+    image, labels = _with_empty_spleen(tmp_path)
+    rate = sitk.GetImageFromArray(np.full((10, 10, 10), 1e-9, dtype=np.float32))
+    rate.SetSpacing((2.0, 2.0, 2.0))
+    rate.SetMetaData("unit", "gy/s")
+    with pytest.raises(ValueError, match="no voxel in the label image: Spleen"):
+        compute_roi_dose(image=image, labels=sitk.ReadImage(str(labels)), labels_path=labels,
+                         method="ldm", isotope="Lu177", rois=["Spleen"], dose_rate_map=rate)
+
+
+def test_requested_roi_not_in_given_labels_map_errors(tmp_path):
+    """API labels_map given directly (no sidecar check): an unknown requested ROI is an error too."""
+    image, labels = _with_empty_spleen(tmp_path)
+    with pytest.raises(ValueError, match="no voxel in the label image: Kidney_L"):
+        compute_roi_dose(image=image, labels=sitk.ReadImage(str(labels)), labels_map={1: "Liver"},
+                         method="hanscheid2017", isotope="Lu177", rois=["Kidney_L"])
+
+
+def test_all_rois_loop_skips_empty_label(tmp_path):
+    """Without rois, a named label with no voxel is simply not in the results (nothing requested)."""
+    image, labels = _with_empty_spleen(tmp_path)
+    res = compute_roi_dose(image=image, labels=sitk.ReadImage(str(labels)), labels_path=labels,
+                           method="hanscheid2017", isotope="Lu177")
+    assert set(res) == {"Liver"}
+
+
+def test_rois_without_labels_errors(tmp_path):
+    image, _ = _with_empty_spleen(tmp_path)
+    with pytest.raises(ValueError, match="rois needs a label image"):
+        compute_roi_dose(image=image, method="ldm", isotope="Lu177", rois=["Liver"])
+
+
+def test_mtp_requested_roi_absent_everywhere_errors(tmp_path):
+    spects, labels = _mtp_study(tmp_path, labels_sidecar={"1": "Liver", "2": "Spleen", "3": "Kidney_L"})
+    with pytest.raises(ValueError, match="'Kidney_L' has no voxel in the labels at any time point"):
+        compute_roi_dose_mtp(images=spects, labels=labels, isotope="Lu177", rois=["Liver", "Kidney_L"],
+                             method_params={"phantom": "male"})
+
+
+# B12: no default radionuclide
+def test_mtp_no_isotope_errors(tmp_path):
+    spects, labels = _mtp_study(tmp_path)
+    with pytest.raises(ValueError, match="Radionuclide \\(isotope\\) is required"):
+        compute_roi_dose_mtp(images=spects, labels=labels, method_params={"phantom": "male"})

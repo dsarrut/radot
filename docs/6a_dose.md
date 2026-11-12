@@ -80,7 +80,7 @@ radot dose -c <config_json> [options]
 * --ct <ct_path>: CT image, for the density and the ROI masses.
 * -m, --method <hanscheid2017|hanscheid2018|madsen2018|jackson2013|svalue|ldm>: Dosimetry method.
 * --isotope <name>: Radionuclide (e.g. Lu177, Y90).
-* --rois <name>: ROI to include. Can be repeated or comma-separated. Default: all the labels.
+* --rois <name>: ROI to include. Can be repeated or comma-separated. Default: all the labels. A requested ROI must have voxels in the label image (at every time point for `jackson2013`), else it is an error; without `--rois`, labels with no voxel are skipped.
 * --teff <ROI:value>: Effective half-life per ROI in hours (e.g. --teff Liver:45.0 --teff Kidney_L:32.0).
 * --total-activity <float>: Total activity of the image in MBq (rescales the image; activity images only).
 * --hu-threshold <float>: `ldm`: CT values below this (default −800 HU) get no dose (air).
