@@ -38,6 +38,64 @@ def get_tg263_id(filename):
     return None
 
 
+def remap_ts_labels(seg_arr, ts_id_to_name: dict):
+    """TotalSegmentator label ids -> TG-263 ids and names. A class not in TS_TO_TG263, or an id with
+    no class name (TotalSegmentator version mismatch), gets an id from FALLBACK_UNMAPPED_ID_RANGE
+    (never a TG-263 id: no voxels merged), with a WARNING. Returns (remapped array, {id: name})."""
+    import numpy as np
+
+    unique_ids = [int(i) for i in np.unique(seg_arr) if i > 0]
+    remapped_arr = np.zeros_like(seg_arr, dtype=np.uint16)
+    json_map = {}
+    fallback_lo, fallback_hi = FALLBACK_UNMAPPED_ID_RANGE
+    fallback_id_counter = fallback_lo
+    unmapped_class_names = []
+    unnamed_ids = []
+
+    def next_fallback(what):
+        nonlocal fallback_id_counter
+        if fallback_id_counter > fallback_hi:
+            raise RuntimeError(
+                f"Exhausted FALLBACK_UNMAPPED_ID_RANGE {FALLBACK_UNMAPPED_ID_RANGE} "
+                f"while assigning an ID for {what}."
+            )
+        fallback_id_counter += 1
+        return fallback_id_counter - 1
+
+    for old_id in unique_ids:
+        class_name = ts_id_to_name.get(old_id)
+        if class_name:
+            tg263_id = get_tg263_id(class_name)
+            tg263_name = get_tg263_name(class_name)
+            if tg263_id is None:
+                # Not yet present in TS_TO_TG263: assign an ID from the reserved
+                # fallback range instead of colliding with DISCRETE_TISSUE_IDS.
+                tg263_id = next_fallback(f"unmapped TS class '{class_name}'")
+                tg263_name = class_name
+                unmapped_class_names.append(class_name)
+        else:
+            # No class name for this id: never keep the TS id (it can be a TG-263 id)
+            tg263_id = next_fallback(f"TS label id {old_id} without class name")
+            tg263_name = f"unknown_ts_{old_id}"
+            unnamed_ids.append(old_id)
+
+        remapped_arr[seg_arr == old_id] = tg263_id
+        json_map[int(tg263_id)] = tg263_name
+
+    if unmapped_class_names:
+        logger.warning(
+            "TS_TO_TG263 coverage gap: the following TotalSegmentator classes "
+            "are not yet mapped and were assigned fallback IDs from "
+            f"{FALLBACK_UNMAPPED_ID_RANGE}: {unmapped_class_names}"
+        )
+    if unnamed_ids:
+        logger.warning(
+            f"TotalSegmentator label ids without class name (version mismatch?): {unnamed_ids}; "
+            f"named unknown_ts_<id>, with ids from {FALLBACK_UNMAPPED_ID_RANGE}."
+        )
+    return remapped_arr, json_map
+
+
 def segment_ct(ct_path: Path, output_path: Path, mode: str = "total", fast: bool = False) -> None:
     """
     Segment the given CT image using TotalSegmentator and group/name labels according to AAPM TG-263.
@@ -64,9 +122,12 @@ def segment_ct(ct_path: Path, output_path: Path, mode: str = "total", fast: bool
     ct_image = sitk.ReadImage(str(ct_path))
 
     # Dictionary to map TotalSegmentator class IDs to names for this task
-    ts_id_to_name = {}
-    if mode in class_map:
-        ts_id_to_name = class_map[mode]
+    if mode not in class_map:
+        raise ValueError(
+            f"TotalSegmentator task '{mode}' has no class map in this TotalSegmentator version: "
+            f"the labels would have no names. Known tasks: {', '.join(sorted(class_map))}."
+        )
+    ts_id_to_name = class_map[mode]
 
     # Construct equivalent CLI command
 
@@ -101,47 +162,8 @@ def segment_ct(ct_path: Path, output_path: Path, mode: str = "total", fast: bool
         seg_image = sitk.ReadImage(str(temp_output))
         seg_arr = sitk.GetArrayFromImage(seg_image)
 
-    # Find the unique labels predicted (excluding background)
-    unique_ids = np.unique(seg_arr)
-    unique_ids = [int(i) for i in unique_ids if i > 0]
-
     # Remap the labels to the AAPM TG-263 system
-    remapped_arr = np.zeros_like(seg_arr, dtype=np.uint16)
-    json_map = {}
-    fallback_lo, fallback_hi = FALLBACK_UNMAPPED_ID_RANGE
-    fallback_id_counter = fallback_lo
-    unmapped_class_names = []
-
-    for old_id in unique_ids:
-        class_name = ts_id_to_name.get(old_id)
-        if class_name:
-            tg263_id = get_tg263_id(class_name)
-            tg263_name = get_tg263_name(class_name)
-            if tg263_id is None:
-                # Not yet present in TS_TO_TG263: assign an ID from the reserved
-                # fallback range instead of colliding with DISCRETE_TISSUE_IDS.
-                if fallback_id_counter > fallback_hi:
-                    raise RuntimeError(
-                        f"Exhausted FALLBACK_UNMAPPED_ID_RANGE {FALLBACK_UNMAPPED_ID_RANGE} "
-                        f"while assigning an ID for unmapped TS class '{class_name}'."
-                    )
-                tg263_id = fallback_id_counter
-                tg263_name = class_name
-                fallback_id_counter += 1
-                unmapped_class_names.append(class_name)
-        else:
-            tg263_id = old_id
-            tg263_name = f"unknown_{old_id}"
-
-        remapped_arr[seg_arr == old_id] = tg263_id
-        json_map[int(tg263_id)] = tg263_name
-
-    if unmapped_class_names:
-        logger.warning(
-            "TS_TO_TG263 coverage gap: the following TotalSegmentator classes "
-            "are not yet mapped and were assigned fallback IDs from "
-            f"{FALLBACK_UNMAPPED_ID_RANGE}: {unmapped_class_names}"
-        )
+    remapped_arr, json_map = remap_ts_labels(seg_arr, ts_id_to_name)
 
     # Convert back to SimpleITK Image
     merged_image = sitk.GetImageFromArray(remapped_arr)

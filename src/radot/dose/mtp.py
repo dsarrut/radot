@@ -189,7 +189,7 @@ def compute_roi_dose_mtp(
     images: List[Any],
     labels: Union[Any, List[Any]],
     method: str = "jackson2013",
-    isotope: str = "Lu177",
+    isotope: Optional[str] = None,
     times_h: Optional[List[float]] = None,
     ct_image: Optional[Union[Any, List[Any]]] = None,
     rois: Optional[List[str]] = None,
@@ -231,6 +231,8 @@ def compute_roi_dose_mtp(
                 resolved_paths.append(None)
 
     num_tp = len(itk_images)
+    if not isotope:
+        raise ValueError("Radionuclide (isotope) is required.")
     method_key = method.lower()
     if method_key == "jackson2013" and num_tp != 3:
         raise ValueError(
@@ -465,8 +467,13 @@ def compute_roi_dose_mtp(
             roi_masses_g.append(mass)
             roi_volumes_ml.append(vol)
 
-        # Skip if organ was never segmented / has zero volume
+        # Skip if organ was never segmented / has zero volume (an explicit request is an error)
         if not any(v > 0 for v in roi_volumes_ml):
+            if rois is not None:
+                raise ValueError(
+                    f"Requested ROI '{roi_name}' has no voxel in the labels at any time point. "
+                    f"Check the segmentation, or remove it from rois."
+                )
             continue
         # The fit needs the ROI at every time point: an absent ROI is not an activity of 0
         missing = [str(k + 1) for k, v in enumerate(roi_volumes_ml) if v <= 0]
