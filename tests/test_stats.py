@@ -700,3 +700,36 @@ def test_compute_stats_bqs_keeps_total_when_resampled():
     labels.SetOrigin((-1.0, -1.0, -1.0))
     res = compute_stats(labels, image, image_type="spect", unit="bqs", labels_map={1: "Liver"})
     assert res["1"]["sum"] == pytest.approx(8**3 * 10.0, rel=1e-3)
+
+
+# Audit B6: stats --unit never relabels without conversion
+
+def _ct_with_sidecar(tmp_path, sidecar):
+    from radot.meta import get_sidecar_path
+
+    image = sitk.GetImageFromArray(np.full((4, 4, 4), 40.0, dtype=np.float32))
+    path = tmp_path / "img.nii.gz"
+    sitk.WriteImage(image, str(path))
+    get_sidecar_path(path).write_text(json.dumps(sidecar))
+    labels = sitk.GetImageFromArray(np.ones((4, 4, 4), dtype=np.uint8))
+    return image, path, labels
+
+
+@pytest.mark.parametrize("sidecar, unit", [({"modality": "ct", "unit": "hu"}, "gy"),
+                                           ({"modality": "dose", "unit": "gy/h"}, "gy")])
+def test_stats_unit_mismatch_not_convertible_errors(tmp_path, sidecar, unit):
+    image, path, labels = _ct_with_sidecar(tmp_path, sidecar)
+    with pytest.raises(ValueError, match=f"Unit mismatch: the image sidecar says '{sidecar['unit']}'"):
+        compute_stats(labels, image, unit=unit, image_path=path, labels_map={1: "Liver"})
+
+
+def test_stats_type_mismatch_errors(tmp_path):
+    image, path, labels = _ct_with_sidecar(tmp_path, {"modality": "ct", "unit": "hu"})
+    with pytest.raises(ValueError, match="Image type mismatch: the sidecar says 'ct'"):
+        compute_stats(labels, image, image_type="dose", image_path=path, labels_map={1: "Liver"})
+
+
+def test_stats_unit_same_as_sidecar_ok(tmp_path):
+    image, path, labels = _ct_with_sidecar(tmp_path, {"modality": "ct", "unit": "hu"})
+    res = compute_stats(labels, image, image_type="CT", unit="HU", image_path=path, labels_map={1: "Liver"})
+    assert res["1"]["mean"] == pytest.approx(40.0)
