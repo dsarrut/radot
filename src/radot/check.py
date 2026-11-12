@@ -124,13 +124,35 @@ class CheckContext:
         return {k for k, v in names.items() if v}
 
     def meta(self, path: Path) -> dict:
-        """Sidecar metadata of an image (read_metadata), with the raw sidecar under '_sidecar'."""
+        """Sidecar metadata of an image (read_metadata), with the raw sidecar under '_sidecar'. An
+        unreadable sidecar gives no values and its reason under '_error' (reported by meta.sidecar)."""
         if path not in self._meta:
-            m = read_metadata(path)["metadata"]
             sidecar = get_sidecar_path(path)
-            m["_sidecar"] = sidecar if sidecar.exists() else None
+            try:
+                m = read_metadata(path)["metadata"]
+                m["_error"] = None
+            except ValueError as e:
+                m = {"_error": str(e)}
+            m["_sidecar"] = sidecar if sidecar.exists() and m["_error"] is None else None
             self._meta[path] = m
         return self._meta[path]
+
+    def all_images(self) -> List[Path]:
+        return self.activity + [x for x in (self.ct, self.labels, self.dose) if x]
+
+    def time_from_injection(self, path: Path) -> tuple:
+        """(hours, error): the dose rule (meta.get_time_from_injection_h: dates, else a
+        time_from_injection key; both and different is an error). (None, None) when there is none."""
+        from radot.meta import get_time_from_injection_h
+
+        if self.meta(path)["_error"]:
+            return None, None
+        try:
+            return get_time_from_injection_h(None, path), None
+        except ValueError as e:
+            if "not found" in str(e):
+                return None, None
+            return None, str(e)
 
     def sidecar(self, path: Path) -> dict:
         """Raw sidecar content (keys not read by read_metadata, e.g. decay_correction_reference)."""
@@ -232,13 +254,6 @@ def _float(value) -> Optional[float]:
         return None
 
 
-def _time_from_injection_h(m: dict) -> Optional[float]:
-    inj, acq = _parse_date(m.get("injection_date")), _parse_date(m.get("acquisition_date"))
-    if inj and acq:
-        return (acq - inj).total_seconds() / 3600.0
-    return None
-
-
 def _half_life_h(radionuclide) -> Optional[float]:
     from radot.db import get_physical_half_life_h
 
@@ -284,6 +299,16 @@ def required_fields(unit: Optional[str], method: Optional[str]) -> Dict[str, tup
     return fields
 
 
+@register_check("meta.sidecar", [], "Sidecar JSON of each image readable (a JSON object)")
+def check_meta_sidecar(ctx: CheckContext) -> List[Finding]:
+    findings = []
+    for p in ctx.all_images():
+        error = ctx.meta(p)["_error"]
+        if error:
+            findings.append(Finding("meta.sidecar", Level.FAIL, error, p.name))
+    return findings
+
+
 @register_check("meta.required", ["activity"], "Sidecar fields needed by the dosimetry are present")
 def check_meta_required(ctx: CheckContext) -> List[Finding]:
     from radot.dose.strategies import TIA_METHODS, TIA_UNITS
@@ -295,8 +320,11 @@ def check_meta_required(ctx: CheckContext) -> List[Finding]:
             findings.append(Finding("meta.required", Level.FAIL, "no sidecar JSON", p.name))
             continue
         unit = (m.get("unit") or "").lower()
+        has_key = ctx.sidecar(p).get("time_from_injection") is not None
         missing = []
         for name, (level, reason) in required_fields(unit, ctx.method).items():
+            if has_key and name in ("injection_date", "acquisition_date"):
+                continue  # the time_from_injection key gives the time (used when there are no dates)
             if m.get(name) in (None, ""):
                 missing.append(name)
                 findings.append(Finding("meta.required", level, f"{name} missing ({reason})", p.name))
@@ -348,9 +376,11 @@ def check_meta_dates_order(ctx: CheckContext) -> List[Finding]:
             findings.append(
                 Finding("meta.dates_order", Level.FAIL, f"{k} '{m[k]}' is not a date", p.name, m[k], "YYYY-MM-DD HH:MM:SS")
             )
-        t = _time_from_injection_h(m)
-        if t is None:
+        if bad:
             continue
+        t, error = ctx.time_from_injection(p)
+        if t is None:
+            continue  # error: reported by meta.time_from_injection
         if t < 0:
             findings.append(
                 Finding("meta.dates_order", Level.FAIL, f"acquisition {-t:.1f} h before the injection", p.name, round(t, 2), "> 0")
@@ -371,7 +401,11 @@ def check_meta_time_from_injection(ctx: CheckContext) -> List[Finding]:
         m = ctx.meta(p)
         if (m.get("unit") or "").lower() in TIA_UNITS:
             continue
-        t = _time_from_injection_h(m)
+        t, error = ctx.time_from_injection(p)
+        if error and "is not in the format" not in error:
+            # time_from_injection key and dates disagree, or a malformed key: radot dose stops on it
+            findings.append(Finding("meta.time_from_injection", Level.FAIL, error, p.name))
+            continue
         if t is None or t < 0:
             continue  # reported by meta.required / meta.dates_order
         times.append((t, p))
@@ -688,7 +722,7 @@ def check_activity_fov_fraction(ctx: CheckContext) -> List[Finding]:
                 )
                 continue
             ref_activity = a_inj
-            t = _time_from_injection_h(m)
+            t = ctx.time_from_injection(p)[0]
             if _decay_to_acquisition(ctx, p):
                 if t is None:
                     findings.append(Finding("activity.fov_fraction", Level.INFO, "skipped: no time from injection", p.name))
@@ -718,7 +752,7 @@ def check_activity_mtp_trend(ctx: CheckContext) -> List[Finding]:
     points = []
     for p in ctx.activity:
         m = ctx.meta(p)
-        t, total = _time_from_injection_h(m), total_activity_mbq(ctx, p)
+        t, total = ctx.time_from_injection(p)[0], total_activity_mbq(ctx, p)
         hl = _half_life_h(m.get("radionuclide")) if m.get("radionuclide") else None
         if t is None or total is None or hl is None or not _decay_to_acquisition(ctx, p):
             return [Finding("activity.mtp_trend", Level.INFO, "skipped: time, unit (bq, bqml), radionuclide or decay correction", p.name)]
@@ -1202,13 +1236,9 @@ def run_checks(
         method=method,
         thresholds=th,
     )
-    from radot.meta import _read_sidecar
-
-    for p in ctx.activity + [x for x in (ctx.ct, ctx.labels, ctx.dose) if x]:
+    for p in ctx.all_images():
         if not p.exists():
             raise FileNotFoundError(f"Image file not found: {p}")
-        if get_sidecar_path(p).exists():
-            _read_sidecar(get_sidecar_path(p))  # an unreadable sidecar stops here, with its name
     available = ctx.available()
     findings = []
     for code, check in CHECKS.items():
@@ -1219,6 +1249,12 @@ def run_checks(
         if not set(check.inputs) <= available:
             continue
         findings.extend(check.func(ctx))
+    # An unreadable sidecar is reported once (meta.sidecar), not as missing fields in every meta check
+    broken = {p.name for p in ctx.all_images() if ctx.meta(p)["_error"]}
+    findings = [
+        f for f in findings
+        if not (f.subject in broken and f.category == "meta" and f.code != "meta.sidecar")
+    ]
     order = {c: i for i, c in enumerate(CATEGORIES)}
     findings.sort(key=lambda f: order.get(f.category, len(order)))
     return findings

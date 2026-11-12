@@ -295,12 +295,17 @@ def test_unreadable_sidecar_cli_meta(tmp_path):
     assert (tmp_path / "img.json").read_text() == "{ broken"
 
 
-def test_unreadable_sidecar_check_errors(tmp_path):
-    from radot.check import run_checks
+def test_unreadable_sidecar_check_reports_fail(tmp_path):
+    """radot check reports an unreadable sidecar (FAIL meta.sidecar) and goes on with the other checks;
+    no other meta finding for that image (they would only say the values are missing)."""
+    from radot.check import Level, run_checks
 
     path = _image(tmp_path, "{ broken")
-    with pytest.raises(ValueError, match="cannot be read"):
-        run_checks(activity=path)
+    findings = run_checks(activity=path)
+    sidecar = [f for f in findings if f.code == "meta.sidecar"]
+    assert len(sidecar) == 1 and sidecar[0].level == Level.FAIL and "cannot be read" in sidecar[0].message
+    assert not [f for f in findings if f.category == "meta" and f.code != "meta.sidecar"]
+    assert [f for f in findings if f.category == "units"]  # the other checks ran
 
 
 # Audit B8: time_from_injection key and dates

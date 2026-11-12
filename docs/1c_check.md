@@ -51,10 +51,11 @@ $ radot meta spect.nii.gz --rad Lu177       # a missing radionuclide
 
 | Code | Check |
 |------|-------|
-| `meta.required` | Sidecar present; fields needed by the method (unit, radionuclide, dates; weight and activity for `suv`/`sul`; height and sex for `sul`); TIA images only with `svalue`/`ldm`. |
+| `meta.sidecar` | Sidecar JSON of each image readable (a JSON object). An unreadable sidecar is one FAIL; the other checks still run (no other `meta` finding for that image). |
+| `meta.required` | Sidecar present; fields needed by the method (unit, radionuclide, dates or a `time_from_injection` key; weight and activity for `suv`/`sul`; height and sex for `sul`); TIA images only with `svalue`/`ldm`. |
 | `meta.modality` | Modality and unit consistent with the role of each image (activity, CT in `hu`, dose in `gy`). |
 | `meta.dates_order` | Valid dates (`YYYY-MM-DD HH:MM:SS`), injection before acquisition. |
-| `meta.time_from_injection` | Time from injection below 10 half-lives; time points distinct. |
+| `meta.time_from_injection` | Time from injection below 10 half-lives; time points distinct. Same rule as `radot dose`: the dates, else a `time_from_injection` key (hours); both and more than one minute apart is a FAIL. |
 | `meta.patient` | Weight, height, BMI and sex in plausible ranges. |
 | `meta.activity` | Injected activity in the usual range of the radionuclide, in MBq (catches GBq or Bq typos). |
 | `meta.radionuclide` | Radionuclide known to radot (ICRP 107). |

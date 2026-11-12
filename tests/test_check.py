@@ -388,3 +388,36 @@ def test_lr_symmetry_and_direction(tmp_path):
     img.SetDirection((c, -s, 0, s, c, 0, 0, 0, 1))
     sitk.WriteImage(img, str(p["ct"]))
     assert by_code(run_checks(ct=p["ct"], only=["geom.direction"]), "geom.direction", Level.WARN)
+
+
+# The time from injection follows the dose rule (meta.get_time_from_injection_h)
+
+def test_time_key_without_dates_accepted(tmp_path):
+    """A time_from_injection key without dates: radot dose uses it, so check does too."""
+    p = spect(tmp_path, injection_date=None, acquisition_date=None, time_from_injection=24.0)
+    findings = run_checks(p, method="hanscheid2018")
+    assert not by_code(findings, "meta.required", Level.FAIL)
+    ok = by_code(findings, "meta.time_from_injection", Level.OK)
+    assert ok and ok[0].value == pytest.approx(24.0)
+
+
+def test_time_key_disagrees_with_dates_fails(tmp_path):
+    p = spect(tmp_path, time_from_injection=48.0)  # the dates give 24 h
+    fail = by_code(run_checks(p), "meta.time_from_injection", Level.FAIL)
+    assert fail and "differs from the dates" in fail[0].message
+
+
+def test_time_key_agrees_with_dates_ok(tmp_path):
+    p = spect(tmp_path, time_from_injection=24.0)
+    assert by_code(run_checks(p), "meta.time_from_injection", Level.OK)
+
+
+def test_unreadable_sidecar_one_fail_other_images_checked(tmp_path):
+    """Two time points, one sidecar broken: one FAIL for it, the other image is still checked."""
+    good = spect(tmp_path, name="tp1")
+    bad = spect(tmp_path, name="tp2")
+    (tmp_path / "tp2.json").write_text("{ broken")
+    findings = run_checks([good, bad])
+    assert [f.subject for f in by_code(findings, "meta.sidecar", Level.FAIL)] == ["tp2.nii.gz"]
+    assert by_code(findings, "meta.required", Level.OK)[0].subject == "tp1.nii.gz"
+    assert not [f for f in findings if f.subject == "tp2.nii.gz" and f.category == "meta" and f.code != "meta.sidecar"]
