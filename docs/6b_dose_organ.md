@@ -12,7 +12,7 @@ The organ-level methods give one mean absorbed dose per ROI (organ or lesion), f
   $$
   S_{\text{patient}} = \frac{S}{\text{mass-scaling}}, \qquad \text{mass-scaling} = \frac{m_{\text{patient}}}{m_{\text{reference}}}
   $$
-  where $m_{\text{patient}}$ is the ROI mass from the CT density ($\rho = 1 + \text{HU}/1000$; without CT, 1 g/mL) and $m_{\text{reference}}$ the OpenDose phantom organ mass.
+  where $m_{\text{patient}}$ is the ROI mass from the CT density (sum of the voxel masses, $\rho = 1 + \text{HU}/1000$ floored at 0.001 g/mL; without CT, 1 g/mL) and $m_{\text{reference}}$ the OpenDose phantom organ mass.
 * **ROI names**: each ROI name is mapped to an OpenDose organ (TotalSegmentator → TG-263 → OpenDose, see [ROI names](2b_roi_names.md)); the OpenDose name must match exactly, ignoring case and separators only: no partial matching, so a lesion named `Liver_met1` gets no liver S-value.
 * **ROIs without an OpenDose organ** (lesions, custom structures): no S-value. When looping over all the labels, they are skipped with a warning. When requested with `--rois`, radot stops with an error. `hanscheid2017` needs no S-value and works for any ROI.
 
@@ -125,7 +125,7 @@ A per-time-point `labels` has priority over a global `labels`.
 }
 ```
 
-The times from injection are read from each SPECT sidecar (`injection_date`, `acquisition_date`), or given per time point (`{"image": "spect_tp1.nii.gz", "time_h": 4.99}`). Each time point uses its own `time_h` if given, else its sidecar; a `time_h` that differs from the sidecar dates by more than one minute is used, with a WARNING. radot does not register the time points: use one segmentation per time point, or register the images beforehand. Each SPECT sidecar must give its unit (`bqml` or `bq`). An ROI must be in the labels at the 3 time points: if it is absent from one, it is an error when requested with `rois`, and it is skipped with a warning otherwise.
+The times from injection are read from each SPECT sidecar (`injection_date`, `acquisition_date`), or given per time point (`{"image": "spect_tp1.nii.gz", "time_h": 4.99}`). Each time point uses its own `time_h` if given, else its sidecar; a `time_h` that differs from the sidecar dates by more than one minute is used, with a WARNING. radot does not register the time points: use one segmentation per time point, or register the images beforehand. An image or CT not on the grid of its labels is an error, unless `"resample": "like_labels"` (`--resample like_labels`). Each SPECT sidecar must give its unit (`bqml` or `bq`). An ROI must be in the labels at the 3 time points: if it is absent from one, it is an error when requested with `rois`, and it is skipped with a warning otherwise.
 
 #### Python API
 

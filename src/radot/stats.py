@@ -8,6 +8,17 @@ import numpy as np
 import SimpleITK as sitk
 from radot.resampling import PER_VOXEL_UNITS, resample_image
 
+# Lowest mass density of a CT voxel (g/mL): air below -1000 HU has no negative or zero mass, and a
+# dose never divides by 0
+DENSITY_FLOOR_G_ML = 1e-3
+
+
+def ct_density_g_ml(hu):
+    """Mass density (g/mL) from CT values (HU), voxel-wise: 1 + HU/1000, floored at DENSITY_FLOOR_G_ML.
+    The one density rule of radot: an ROI mass is the sum of its voxel masses."""
+    return np.maximum(1.0 + np.asarray(hu, dtype=float) / 1000.0, DENSITY_FLOOR_G_ML)
+
+
 def has_same_grid(img1: sitk.Image, img2: sitk.Image) -> bool:
     """Check if two SimpleITK images share the exact same grid (size, spacing, origin, direction)."""
     if img1.GetSize() != img2.GetSize():
@@ -39,6 +50,7 @@ def compute_stats(
     """
     from radot.meta import read_metadata, get_metadata_case_insensitive
 
+    rois = list(rois) if rois else None  # an empty ROI list is no filter: all the ROIs
     meta = {}
     if image_path is not None:
         try:
@@ -49,6 +61,7 @@ def compute_stats(
     stored_unit = meta.get("unit")
     if stored_unit is None:
         stored_unit = get_metadata_case_insensitive(image, "unit", image_path)
+    stored_unit = stored_unit.lower() if stored_unit else None
 
     # 1. Resolve image_type (modality); an option that contradicts the sidecar is an error
     if image_type is not None:
@@ -149,6 +162,13 @@ def compute_stats(
         
         # Sort label IDs for ordered console/JSON printing
         sorted_labels = sorted(stat_filter.GetLabels())
+
+        # CT: ROI mass = sum of the voxel masses (ct_density_g_ml)
+        if image_type == "ct":
+            density_image = sitk.GetImageFromArray(ct_density_g_ml(sitk.GetArrayViewFromImage(image)))
+            density_image.CopyInformation(image)
+            density_filter = sitk.LabelIntensityStatisticsImageFilter()
+            density_filter.Execute(labels_image, density_image)
         
         for label_id in sorted_labels:
             roi_name = labels_map.get(label_id, f"unknown_{label_id}")
@@ -179,10 +199,7 @@ def compute_stats(
             }
             
             if image_type == "ct":
-                # Estimate density: density_g_cm3 = 1.0 + (mean_hu / 1000.0)
-                # Ensure density is non-negative
-                density = max(0.0, 1.0 + (mean_val / 1000.0))
-                mass_g = volume_ml * density
+                mass_g = volume_ml * density_filter.GetMean(label_id)
                 label_stats["mass_g"] = float(mass_g)
                 
             if image_type in ("pet", "spect") and unit in ("bq", "bqml"):
@@ -233,8 +250,7 @@ def compute_stats(
             "peak": float(full_peak)
         }
         if image_type == "ct":
-            full_density = max(0.0, 1.0 + (full_mean / 1000.0))
-            full_mass_g = full_volume_ml * full_density
+            full_mass_g = full_volume_ml * float(np.mean(ct_density_g_ml(sitk.GetArrayViewFromImage(image))))
             full_stats["mass_g"] = float(full_mass_g)
 
         if image_type in ("pet", "spect") and unit in ("bq", "bqml"):
@@ -352,6 +368,7 @@ def compute_stats_file(
                 resolved_unit = get_metadata_case_insensitive(image, "unit", image_path)
         if resolved_unit is None and image_type.lower() == "ct":
             resolved_unit = "hu"
+        resolved_unit = resolved_unit.lower() if resolved_unit else None
         pretty_print_stats(stats_dict, image_type, resolved_unit)
 
 

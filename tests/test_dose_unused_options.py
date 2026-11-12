@@ -26,7 +26,7 @@ TEFF = {"Liver": {"teff": 45.0}}
     ("hanscheid2018", {"dose_rate_map": True, "hu_threshold": -500.0}, "hu_threshold"),
     # multiple time points
     ("jackson2013", {"multi_tp": True, "total_activity_mbq": 7400.0}, "total_activity_mbq"),
-    ("jackson2013", {"multi_tp": True, "resample": "like_labels"}, "resample"),
+    ("jackson2013", {"multi_tp": True, "resample": "like_ct"}, "resample 'like_ct'"),
     ("jackson2013", {"multi_tp": True, "method_params": TEFF}, "teff"),
     ("jackson2013", {"multi_tp": True, "dose_rate": True}, "dose_rate"),
 ])
@@ -41,6 +41,7 @@ def test_unused_option_errors(method, kw, match):
     ("madsen2018", {"dose_rate_map": True, "dose_rate": True, "method_params": TEFF}),
     ("hanscheid2017", {"method_params": TEFF, "cascade": False, "dose_rate": False}),
     ("jackson2013", {"multi_tp": True, "method_params": {"phantom": "male", "times_h": [1, 2, 3]}}),
+    ("jackson2013", {"multi_tp": True, "resample": "like_labels"}),
 ])
 def test_used_options_accepted(method, kw):
     check_unused_options(method, **kw)

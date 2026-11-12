@@ -39,9 +39,9 @@ def dose_ldm(
 
     # Compute density map (g/cm3 = g/mL) from Hounsfield Units (HU)
     if ct_arr is not None:
-        density_arr = 1.0 + (ct_arr / 1000.0)
-        # Ensure density is positive
-        density_arr = np.clip(density_arr, 1e-3, None)
+        from radot.stats import ct_density_g_ml
+
+        density_arr = ct_density_g_ml(ct_arr)
     else:
         density_arr = np.ones_like(image_arr)
 

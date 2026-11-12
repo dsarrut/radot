@@ -38,7 +38,7 @@ The validation against Monte Carlo and the SNMMI challenge is in [OpenGATE valid
 
 * **Activity image**: `bq` (per voxel), `bqml`, or `suv`/`sul` (converted to activity with the sidecar, see [units](3a_images_units.md)); time from injection from the sidecar dates. **TIA image**: unit `bqs` (Bq·s per voxel) or `bqsml` (Bq·s/mL); see [TIA images](#time-integrated-activity-tia-images).
 * **Labels**: a label image and its sidecar (`{"1": "Liver", ...}`); names resolved to OpenDose organs (see [ROI names](2b_roi_names.md)). Required for the organ methods, optional for `ldm`. A label image without a readable sidecar is an error (the ROI names are unknown). A ROI requested with `--rois` must have voxels in the label image (at every time point for `jackson2013`), else it is an error; without `--rois`, labels with no voxel are skipped.
-* **CT**: voxel density $\rho = 1 + \text{HU}/1000$, used for the ROI mass (S-value mass scaling, mass-weighted means) and the LDM voxel mass; with LDM, voxels below `--hu-threshold` (−800 HU, air) get no dose.
+* **CT**: voxel density $\rho = 1 + \text{HU}/1000$, floored at 0.001 g/mL (air below −1000 HU, CT padding), the same rule everywhere; the ROI mass is the sum of the voxel masses. Used for the ROI mass (S-value mass scaling, mass-weighted means) and the LDM voxel mass; with LDM, voxels below `--hu-threshold` (−800 HU, air) get no dose.
 * **ROI table** (JSON): per ROI `mean_dose_gy`, `roi_mass_g`, `roi_volume_ml`, plus the method values (`roi_teff_h`, `tia_mbq_s`, `fit_params`, ...).
 * **Dose image**: `unit` `gy` (or `gy/h` with `--dose-rate`) and `modality` `dose` in its sidecar.
 
@@ -79,8 +79,8 @@ radot dose -c <config_json> [options]
 * -l, --labels <labels_path>: Label image. Required for the organ methods, optional for `ldm`.
 * --ct <ct_path>: CT image, for the density and the ROI masses.
 * -m, --method <hanscheid2017|hanscheid2018|madsen2018|jackson2013|svalue|ldm>: Dosimetry method.
-* --isotope <name>: Radionuclide (e.g. Lu177, Y90).
-* --rois <name>: ROI to include. Can be repeated or comma-separated. Default: all the labels.
+* --isotope <name>: Radionuclide (e.g. Lu177, Y90). Default: the `radionuclide` of the activity image sidecar (all time points must agree); an option that contradicts the sidecar is an error.
+* --rois <name>: ROI to include. Can be repeated or comma-separated. Default: all the labels (an empty list in a config or the API means all the labels too).
 * --teff <ROI:value>: Effective half-life per ROI in hours (e.g. --teff Liver:45.0 --teff Kidney_L:32.0). `hanscheid2017`, `hanscheid2018`, `madsen2018` only.
 * --total-activity <float>: Total activity of the image in MBq (rescales the image; activity images only, single time point).
 * --hu-threshold <float>: `ldm` without a dose-rate map: CT values below this (default −800 HU) get no dose (air).
@@ -89,7 +89,7 @@ radot dose -c <config_json> [options]
 * --dose-rate-map <path>: External dose-rate image (e.g. OpenGATE), see [voxel level](6c_dose_voxel.md#2-external-dose-rate-map-monte-carlo).
 * --dose-rate-map-activity <float>: Activity (MBq) that produced the dose-rate map. Default: the map sidecar key `source_activity_mbq`, else the map is an absolute dose rate.
 * --phantom <male|female>: OpenDose phantom for the S-value methods. Default: the patient sex in the image sidecar (`sex`); if neither is given, radot stops with an error (no default phantom). Not needed by `hanscheid2017`, `ldm` and a dose-rate map.
-* --resample <like_activity|like_labels|like_ct>: Grid to resample the images to when they differ.
+* --resample <like_activity|like_labels|like_ct>: Grid to resample the images to when they differ (otherwise a grid mismatch is an error). Multiple time points: `like_labels` only (each image and CT to the grid of its labels).
 * -o, --output <output_path>: ROI table (`.json`) or dose image (see [inputs and outputs](#3-inputs-and-outputs)).
 
 An option that the chosen computation does not use (above, and `--total-activity`, `--resample`, Teff with multiple time points) is an error, from the command line, the JSON configuration or the Python API: it is never ignored.
