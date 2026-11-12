@@ -24,7 +24,6 @@ from radot.meta import get_sidecar_path, read_metadata
 
 logger = logging.getLogger("radot")
 
-DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 ACTIVITY_UNITS = ("bq", "bqml", "suv", "sul", "bqs", "bqsml")
 DOSE_UNITS = ("gy", "gy/h", "gy/s")
 # Order of the categories in the reports
@@ -213,8 +212,11 @@ class CheckContext:
 
 
 def _parse_date(value) -> Optional[datetime]:
+    """The radot date rule (meta.parse_date); None when unreadable (reported, never raised)."""
+    from radot.meta import parse_date
+
     try:
-        return datetime.strptime(str(value), DATE_FORMAT)
+        return parse_date(value)
     except (TypeError, ValueError):
         return None
 

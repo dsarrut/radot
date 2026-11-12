@@ -36,10 +36,28 @@ def compute_file_sha256(path: Path, chunk_size: int = 65536) -> Optional[str]:
     return h.hexdigest()
 
 
+# The only date format of radot (sidecars, options, configs): no day-first, no date without time
+DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+
+def parse_date(value, name: str = "date") -> datetime:
+    """A radot date: 'YYYY-MM-DD HH:MM:SS', optional fraction of second (or a datetime). Any other
+    format (day first, slashes, date without time) is an error."""
+    if isinstance(value, datetime):
+        return value
+    text = str(value).strip()
+    for fmt in (DATE_FORMAT, DATE_FORMAT + ".%f"):
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+    raise ValueError(f"{name} '{value}' is not in the format 'YYYY-MM-DD HH:MM:SS'.")
+
+
 def validate_date(date_str: str) -> bool:
     """Validate that date_str is in 'YYYY-MM-DD HH:MM:SS' format."""
     try:
-        datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
+        parse_date(date_str)
         return True
     except ValueError:
         return False
@@ -247,8 +265,8 @@ def read_metadata(image_path: Path) -> dict:
     # Compute time from injection if dates are set
     if injection_date and acquisition_date:
         try:
-            inj_dt = datetime.strptime(injection_date, "%Y-%m-%d %H:%M:%S")
-            acq_dt = datetime.strptime(acquisition_date, "%Y-%m-%d %H:%M:%S")
+            inj_dt = parse_date(injection_date)
+            acq_dt = parse_date(acquisition_date)
             time_diff = acq_dt - inj_dt
             metadata["time_from_injection"] = time_diff.total_seconds() / 3600.0
         except Exception:
@@ -357,16 +375,16 @@ def write_metadata(
                 "Cannot specify --time-from-injection when both injection and acquisition dates are present."
             )
         elif final_injection_date is not None:
-            inj_dt = datetime.strptime(final_injection_date, "%Y-%m-%d %H:%M:%S")
+            inj_dt = parse_date(final_injection_date)
             acq_dt = inj_dt + delta
             final_acquisition_date = acq_dt.strftime("%Y-%m-%d %H:%M:%S")
         elif final_acquisition_date is not None:
-            acq_dt = datetime.strptime(final_acquisition_date, "%Y-%m-%d %H:%M:%S")
+            acq_dt = parse_date(final_acquisition_date)
             inj_dt = acq_dt - delta
             final_injection_date = inj_dt.strftime("%Y-%m-%d %H:%M:%S")
         else:
             final_injection_date = "2000-01-01 12:00:00"
-            inj_dt = datetime.strptime(final_injection_date, "%Y-%m-%d %H:%M:%S")
+            inj_dt = parse_date(final_injection_date)
             acq_dt = inj_dt + delta
             final_acquisition_date = acq_dt.strftime("%Y-%m-%d %H:%M:%S")
 
@@ -543,13 +561,9 @@ def get_time_from_injection_h(
     inj_val = get_metadata_case_insensitive(image, "injection_date", image_path)
     acq_val = get_metadata_case_insensitive(image, "acquisition_date", image_path)
     if inj_val and acq_val:
-        try:
-            inj_dt = datetime.strptime(inj_val, "%Y-%m-%d %H:%M:%S")
-            acq_dt = datetime.strptime(acq_val, "%Y-%m-%d %H:%M:%S")
-            time_diff = acq_dt - inj_dt
-            return time_diff.total_seconds() / 3600.0
-        except Exception:
-            pass
+        inj_dt = parse_date(inj_val, "injection_date")
+        acq_dt = parse_date(acq_val, "acquisition_date")
+        return (acq_dt - inj_dt).total_seconds() / 3600.0
 
     raise ValueError(
         "Time from injection is required but was not found in the image metadata."

@@ -370,12 +370,12 @@ def resample(
 @click.option(
     "--injection-date",
     type=str,
-    help="Radiopharmaceutical injection timestamp (YYYY-MM-DD HH:MM:SS or YYYY/MM/DD, HH:MM:SS).",
+    help="Radiopharmaceutical injection date (YYYY-MM-DD HH:MM:SS).",
 )
 @click.option(
     "--acquisition-date",
     type=str,
-    help="PET acquisition timestamp (YYYY-MM-DD HH:MM:SS or YYYY/MM/DD, HH:MM:SS).",
+    help="Acquisition date (YYYY-MM-DD HH:MM:SS).",
 )
 @click.option(
     "--decay-factor",
