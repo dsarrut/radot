@@ -108,10 +108,12 @@ def compute_roi_dose_file(
                 extracted_paths.append(Path(tp))
                 extracted_labels.append(None)
                 extracted_cts.append(None)
+                extracted_times.append(None)
             elif isinstance(tp, dict):
                 p = tp.get("image_path") or tp.get("image") or tp.get("path")
-                if p:
-                    extracted_paths.append(Path(p))
+                if not p:
+                    raise ValueError(f"Time point {len(extracted_paths) + 1}: no image ('image' key).")
+                extracted_paths.append(Path(p))
                 lbl_tp = tp.get("labels_path") or tp.get("labels")
                 extracted_labels.append(Path(lbl_tp) if lbl_tp else None)
                 ct_tp = tp.get("ct_path") or tp.get("ct")
@@ -126,12 +128,10 @@ def compute_roi_dose_file(
                 extracted_paths.append(tp)
                 extracted_labels.append(None)
                 extracted_cts.append(None)
+                extracted_times.append(None)
 
-        times_h = (
-            extracted_times
-            if (has_times and all(t is not None for t in extracted_times))
-            else None
-        )
+        # per time point: the config time_h, else the sidecar (see compute_roi_dose_mtp)
+        times_h = extracted_times if has_times else None
 
         # Merge per-timepoint and global labels / CT:
         # If both are provided (global labels and one per tp, the one per tp is used)

@@ -125,7 +125,7 @@ A per-time-point `labels` has priority over a global `labels`.
 }
 ```
 
-The times from injection are read from each SPECT sidecar (`injection_date`, `acquisition_date`), or given per time point (`{"image": "spect_tp1.nii.gz", "time_h": 4.99}`). radot does not register the time points: use one segmentation per time point, or register the images beforehand. Each SPECT sidecar must give its unit (`bqml` or `bq`). An ROI must be in the labels at the 3 time points: if it is absent from one, it is an error when requested with `rois`, and it is skipped with a warning otherwise.
+The times from injection are read from each SPECT sidecar (`injection_date`, `acquisition_date`), or given per time point (`{"image": "spect_tp1.nii.gz", "time_h": 4.99}`). Each time point uses its own `time_h` if given, else its sidecar; a `time_h` that differs from the sidecar dates by more than one minute is used, with a WARNING. radot does not register the time points: use one segmentation per time point, or register the images beforehand. Each SPECT sidecar must give its unit (`bqml` or `bq`). An ROI must be in the labels at the 3 time points: if it is absent from one, it is an error when requested with `rois`, and it is skipped with a warning otherwise.
 
 #### Python API
 

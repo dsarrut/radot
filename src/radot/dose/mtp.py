@@ -294,20 +294,29 @@ def compute_roi_dose_mtp(
             itk_cts.append(None)
             resolved_ct_paths.append(None)
 
-    # 4. Resolve acquisition times
-    if times_h is None:
-        times_h = []
-        for i, (img, p) in enumerate(zip(itk_images, resolved_paths)):
-            t = get_time_from_injection_h(img, p)
-            if t is None:
-                name_str = p.name if p else f"image #{i+1}"
-                raise ValueError(
-                    f"Time from injection could not be found for timepoint {i+1} ({name_str}). "
-                    "Please ensure injection_date and acquisition_date are recorded in the image metadata sidecar."
-                )
-            times_h.append(float(t))
-    else:
-        times_h = [float(t) for t in times_h]
+    # 4. Resolve acquisition times: per time point, the given time (times_h, config time_h), else the
+    # time from its sidecar. A given time is never dropped; a difference with the sidecar is reported.
+    if times_h is not None and len(times_h) != num_tp:
+        raise ValueError(f"times_h has {len(times_h)} values for {num_tp} time points.")
+    given_times = list(times_h) if times_h is not None else [None] * num_tp
+    times_h = []
+    for i, (img, p) in enumerate(zip(itk_images, resolved_paths)):
+        name_str = p.name if p else f"image #{i+1}"
+        try:
+            t_meta = get_time_from_injection_h(img, p)
+        except ValueError as e:
+            if given_times[i] is None:
+                raise ValueError(f"Time point {i+1} ({name_str}): {e}") from e
+            t_meta = None
+        if given_times[i] is None:
+            times_h.append(float(t_meta))
+            continue
+        t = float(given_times[i])
+        if t_meta is not None and abs(t - t_meta) > 1.0 / 60.0:
+            logger.warning(
+                f"Time point {i+1} ({name_str}): given time {t:g} h used, the sidecar gives {t_meta:.4g} h."
+            )
+        times_h.append(t)
 
     # Sort timepoints chronologically
     times_arr = np.array(times_h, dtype=float)
