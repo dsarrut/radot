@@ -290,32 +290,76 @@ def _load_s_values(phantom: str, isotope: str) -> Dict[str, Dict[str, float]]:
     return _s_values_cache[key]
 
 
+def _normalize_organ_key(name: str) -> str:
+    """Case and separators only (spaces, '_', '-'): 'left_kidney C+M+P' == 'Left kidney C+M+P'."""
+    return re.sub(r"[-_\s]+", " ", name.strip()).lower()
+
+
 def _find_matching_key(d: dict, key: str) -> Optional[str]:
-    """Helper to find a key in a dictionary with flexible matches."""
+    """The key of d equal to key, ignoring case and separators; None otherwise.
+
+    No fuzzy matching (prefix, suffix stripping): a name that is not an OpenDose organ must not
+    silently get the S-value or mass of another one (e.g. 'Liver_met1' is not 'Liver'). Names
+    that differ from the OpenDose keys are mapped explicitly in the nomenclature tables.
+    """
     if key in d:
         return key
+    norm = _normalize_organ_key(key)
     for k in d.keys():
-        if k.lower() == key.lower():
+        if _normalize_organ_key(k) == norm:
             return k
-
-    def normalize_key(name: str) -> str:
-        name = name.lower()
-        name = re.sub(r"\s+c\+m\+p$", "", name)
-        name = re.sub(r"\s+lobe$", "", name)
-        name = re.sub(r"\s+wall$", "", name)
-        name = re.sub(r"\s+contents$", "", name)
-        return re.sub(r"[-_\s]+", "", name)
-
-    norm_key = normalize_key(key)
-    for k in d.keys():
-        if normalize_key(k) == norm_key:
-            return k
-
-    for k in d.keys():
-        if k.lower().startswith(key.lower()) or key.lower().startswith(k.lower()):
-            return k
-
     return None
+
+
+def _closest_hint(name: str, od_keys, n: int = 3, cutoff: float = 0.6) -> str:
+    """' Did you mean: ...?' for a 'not found' error. Suggestions only, never applied.
+
+    The query is compared with every accepted name (TotalSegmentator, TG-263, OpenDose); each match
+    is shown once, as its TG-263 name with the OpenDose organ it leads to, or as the OpenDose name
+    when no TG-263 name maps to it; each with its naming system written out. Only names leading to an organ of od_keys are suggested.
+    """
+    import difflib
+    from radot.nomenclature import TS_TO_TG263, TG263_TO_OD, TS_TO_OD_FALLBACK
+
+    od_keys = set(od_keys)
+    od_to_tg = {}  # one TG-263 name per OpenDose organ (the first in the table)
+    for tg, od in TG263_TO_OD.items():
+        od_to_tg.setdefault(od, tg)
+
+    def show(od):
+        tg = od_to_tg.get(od)
+        if tg is None:
+            return f"{od} (OpenDose organ)"
+        if tg == od:
+            return f"{tg} (TG-263 and OpenDose)"
+        return f"{tg} (TG-263, OpenDose organ '{od}')"
+
+    # accepted name -> OpenDose organ it leads to
+    leads = {tg: od for tg, od in TG263_TO_OD.items()}
+    leads.update({ts: TG263_TO_OD.get(tg) for ts, (_, tg) in TS_TO_TG263.items()})
+    leads.update(TS_TO_OD_FALLBACK)
+    leads.update({od: od for od in od_keys})
+
+    query = re.sub(r"[-_\s]+", " ", name.strip().lower())
+    scored = sorted(
+        (
+            (difflib.SequenceMatcher(None, query, re.sub(r"[-_\s]+", " ", c.lower())).ratio(), od)
+            for c, od in leads.items()
+            if od in od_keys
+        ),
+        reverse=True,
+    )
+    suggestions = []
+    best = scored[0][0] if scored else 0.0
+    for ratio, od in scored:
+        if ratio < max(cutoff, best - 0.15) or len(suggestions) == n:
+            break
+        if show(od) not in suggestions:
+            suggestions.append(show(od))
+    lesion = " A lesion or custom structure has no OpenDose organ (do not rename it to one)."
+    if not suggestions:
+        return lesion + " See radot roi match."
+    return f" Did you mean: {', '.join(suggestions)}?{lesion} See radot roi match."
 
 
 def get_reference_mass(phantom: str, organ: str) -> float:
@@ -330,6 +374,7 @@ def get_reference_mass(phantom: str, organ: str) -> float:
 
     raise ValueError(
         f"RADOT Database: Organ '{organ}' (resolved as '{resolved_organ}') not found in phantom '{phantom}' masses."
+        + _closest_hint(organ, masses.keys())
     )
 
 
@@ -348,6 +393,7 @@ def get_s_value(
     if src_key is None:
         raise ValueError(
             f"RADOT Database: Source organ '{source_organ}' (resolved as '{resolved_src}') not found in S-value matrix."
+            + _closest_hint(source_organ, s_matrix.keys())
         )
 
     tgt_matrix = s_matrix[src_key]
@@ -358,6 +404,7 @@ def get_s_value(
 
     raise ValueError(
         f"RADOT Database: Target organ '{target_organ}' (resolved as '{resolved_tgt}') not found in S-value matrix for source '{resolved_src}'."
+        + _closest_hint(target_organ, tgt_matrix.keys())
     )
 
 

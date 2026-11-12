@@ -95,6 +95,7 @@ pytest -q                         # unit tests + validation levels that need no 
 *   **Failsafe Rule**:
     *   *Generic Loop*: If looping over all labels in a volume, log warnings and skip unmapped targets.
     *   *Explicit Request*: If the user explicitly requests an unmapped ROI via `--rois`, raise a `click.ClickException` immediately and ask for custom S-value overrides.
+*   **Exact OpenDose names**: an OpenDose organ is found by its exact name, ignoring case and separators only (`db._find_matching_key`). No prefix or suffix matching: a lesion `Liver_met1` must not get the liver S-value. Every OpenDose name in the nomenclature tables is an exact key (tested by `tests/test_organ_matching.py` on the shipped data); usual short names go in `data/od_aliases.json`.
 *   **Data Decoupling**: Store mapping translation dictionaries in flat JSON files within the `src/radot/data/` folder and load them dynamically. Avoid hardcoded structures.
 
 ### Logging & Console Outputs

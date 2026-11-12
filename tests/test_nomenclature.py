@@ -15,9 +15,9 @@ from radot.nomenclature import (
 
 def test_resolve_roi_name_to_opendose():
     # Stage 1: TS to TG-263 to OpenDose
-    assert resolve_roi_name_to_opendose("kidney_left") == "Left kidney"
-    assert resolve_roi_name_to_opendose("Kidney_L") == "Left kidney"
-    assert resolve_roi_name_to_opendose("Left kidney") == "Left kidney"
+    assert resolve_roi_name_to_opendose("kidney_left") == "Left kidney C+M+P"
+    assert resolve_roi_name_to_opendose("Kidney_L") == "Left kidney C+M+P"
+    assert resolve_roi_name_to_opendose("Left kidney") == "Left kidney C+M+P"
 
     # Stage 2: Bypass TG-263 (Direct TS to OpenDose fallback)
     assert resolve_roi_name_to_opendose("adrenal_gland_left") == "Adrenal, left"
@@ -51,7 +51,7 @@ def test_verify_sidecar_mappings():
     }
     report = verify_sidecar_mappings(labels_map)
     assert 1 in report["mapped"]
-    assert report["mapped"][1] == ("kidney_left", "Left kidney")
+    assert report["mapped"][1] == ("kidney_left", "Left kidney C+M+P")
     assert 2 in report["mapped"]
     assert report["mapped"][2] == ("adrenal_gland_right", "Adrenal, right")
     assert 3 in report["unmapped"]
