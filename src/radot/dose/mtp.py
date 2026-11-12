@@ -1,6 +1,5 @@
 """Multi-time-point dosimetry: Jackson 2013 tri-exponential fit (3 time points)."""
 
-import json
 import logging
 from typing import List, Optional, Dict, Any, Union
 import numpy as np
@@ -212,9 +211,9 @@ def compute_roi_dose_mtp(
     from radot.meta import (
         get_metadata_case_insensitive,
         get_time_from_injection_h,
-        get_sidecar_path,
     )
     from radot.db import resolve_organ_name, get_s_value, get_reference_mass
+    from radot.dose.compute import load_labels_map
 
     # 1. Resolve and read SimpleITK images
     itk_images = []
@@ -338,25 +337,26 @@ def compute_roi_dose_mtp(
         ct = itk_cts[i]
 
         # Load labels mapping for this timepoint
-        lbl_map_i = {}
         if p_lbl is not None:
-            json_path = get_sidecar_path(p_lbl)
-            if json_path.exists():
-                try:
-                    with open(json_path, "r") as f:
-                        raw_map = json.load(f)
-                        lbl_map_i = {int(k): v for k, v in raw_map.items()}
-                except Exception:
-                    pass
-        if not lbl_map_i and labels_map:
+            lbl_map_i = load_labels_map(p_lbl)
+        elif labels_map:
             lbl_map_i = dict(labels_map)
+        else:
+            raise ValueError(
+                f"Time point {i+1}: no ROI names (no labels path with a sidecar, no labels_map)."
+            )
 
         name_to_lbl = {v.lower(): k for k, v in lbl_map_i.items()}
         for r_name in lbl_map_i.values():
             all_known_rois.add(r_name)
 
         # Resample SPECT to labels grid if necessary
-        unit = get_metadata_case_insensitive(img, "unit", p_img) or "bqml"
+        unit = get_metadata_case_insensitive(img, "unit", p_img)
+        if unit is None:
+            raise ValueError(
+                f"Time point {i+1}: image unit is not specified and was not found in metadata "
+                f"(bqml or bq)."
+            )
         unit = unit.lower()
         preserve_total = unit == "bq"
 
@@ -458,6 +458,17 @@ def compute_roi_dose_mtp(
 
         # Skip if organ was never segmented / has zero volume
         if not any(v > 0 for v in roi_volumes_ml):
+            continue
+        # The fit needs the ROI at every time point: an absent ROI is not an activity of 0
+        missing = [str(k + 1) for k, v in enumerate(roi_volumes_ml) if v <= 0]
+        if missing:
+            msg = (
+                f"ROI '{roi_name}' is absent from the labels at time point(s) {', '.join(missing)}: "
+                f"Jackson 2013 needs it at the {num_tp} time points."
+            )
+            if rois is not None:
+                raise ValueError(msg)
+            logger.warning(msg + " Skipped.")
             continue
 
         # Baseline organ mass and volume (from TP1 if non-zero, else first non-zero)

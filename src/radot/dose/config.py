@@ -160,12 +160,9 @@ def load_dose_config(
                         method_params[roi_name] = {}
                     method_params[roi_name].update(roi_val)
                 elif roi_val is not None:
-                    try:
-                        if roi_name not in method_params:
-                            method_params[roi_name] = {}
-                        method_params[roi_name]["teff"] = float(roi_val)
-                    except (ValueError, TypeError):
-                        pass
+                    method_params.setdefault(roi_name, {})["teff"] = _teff_hours(
+                        roi_val, roi_name, "rois"
+                    )
         elif isinstance(rois, (list, tuple)):
             rois_list = []
             for r in rois:
@@ -193,27 +190,48 @@ def load_dose_config(
     if teff is not None:
         if isinstance(teff, dict):
             for roi_name, val in teff.items():
-                if roi_name not in method_params:
-                    method_params[roi_name] = {}
                 if isinstance(val, dict):
-                    method_params[roi_name].update(val)
+                    method_params.setdefault(roi_name, {}).update(val)
                 else:
-                    method_params[roi_name]["teff"] = float(val)
-        elif isinstance(teff, (list, tuple)):
-            for item in teff:
-                if isinstance(item, str):
-                    for t in item.split(","):
-                        t_strip = t.strip()
-                        if not t_strip:
-                            continue
-                        parts = t_strip.split(":")
-                        if len(parts) == 2:
-                            r_name = parts[0].strip()
-                            if r_name not in method_params:
-                                method_params[r_name] = {}
-                            method_params[r_name]["teff"] = float(parts[1].strip())
+                    method_params.setdefault(roi_name, {})["teff"] = _teff_hours(
+                        val, roi_name, "teff"
+                    )
+        else:
+            items = [teff] if isinstance(teff, str) else teff
+            if not isinstance(items, (list, tuple)):
+                raise ValueError(
+                    f"Config 'teff' must be a dict {{ROI: hours}}, or a list of 'ROI:hours', got {teff!r}."
+                )
+            for item in items:
+                if not isinstance(item, str):
+                    raise ValueError(f"Config 'teff' item {item!r} must be a 'ROI:hours' string.")
+                for t in item.split(","):
+                    t_strip = t.strip()
+                    if not t_strip:
+                        continue
+                    parts = t_strip.split(":")
+                    if len(parts) != 2 or not parts[0].strip():
+                        raise ValueError(
+                            f"Config 'teff' item '{t_strip}' must be in ROI:hours format (e.g. Liver:45.2)."
+                        )
+                    r_name = parts[0].strip()
+                    method_params.setdefault(r_name, {})["teff"] = _teff_hours(
+                        parts[1].strip(), r_name, "teff"
+                    )
 
     if method_params:
         res["method_params"] = method_params
 
     return res
+
+
+def _teff_hours(val, roi_name, key) -> float:
+    """Teff in hours from a config value: a number, never silently dropped."""
+    if isinstance(val, bool):
+        val = None
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        raise ValueError(
+            f"Config '{key}': the Teff of ROI '{roi_name}' must be a number of hours, got {val!r}."
+        ) from None
