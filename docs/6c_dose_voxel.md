@@ -46,7 +46,7 @@ For α emitters with radioactive progeny ($^{225}\text{Ac}$, $^{223}\text{Ra}$, 
 $$
 \Delta_{\text{local, cascade}} = \sum_{i \in \text{chain}} Y_i \cdot \Delta_{\text{local}}(i)
 $$
-where $Y_i$ is the cumulative branching yield of daughter $i$ from the IAEA LiveChart of Nuclides (curated in `radot/data/decay_chains.json`, updated with `scripts/update_decay_chains.py`). For $^{225}\text{Ac}$, $\Delta_{\text{local, cascade}} \approx 28.70\text{ MeV}$ (5.92 MeV for the parent alone), within about 2.7 % of a full-chain OpenGATE simulation.
+where $Y_i$ is the cumulative branching yield of daughter $i$ from the IAEA LiveChart of Nuclides (curated in `radot/data/decay_chains.json`, updated with `scripts/update_decay_chains.py`). For $^{225}\text{Ac}$, $\Delta_{\text{local, cascade}} \approx 28.70\text{ MeV}$ (5.92 MeV for the parent alone), within about 2.7 % of a full-chain OpenGATE simulation. Every unstable daughter must have ICRP 107 data: if one has none, `--cascade` stops with an error naming it (it is never dropped from the sum).
 
 ### Examples
 

@@ -353,3 +353,46 @@ def test_ldm_dose_rate(tmp_path):
         meta_data = json.load(f)
     assert meta_data["unit"] == "gy/h"
     assert meta_data["modality"] == "dose"
+
+
+def _fake_chain(monkeypatch, daughters):
+    import radot.db as db
+
+    chain = {"parent": "Ac225", "daughters": [
+        {"nuclide": n, "yield": y, "half_life_str": "1 s", "is_stable": False} for n, y in daughters]}
+    monkeypatch.setattr(db, "_decay_chains_cache", {"chains": {"Ac225": chain}})
+
+
+def test_cascade_daughter_without_icrp107_data_raises(monkeypatch):
+    """A daughter without ICRP 107 data is an error, not silently dropped from the cascade sum."""
+    from radot.db import get_cascade_energy_constant_mev
+
+    _fake_chain(monkeypatch, [("Ac225", 1.0), ("Xx999", 0.02)])
+    with pytest.raises(ValueError, match="Xx999.*0.02.*--no-cascade"):
+        get_cascade_energy_constant_mev("Ac225", cascade=True)
+    # without the cascade, the chain is not used
+    tot, _ = get_cascade_energy_constant_mev("Ac225", cascade=False)
+    assert tot == pytest.approx(get_non_penetrating_energy_constant_mev("Ac225"))
+
+
+def test_cascade_daughter_missing_in_radionuclide_info(monkeypatch):
+    """radot radionuclide info still shows the chain, with the reason the total is not available."""
+    _fake_chain(monkeypatch, [("Ac225", 1.0), ("Fr221", 1.0), ("Xx999", 0.02)])
+    result = CliRunner().invoke(main, ["radionuclide", "info", "Ac225"])
+    assert result.exit_code == 0, result.output
+    assert "Xx999" in result.output and "N/A" in result.output
+    assert "not available" in result.output
+
+
+def test_decay_chains_unreadable_raises(monkeypatch, tmp_path):
+    """An unreadable decay_chains.json is an error: the cascade must not become single-nuclide."""
+    import importlib.resources
+    import radot.db as db
+
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "decay_chains.json").write_text("{ broken")
+    monkeypatch.setattr(db, "_decay_chains_cache", None)
+    monkeypatch.setattr(importlib.resources, "files", lambda pkg: tmp_path)
+    with pytest.raises(RuntimeError, match="decay_chains.json"):
+        db.get_cascade_energy_constant_mev("Ac225", cascade=True)
+    assert db._decay_chains_cache is None  # the failure is not cached
