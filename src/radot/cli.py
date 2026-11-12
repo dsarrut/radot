@@ -626,12 +626,18 @@ def _run_meta_command(
     is_flag=True,
     help="Print all DICOM tags present in the image header.",
 )
-def dicom(dicom_path, output_path, all_tags):
+@click.option(
+    "--series",
+    default=None,
+    help="Series to convert when the folder holds several: a unique part of its Series Instance UID "
+    "(listed in the error, or by radot dicom-list).",
+)
+def dicom(dicom_path, output_path, all_tags, series):
     """Convert DICOM directory or single file to another format (NIfTI, NRRD)."""
     from radot.dicom import convert_dicom
 
     try:
-        convert_dicom(dicom_path, output_path, all_tags)
+        convert_dicom(dicom_path, output_path, all_tags, series=series)
     except Exception as e:
         handle_cli_exception(e)
 

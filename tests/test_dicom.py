@@ -450,3 +450,115 @@ def test_meta_keeps_dicom_keys(tmp_path):
     result = CliRunner().invoke(main, ["meta", str(output_nii)])
     assert "Radionuclide: Lu177" in result.output
     assert "Decay Correction: admin" in result.output
+
+
+# Audit B1-B3: no silent choice at the DICOM conversion
+
+def _write_dcm(path, tags):
+    img = sitk.Image([5, 5], sitk.sitkInt16)
+    for k, v in tags.items():
+        img.SetMetaData(k, v)
+    w = sitk.ImageFileWriter()
+    w.KeepOriginalImageUIDOn()
+    w.SetFileName(str(path))
+    w.Execute(img)
+
+
+def _two_series_folder(tmp_path):
+    folder = tmp_path / "mixed"
+    folder.mkdir()
+    for s, (uid, mod, desc) in enumerate([("1.2.3.4.5.111", "CT", "CT body"), ("1.2.3.4.5.222", "NM", "SPECT recon")]):
+        for i in range(2):
+            _write_dcm(folder / f"s{s}_{i}.dcm", {
+                "0008|0060": mod, "0008|103e": desc, "0020|000d": "1.2.3.4", "0020|000e": uid,
+                "0020|0013": str(i + 1), "0020|0032": f"0\\0\\{i * 2.0}",
+                "0008|0022": "20260622", "0008|0032": "100000", "0054|1001": "BQML"})
+    return folder
+
+
+def test_dicom_several_series_errors_with_list(tmp_path):
+    folder = _two_series_folder(tmp_path)
+    with pytest.raises(ValueError, match="contains 2 DICOM series") as e:
+        convert_dicom(folder, tmp_path / "out.nii.gz")
+    assert "1.2.3.4.5.111" in str(e.value) and "SPECT recon" in str(e.value)
+    assert not (tmp_path / "out.nii.gz").exists()
+
+
+def test_dicom_series_option_selects(tmp_path):
+    folder = _two_series_folder(tmp_path)
+    out = tmp_path / "spect.nii.gz"
+    result = CliRunner().invoke(main, ["dicom", str(folder), "--series", "222", "-o", str(out)])
+    assert result.exit_code == 0, result.output
+    assert json.loads((tmp_path / "spect.json").read_text())["modality"] == "spect"
+
+
+@pytest.mark.parametrize("series, match", [("999", "matches no series"), ("1.2.3", "matches 2 series")])
+def test_dicom_series_option_no_or_ambiguous_match(tmp_path, series, match):
+    folder = _two_series_folder(tmp_path)
+    with pytest.raises(ValueError, match=match):
+        convert_dicom(folder, tmp_path / "out.nii.gz", series=series)
+
+
+def test_dicom_no_units_tag_unit_not_written(tmp_path, caplog):
+    dcm = tmp_path / "spect.dcm"
+    _write_dcm(dcm, {"0008|0060": "NM", "0008|002a": "20260622100000"})
+    convert_dicom(dcm, tmp_path / "spect.nii.gz")
+    meta = json.loads((tmp_path / "spect.json").read_text())
+    assert "unit" not in meta
+    assert "No Units tag" in caplog.text
+
+
+def test_dicom_injection_time_without_date_not_guessed(tmp_path, caplog):
+    """Injection time only: the date is not taken from the acquisition (a late time point is days later)."""
+    dcm = tmp_path / "spect.dcm"
+    _write_dcm(dcm, {"0008|0060": "NM", "0054|1001": "BQML", "0018|1072": "091500",
+                     "0008|0022": "20260625", "0008|0032": "101500"})
+    convert_dicom(dcm, tmp_path / "spect.nii.gz")
+    meta = json.loads((tmp_path / "spect.json").read_text())
+    assert "injection_date" not in meta
+    assert meta["acquisition_date"] == "2026-06-25 10:15:00"
+    assert "Injection time 09:15:00 without date" in caplog.text
+
+
+def test_dicom_date_without_time_no_midnight(tmp_path, caplog):
+    """A date without time is not used as midnight: the next tag pair with a time is used, and said."""
+    dcm = tmp_path / "spect.dcm"
+    _write_dcm(dcm, {"0008|0060": "NM", "0054|1001": "BQML", "0018|1078": "20260622",
+                     "0008|0022": "20260625", "0008|0021": "20260625", "0008|0031": "101500"})
+    convert_dicom(dcm, tmp_path / "spect.nii.gz")
+    meta = json.loads((tmp_path / "spect.json").read_text())
+    assert "injection_date" not in meta
+    assert meta["acquisition_date"] == "2026-06-25 10:15:00"
+    assert "from the Series Date/Time tags" in caplog.text
+
+
+def test_dicom_list_date_without_time_shows_the_date(tmp_path):
+    from radot.dicom import list_dicom_series
+
+    import numpy as np
+    import pydicom
+    from pydicom.dataset import Dataset, FileMetaDataset
+    from pydicom.uid import ExplicitVRLittleEndian, generate_uid
+
+    folder = tmp_path / "d"
+    folder.mkdir()
+    meta = FileMetaDataset()
+    meta.MediaStorageSOPClassUID = "1.2.840.10008.5.1.4.1.1.20"  # NM Image Storage
+    meta.MediaStorageSOPInstanceUID = generate_uid()
+    meta.TransferSyntaxUID = ExplicitVRLittleEndian
+    ds = Dataset()
+    ds.file_meta = meta
+    ds.SOPClassUID = meta.MediaStorageSOPClassUID
+    ds.SOPInstanceUID = meta.MediaStorageSOPInstanceUID
+    ds.StudyInstanceUID = generate_uid()
+    ds.SeriesInstanceUID = generate_uid()
+    ds.Modality = "NM"
+    ds.AcquisitionDate = "20260625"  # no time
+    ds.Rows, ds.Columns = 4, 4
+    ds.SamplesPerPixel = 1
+    ds.PhotometricInterpretation = "MONOCHROME2"
+    ds.BitsAllocated, ds.BitsStored, ds.HighBit = 16, 16, 15
+    ds.PixelRepresentation = 0
+    ds.PixelData = np.ones((4, 4), dtype=np.uint16).tobytes()
+    pydicom.dcmwrite(folder / "a.dcm", ds, enforce_file_format=True)
+    assert list_dicom_series(folder)[0]["datetime"] == "2026-06-25"

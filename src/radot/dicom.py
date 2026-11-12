@@ -32,21 +32,20 @@ def parse_datetime(dt_str: str) -> Optional[str]:
         return f"{dt_str[:4]}-{dt_str[4:6]}-{dt_str[6:8]} {dt_str[8:10]}:{dt_str[10:12]}:{dt_str[12:14]}"
     elif len(dt_str) >= 12:
         return f"{dt_str[:4]}-{dt_str[4:6]}-{dt_str[6:8]} {dt_str[8:10]}:{dt_str[10:12]}:00"
-    elif len(dt_str) >= 8:
-        date_part = parse_date(dt_str[:8])
-        if date_part:
-            return f"{date_part} 00:00:00"
+    # A date without time is not a time point (no midnight default)
     return None
 
 def combine_date_time(date_str: Optional[str], time_str: Optional[str]) -> Optional[str]:
+    """'YYYY-MM-DD HH:MM:SS' from DICOM date and time; None when the time is missing (no midnight
+    default)."""
     if not date_str:
         return None
     d = parse_date(date_str)
     if not d:
         return None
-    t = parse_time(time_str) if time_str else "00:00:00"
+    t = parse_time(time_str) if time_str else None
     if not t:
-        t = "00:00:00"
+        return None
     return f"{d} {t}"
 
 # Element names and symbols of the radionuclides used in nuclear medicine
@@ -113,10 +112,48 @@ def read_radiopharmaceutical(dicom_file: str) -> dict:
         info["radionuclide"] = nuclide
     return info
 
+def select_series(dicom_path: Path, series: Optional[str] = None) -> str:
+    """Series UID to read in a folder: the only one, or the one matching `series` (a unique part
+    of the Series Instance UID). Several series without `series` is an error listing them."""
+    ids = list(sitk.ImageSeriesReader.GetGDCMSeriesIDs(str(dicom_path)))
+    if not ids:
+        raise ValueError(f"No DICOM series found in directory: {dicom_path}")
+    if series is not None:
+        match = [sid for sid in ids if series in sid]
+        if len(match) == 1:
+            return match[0]
+        what = "matches no series" if not match else f"matches {len(match)} series"
+        raise ValueError(f"--series '{series}' {what} in {dicom_path}.\n" + _describe_series(dicom_path, ids))
+    if len(ids) == 1:
+        return ids[0]
+    raise ValueError(
+        f"{dicom_path} contains {len(ids)} DICOM series: choose one with --series "
+        f"(a unique part of its UID).\n" + _describe_series(dicom_path, ids)
+    )
+
+
+def _describe_series(dicom_path: Path, ids) -> str:
+    lines = []
+    for sid in ids:
+        files = sitk.ImageSeriesReader.GetGDCMSeriesFileNames(str(dicom_path), sid)
+        desc = modality = ""
+        try:
+            r = sitk.ImageFileReader()
+            r.SetFileName(files[0])
+            r.ReadImageInformation()
+            modality = clean_tag(r.GetMetaData("0008|0060")) if r.HasMetaDataKey("0008|0060") else ""
+            desc = clean_tag(r.GetMetaData("0008|103e")) if r.HasMetaDataKey("0008|103e") else ""
+        except Exception:
+            pass
+        lines.append(f"  {sid}  {modality or '?'}  {len(files)} file(s)  {desc or ''}".rstrip())
+    return "\n".join(lines)
+
+
 def convert_dicom(
     dicom_path: Path,
     output_path: Optional[Path] = None,
-    all_tags: bool = False
+    all_tags: bool = False,
+    series: Optional[str] = None,
 ) -> None:
     """
     Convert a DICOM directory (series) or single DICOM file into another format (e.g. NIfTI).
@@ -136,11 +173,14 @@ def convert_dicom(
     if is_dir:
         logger.info(f"Scanning directory for DICOM series: {dicom_path}")
         reader = sitk.ImageSeriesReader()
-        dicom_names = reader.GetGDCMSeriesFileNames(str(dicom_path))
+        series_uid = select_series(dicom_path, series)
+        dicom_names = reader.GetGDCMSeriesFileNames(str(dicom_path), series_uid)
         if not dicom_names:
             raise ValueError(f"No DICOM series found in directory: {dicom_path}")
         header_file = dicom_names[0]
     else:
+        if series is not None:
+            raise ValueError("--series selects a series in a folder, not in a single DICOM file.")
         logger.info(f"Reading single DICOM file: {dicom_path}")
         header_file = str(dicom_path)
 
@@ -233,13 +273,16 @@ def convert_dicom(
         else:
             unit = u_upper.lower()
 
-    # Default unit fallbacks based on modality
+    # CT values are HU by definition. PET/SPECT without Units (0054,1001): not guessed (it may be
+    # counts); the unit stays unset and the tools that need it raise an explicit error
     if unit is None:
         if modality == "ct":
             unit = "hu"
-        elif modality in ("pet", "spect"):
-            # SUV images declare Units = GML; without Units, assume activity concentration
-            unit = "bqml"
+        elif modality in ("pet", "spect") and output_path is not None:
+            logger.warning(
+                "No Units tag (0054,1001): the unit is not written to the sidecar. Set it with "
+                "radot meta IMAGE --unit bqml|bq|suv|..."
+            )
 
     # Study/Series/Acquisition Dates and Times
     study_date = get_tag("0008|0020")
@@ -250,16 +293,20 @@ def convert_dicom(
     acq_time = get_tag("0008|0032")
     acq_datetime = get_tag("0008|002a")
 
-    # Resolve acquisition_date
+    # Resolve acquisition_date (date and time from the same tag pair, never a default time)
     acquisition_date = None
-    if acq_datetime:
-        acquisition_date = parse_datetime(acq_datetime)
-    if not acquisition_date:
-        acquisition_date = combine_date_time(acq_date, acq_time)
-    if not acquisition_date:
-        acquisition_date = combine_date_time(series_date, series_time)
-    if not acquisition_date:
-        acquisition_date = combine_date_time(study_date, study_time)
+    acquisition_source = None
+    for source, value in (
+        ("Acquisition DateTime", parse_datetime(acq_datetime) if acq_datetime else None),
+        ("Acquisition Date/Time", combine_date_time(acq_date, acq_time)),
+        ("Series Date/Time", combine_date_time(series_date, series_time)),
+        ("Study Date/Time", combine_date_time(study_date, study_time)),
+    ):
+        if value:
+            acquisition_date, acquisition_source = value, source
+            break
+    if acquisition_source not in (None, "Acquisition DateTime", "Acquisition Date/Time"):
+        logger.warning(f"acquisition_date from the {acquisition_source} tags (no acquisition date and time).")
 
     # Radiopharmaceutical details for injection_date
     rad_datetime = radio.get("RadiopharmaceuticalStartDateTime") or get_tag("0018|1078")
@@ -268,13 +315,15 @@ def convert_dicom(
     injection_date = None
     if rad_datetime:
         injection_date = parse_datetime(rad_datetime)
-    if not injection_date and rad_time:
-        # Fall back to matching acquisition/series/study date with rad_time
-        for d in (acq_date, series_date, study_date):
-            if d:
-                injection_date = combine_date_time(d, rad_time)
-                if injection_date:
-                    break
+    if not injection_date and rad_time and output_path is not None:
+        # The injection date is not guessed from the acquisition date: a late time point is
+        # acquired days after the injection
+        t = parse_time(rad_time)
+        logger.warning(
+            f"Injection time {t} without date (no Radiopharmaceutical Start DateTime 0018,1078): "
+            f"injection_date is not written. Set it with radot meta IMAGE --injection-date "
+            f"'YYYY-MM-DD {t}'."
+        )
 
     if output_path is None:
         if all_tags:
@@ -446,7 +495,9 @@ def list_dicom_series(folder_path: Path) -> list:
                             best_dt = combine_date_time(study_date, study_time)
                         
                         if not best_dt:
-                            best_dt = "(no date)"
+                            # date only (display: no time shown, none invented)
+                            d = next((x for x in (acq_date, series_date, study_date) if x), None)
+                            best_dt = (parse_date(d) if d else None) or "(no date)"
 
                         recon_dt = combine_date_time(inst_creation_date, inst_creation_time) or best_dt
 
