@@ -221,8 +221,9 @@ def stats(
 )
 @click.option(
     "--unit",
-    type=click.Choice(["hu", "suv", "bqml", "bq", "gy"], case_sensitive=False),
-    help="Units for images. Defaults to HU for CT, and SUV for PET/SPECT.",
+    type=click.Choice(["hu", "suv", "sul", "bqml", "bq", "bqs", "bqsml", "gy"], case_sensitive=False),
+    help="Unit of the image. Default: the unit in the image sidecar (hu for a CT without one). "
+    "Per-voxel units (bq, bqs) keep their total.",
 )
 @click.option(
     "--preserve-total",

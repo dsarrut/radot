@@ -6,7 +6,7 @@ import logging
 logger = logging.getLogger("radot")
 import numpy as np
 import SimpleITK as sitk
-from radot.resampling import resample_image
+from radot.resampling import PER_VOXEL_UNITS, resample_image
 
 def has_same_grid(img1: sitk.Image, img2: sitk.Image) -> bool:
     """Check if two SimpleITK images share the exact same grid (size, spacing, origin, direction)."""
@@ -46,6 +46,10 @@ def compute_stats(
         except Exception:
             pass
 
+    stored_unit = meta.get("unit")
+    if stored_unit is None:
+        stored_unit = get_metadata_case_insensitive(image, "unit", image_path)
+
     # 1. Resolve image_type (modality)
     if image_type is None:
         image_type = meta.get("modality")
@@ -60,9 +64,6 @@ def compute_stats(
     image_type = image_type.lower()
 
     # 2. Resolve unit
-    stored_unit = meta.get("unit")
-    if stored_unit is None:
-        stored_unit = get_metadata_case_insensitive(image, "unit", image_path)
     if unit is not None:
         unit = unit.lower()
         if stored_unit is not None and stored_unit.lower() != unit:
@@ -90,7 +91,7 @@ def compute_stats(
     if labels_image is not None and not has_same_grid(labels_image, image):
         if resample_to == "labels":
             logger.info("Image grid does not match labels grid. Resampling image to labels grid...")
-            preserve_total = (unit is not None and unit.lower() == "bq")
+            preserve_total = unit is not None and unit.lower() in PER_VOXEL_UNITS
             image = resample_image(
                 image=image,
                 image_type=image_type,

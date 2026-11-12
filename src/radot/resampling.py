@@ -7,6 +7,32 @@ import SimpleITK as sitk
 
 import math
 
+# Per-voxel quantities (activity Bq, time-integrated activity Bq.s): their total is kept when resampled
+PER_VOXEL_UNITS = ("bq", "bqs")
+
+
+def _write_output_sidecar(image_path: Path, output_path: Path, image_type: str, unit: str) -> None:
+    """Write the sidecar of a resampled image: the source keys, the resolved modality and unit, and the
+    SHA-256 of the new file. A label map sidecar ({"1": "Liver", ...}) is copied as is."""
+    import json
+    from radot.meta import get_sidecar_path, compute_file_sha256
+
+    in_sidecar = get_sidecar_path(image_path)
+    meta = {}
+    if in_sidecar.exists():
+        meta = json.loads(in_sidecar.read_text())
+    if image_type != "labels":
+        meta["modality"] = image_type
+        if unit != "none":
+            meta["unit"] = unit
+        meta.pop("sha256", None)
+        sha = compute_file_sha256(output_path)
+        if sha:
+            meta["sha256"] = sha
+    elif not meta:
+        return
+    get_sidecar_path(output_path).write_text(json.dumps(meta, indent=4))
+
 
 def resample_image(
     image: sitk.Image,
@@ -46,8 +72,13 @@ def resample_image(
             max(1, int(round(original_size[i] * original_spacing[i] / target_spacing[i])))
             for i in range(3)
         ]
-        target_origin = image.GetOrigin()
+        # Same physical extent: the first voxel edge stays in place (origin = first voxel centre)
         target_direction = image.GetDirection()
+        shift = [(target_spacing[i] - original_spacing[i]) / 2.0 for i in range(3)]
+        d = target_direction
+        target_origin = tuple(
+            image.GetOrigin()[r] + sum(d[3 * r + c] * shift[c] for c in range(3)) for r in range(3)
+        )
     
     # If gaussian smoothing is requested and this is not a label image, apply it before resampling
     if gaussian and image_type != "labels":
@@ -134,7 +165,9 @@ def resample_image_file(
     # 2. Resolve unit from metadata
     if unit is None:
         unit = get_metadata_case_insensitive(image, "unit", image_path)
-        if unit is None:
+        if unit is not None:
+            unit = unit.lower()
+        else:
             # Default fallbacks
             if image_type == "ct":
                 unit = "hu"
@@ -153,8 +186,8 @@ def resample_image_file(
     if unit != "none" and image_type == "labels":
         raise ValueError("Labels cannot have a unit option.")
 
-    # Force preserve_total if unit is absolute activity (bq)
-    if unit == "bq":
+    # Force preserve_total for a per-voxel unit (bq, bqs)
+    if unit in PER_VOXEL_UNITS:
         preserve_total = True
 
     d = 0
@@ -175,13 +208,7 @@ def resample_image_file(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     sitk.WriteImage(resampled, str(output_path))
 
-    # Copy sidecar JSON if it exists
-    from radot.meta import get_sidecar_path
-    import shutil
-    in_sidecar = get_sidecar_path(image_path)
-    if in_sidecar.exists():
-        out_sidecar = get_sidecar_path(output_path)
-        shutil.copy2(in_sidecar, out_sidecar)
+    _write_output_sidecar(image_path, output_path, image_type, unit)
 
     logger.info("Resampling completed successfully.")
 
@@ -237,7 +264,9 @@ def resample_image_file_like(
     # Resolve unit
     if unit is None:
         unit = get_metadata_case_insensitive(image, "unit", image_path)
-        if unit is None:
+        if unit is not None:
+            unit = unit.lower()
+        else:
             if resolved_type == "ct":
                 unit = "hu"
             elif resolved_type in ("pet", "spect"):
@@ -255,8 +284,8 @@ def resample_image_file_like(
     if unit != "none" and resolved_type == "labels":
         raise ValueError("Labels cannot have a unit option.")
 
-    # Force preserve_total if unit is absolute activity (bq)
-    if unit == "bq":
+    # Force preserve_total for a per-voxel unit (bq, bqs)
+    if unit in PER_VOXEL_UNITS:
         preserve_total = True
 
     logger.info(
@@ -275,12 +304,6 @@ def resample_image_file_like(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     sitk.WriteImage(resampled, str(output_path))
 
-    # Copy sidecar JSON if it exists
-    from radot.meta import get_sidecar_path
-    import shutil
-    in_sidecar = get_sidecar_path(image_path)
-    if in_sidecar.exists():
-        out_sidecar = get_sidecar_path(output_path)
-        shutil.copy2(in_sidecar, out_sidecar)
+    _write_output_sidecar(image_path, output_path, resolved_type, unit)
 
     logger.info("Resampling completed successfully.")

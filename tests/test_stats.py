@@ -674,3 +674,29 @@ def test_compute_stats_dose_rate_map(tmp_path):
     # check that mean dose rate value 0.750 is in the output table and unit gy/h is correct
     assert "0.750" in result.output
     assert "gy/h" in result.output.lower()
+
+
+def test_compute_stats_dose_unit_without_modality():
+    """No modality anywhere: a dose unit given as option makes it a dose image (API, no sidecar)."""
+    image = sitk.GetImageFromArray(np.ones((4, 4, 4), dtype=np.float32))
+    labels = sitk.GetImageFromArray(np.ones((4, 4, 4), dtype=np.uint8))
+    res = compute_stats(labels, image, unit="gy", labels_map={1: "Liver"})
+    assert res
+
+
+def test_compute_stats_no_modality_no_unit_errors():
+    image = sitk.GetImageFromArray(np.ones((4, 4, 4), dtype=np.float32))
+    labels = sitk.GetImageFromArray(np.ones((4, 4, 4), dtype=np.uint8))
+    with pytest.raises(ValueError, match="modality"):
+        compute_stats(labels, image)
+
+
+def test_compute_stats_bqs_keeps_total_when_resampled():
+    """A TIA image (bqs, per voxel) resampled to the labels grid keeps its total."""
+    image = sitk.GetImageFromArray(np.full((8, 8, 8), 10.0, dtype=np.float32))
+    image.SetSpacing((4.0, 4.0, 4.0))
+    labels = sitk.GetImageFromArray(np.ones((16, 16, 16), dtype=np.uint8))
+    labels.SetSpacing((2.0, 2.0, 2.0))
+    labels.SetOrigin((-1.0, -1.0, -1.0))
+    res = compute_stats(labels, image, image_type="spect", unit="bqs", labels_map={1: "Liver"})
+    assert res["1"]["sum"] == pytest.approx(8**3 * 10.0, rel=1e-3)

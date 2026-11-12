@@ -261,3 +261,74 @@ def test_resample_cli_like(tmp_path):
 
 
 
+
+
+def _activity_file(tmp_path, name, sidecar):
+    """4 mm image, uniform 10 per voxel, with a sidecar."""
+    import json
+    from radot.meta import get_sidecar_path
+
+    image = sitk.GetImageFromArray(np.full((8, 8, 8), 10.0, dtype=np.float32))
+    image.SetSpacing((4.0, 4.0, 4.0))
+    path = tmp_path / name
+    sitk.WriteImage(image, str(path))
+    get_sidecar_path(path).write_text(json.dumps(sidecar))
+    return path
+
+
+@pytest.mark.parametrize("unit", ["bq", "bqs", "BQS"])
+def test_resample_file_per_voxel_unit_keeps_total(tmp_path, unit):
+    """A per-voxel unit (activity bq, time-integrated activity bqs) keeps its total, also when the
+    sidecar unit is not lower case."""
+    path = _activity_file(tmp_path, "a.nii.gz", {"modality": "spect", "unit": unit})
+    out = tmp_path / "a_2mm.nii.gz"
+    resample_image_file(path, (2.0, 2.0, 2.0), output_path=out, gaussian=False)
+    total = sitk.GetArrayFromImage(sitk.ReadImage(str(out))).sum()
+    assert total == pytest.approx(8**3 * 10.0, rel=1e-3)
+
+
+def test_resample_like_per_voxel_unit_keeps_total(tmp_path):
+    from radot.resampling import resample_image_file_like
+
+    path = _activity_file(tmp_path, "tia.nii.gz", {"modality": "spect", "unit": "bqs"})
+    like = sitk.Image([16, 16, 16], sitk.sitkFloat32)
+    like.SetSpacing((2.0, 2.0, 2.0))
+    like.SetOrigin((-1.0, -1.0, -1.0))  # same extent as the 4 mm image
+    like_path = tmp_path / "like.nii.gz"
+    sitk.WriteImage(like, str(like_path))
+    out = tmp_path / "tia_like.nii.gz"
+    resample_image_file_like(path, like_path, out, gaussian=False)
+    total = sitk.GetArrayFromImage(sitk.ReadImage(str(out))).sum()
+    assert total == pytest.approx(8**3 * 10.0, rel=1e-3)
+
+
+def test_resample_output_sidecar(tmp_path):
+    """The output sidecar keeps the source keys, writes the resolved modality and unit, and the SHA-256
+    of the new file (not the source one)."""
+    import json
+    from radot.meta import compute_file_sha256, get_sidecar_path
+
+    src = {"unit": "bqml", "radionuclide": "Lu177", "weight": 70.0, "sha256": "0" * 64}
+    path = _activity_file(tmp_path, "s.nii.gz", src)
+    out = tmp_path / "s_2mm.nii.gz"
+    resample_image_file(path, (2.0, 2.0, 2.0), image_type="spect", output_path=out)
+    meta = json.loads(get_sidecar_path(out).read_text())
+    assert meta["sha256"] == compute_file_sha256(out)
+    assert meta["modality"] == "spect"
+    assert meta["unit"] == "bqml"
+    assert meta["radionuclide"] == "Lu177" and meta["weight"] == 70.0
+
+
+def test_resample_labels_sidecar_copied(tmp_path):
+    """A label map sidecar stays a pure {id: name} map."""
+    import json
+    from radot.meta import get_sidecar_path
+
+    image = sitk.Image([8, 8, 8], sitk.sitkUInt8)
+    image.SetSpacing((4.0, 4.0, 4.0))
+    path = tmp_path / "labels.nii.gz"
+    sitk.WriteImage(image, str(path))
+    get_sidecar_path(path).write_text(json.dumps({"1": "Liver", "2": "Spleen"}))
+    out = tmp_path / "labels_2mm.nii.gz"
+    resample_image_file(path, (2.0, 2.0, 2.0), image_type="labels", output_path=out)
+    assert json.loads(get_sidecar_path(out).read_text()) == {"1": "Liver", "2": "Spleen"}
