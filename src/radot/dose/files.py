@@ -6,7 +6,7 @@ from typing import List, Optional, Dict, Any, Union
 import SimpleITK as sitk
 from pathlib import Path
 
-from radot.dose.compute import check_dosimetry_inputs, compute_roi_dose
+from radot.dose.compute import check_dosimetry_inputs, check_unused_options, compute_roi_dose
 from radot.dose.config import load_dose_config
 from radot.dose.mtp import compute_roi_dose_mtp
 
@@ -89,7 +89,7 @@ def compute_roi_dose_file(
 
     # defaults, after the config
     verbose = bool(verbose) if verbose is not None else False
-    hu_threshold = float(hu_threshold) if hu_threshold is not None else -800.0
+    hu_threshold = float(hu_threshold) if hu_threshold is not None else None  # ldm: -800
     dose_rate = bool(dose_rate) if dose_rate is not None else False
     cascade = bool(cascade) if cascade is not None else False
 
@@ -97,6 +97,16 @@ def compute_roi_dose_file(
     if timepoints is not None or isinstance(image_path, (list, tuple)):
         if dose_rate_map_path is not None:
             raise ValueError("A dose-rate map cannot be used with multiple time points.")
+        check_unused_options(
+            method or "jackson2013",
+            multi_tp=True,
+            cascade=cascade,
+            hu_threshold=hu_threshold,
+            dose_rate=dose_rate,
+            total_activity_mbq=total_activity_mbq,
+            resample=resample_target,
+            method_params=method_params,
+        )
         tp_list = timepoints if timepoints is not None else image_path
         extracted_paths = []
         extracted_labels = []

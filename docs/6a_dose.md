@@ -81,16 +81,18 @@ radot dose -c <config_json> [options]
 * -m, --method <hanscheid2017|hanscheid2018|madsen2018|jackson2013|svalue|ldm>: Dosimetry method.
 * --isotope <name>: Radionuclide (e.g. Lu177, Y90).
 * --rois <name>: ROI to include. Can be repeated or comma-separated. Default: all the labels.
-* --teff <ROI:value>: Effective half-life per ROI in hours (e.g. --teff Liver:45.0 --teff Kidney_L:32.0).
-* --total-activity <float>: Total activity of the image in MBq (rescales the image; activity images only).
-* --hu-threshold <float>: `ldm`: CT values below this (default −800 HU) get no dose (air).
-* --dose-rate: `ldm` only: dose rate at the acquisition time (Gy/h) instead of the absorbed dose.
-* --cascade / --no-cascade: `ldm`: include the decay chain in secular equilibrium (default: no).
+* --teff <ROI:value>: Effective half-life per ROI in hours (e.g. --teff Liver:45.0 --teff Kidney_L:32.0). `hanscheid2017`, `hanscheid2018`, `madsen2018` only.
+* --total-activity <float>: Total activity of the image in MBq (rescales the image; activity images only, single time point).
+* --hu-threshold <float>: `ldm` without a dose-rate map: CT values below this (default −800 HU) get no dose (air).
+* --dose-rate: `ldm`, or a dose-rate map: dose rate at the acquisition time (Gy/h) instead of the absorbed dose.
+* --cascade / --no-cascade: `ldm` without a dose-rate map: include the decay chain in secular equilibrium (default: no).
 * --dose-rate-map <path>: External dose-rate image (e.g. OpenGATE), see [voxel level](6c_dose_voxel.md#2-external-dose-rate-map-monte-carlo).
 * --dose-rate-map-activity <float>: Activity (MBq) that produced the dose-rate map. Default: the map sidecar key `source_activity_mbq`, else the map is an absolute dose rate.
 * --phantom <male|female>: OpenDose phantom for the S-value methods. Default: the patient sex in the image sidecar (`sex`); if neither is given, radot stops with an error (no default phantom). Not needed by `hanscheid2017`, `ldm` and a dose-rate map.
 * --resample <like_activity|like_labels|like_ct>: Grid to resample the images to when they differ.
 * -o, --output <output_path>: ROI table (`.json`) or dose image (see [inputs and outputs](#3-inputs-and-outputs)).
+
+An option that the chosen computation does not use (above, and `--total-activity`, `--resample`, Teff with multiple time points) is an error, from the command line, the JSON configuration or the Python API: it is never ignored.
 
 #### JSON configuration file
 
