@@ -17,23 +17,36 @@ from typing import Dict, Any, Optional
 from pathlib import Path
 
 
+def nuclide_key(name: str) -> str:
+    """Comparison key of a radionuclide name, for every usual spelling: 'Tb149', 'Tb-149', 'tb 149',
+    '149Tb', '149-Tb', '^149^Tb' -> 'tb149'; 'Tc99m', 'Tc-99m', '99mTc' -> 'tc99m'. A mass number first is
+    read as mass + symbol ('99Mo' -> 'mo99'), then as metastable ('99mTc' -> 'tc99m')."""
+    clean = re.sub(r"[-_\s^]", "", str(name)).lower()
+    m = re.fullmatch(r"(\d+)([a-z]{1,2})", clean)
+    if m:
+        return f"{m.group(2)}{m.group(1)}"
+    m = re.fullmatch(r"(\d+)m([a-z]{1,2})", clean)
+    if m:
+        return f"{m.group(2)}{m.group(1)}m"
+    return clean
+
+
+def _icrp107_file(isotope: str):
+    """ICRP 107 data file of a radionuclide (any spelling, see nuclide_key), or None."""
+    key = nuclide_key(isotope)
+    icrp_dir = importlib.resources.files("icrp107_database").joinpath("icrp107")
+    for p in icrp_dir.iterdir():
+        if p.name.endswith(".json") and nuclide_key(p.name[:-5]) == key:
+            return p
+    return None
+
+
 def get_physical_half_life_h(isotope: str) -> float:
     """
     Look up the physical half-life (Tp) of an isotope in hours.
     Loads data from the required 'icrp107-database' package.
     """
-    iso_clean = re.sub(r"[-_\s]", "", isotope).lower()
-
-    # Locate the icrp107 directory inside the installed package
-    icrp_dir = importlib.resources.files("icrp107_database").joinpath("icrp107")
-
-    matched_path = None
-    for p in icrp_dir.iterdir():
-        if p.name.endswith(".json"):
-            name_without_ext = p.name[:-5]
-            if re.sub(r"[-_\s]", "", name_without_ext).lower() == iso_clean:
-                matched_path = p
-                break
+    matched_path = _icrp107_file(isotope)
 
     if not matched_path:
         raise ValueError(
@@ -102,8 +115,8 @@ def normalize_phantom(phantom: str) -> str:
 
 
 def normalize_isotope(isotope: str) -> str:
-    """Normalize isotope name to standard filename format (e.g. lu177, y90)."""
-    clean = re.sub(r"[-_\s]", "", isotope).lower()
+    """Normalize isotope name to standard filename format (e.g. lu177, y90; '177Lu' too)."""
+    clean = nuclide_key(isotope)
     match = re.match(r"^([a-z]+[0-9]+m?)", clean)
     if match:
         return match.group(1)
@@ -653,16 +666,7 @@ def get_non_penetrating_energy_constant_mev(isotope: str) -> float:
     import json
     import re
 
-    iso_clean = re.sub(r"[-_\s]", "", isotope).lower()
-    icrp_dir = importlib.resources.files("icrp107_database").joinpath("icrp107")
-
-    matched_path = None
-    for p in icrp_dir.iterdir():
-        if p.name.endswith(".json"):
-            name_without_ext = p.name[:-5]
-            if re.sub(r"[-_\s]", "", name_without_ext).lower() == iso_clean:
-                matched_path = p
-                break
+    matched_path = _icrp107_file(isotope)
 
     if not matched_path:
         raise ValueError(
@@ -717,11 +721,11 @@ def get_decay_chain(isotope: str) -> Optional[dict]:
     """
     import re
 
-    clean = re.sub(r"[-_\s]", "", isotope).lower()
+    clean = nuclide_key(isotope)
     data = _load_decay_chains()
     chains = data.get("chains", {})
     for parent_key, chain_info in chains.items():
-        if re.sub(r"[-_\s]", "", parent_key).lower() == clean:
+        if nuclide_key(parent_key) == clean:
             return chain_info
     return None
 
