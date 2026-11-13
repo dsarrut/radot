@@ -54,6 +54,19 @@ def parse_date(value, name: str = "date") -> datetime:
     raise ValueError(f"{name} '{value}' is not in the format 'YYYY-MM-DD HH:MM:SS'.")
 
 
+def metadata_number(value, key: str) -> Optional[float]:
+    """A numeric sidecar value (weight, activity, height): None if absent, else a float; a value that is
+    not a number (e.g. '70kg') is an error naming the key, never ignored nor kept as text."""
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"{key} '{value}' in the metadata is not a number. Fix it (radot meta IMAGE --{key} ...)."
+        ) from None
+
+
 def validate_date(date_str: str) -> bool:
     """Validate that date_str is in 'YYYY-MM-DD HH:MM:SS' format."""
     try:
@@ -239,21 +252,18 @@ def read_metadata(image_path: Path) -> dict:
     decay_correction = get_metadata_case_insensitive(None, "decay_correction", image_path)
 
     # Convert numeric metadata types back if possible
-    if weight is not None:
+    # Numbers; a value that is not a number is kept as text for display, with a WARNING (radot check
+    # reports it, the tools that use it raise)
+    def _num(key, value):
         try:
-            weight = float(weight)
-        except ValueError:
-            pass
-    if activity is not None:
-        try:
-            activity = float(activity)
-        except ValueError:
-            pass
-    if height is not None:
-        try:
-            height = float(height)
-        except ValueError:
-            pass
+            return metadata_number(value, key)
+        except ValueError as e:
+            logger.warning(f"{image_path.name}: {e}")
+            return value
+
+    weight = _num("weight", weight)
+    activity = _num("activity", activity)
+    height = _num("height", height)
     if sex is not None:
         sex = sex.lower().strip()
 
@@ -351,12 +361,12 @@ def write_metadata(
     final_weight = (
         weight
         if weight is not None
-        else (float(existing_weight) if existing_weight else None)
+        else metadata_number(existing_weight, "weight")
     )
     final_activity = (
         activity
         if activity is not None
-        else (float(existing_activity) if existing_activity else None)
+        else metadata_number(existing_activity, "activity")
     )
     final_injection_date = (
         injection_date if injection_date is not None else existing_injection_date
@@ -367,7 +377,7 @@ def write_metadata(
     final_height = (
         height
         if height is not None
-        else (float(existing_height) if existing_height else None)
+        else metadata_number(existing_height, "height")
     )
     final_sex = (
         sex.lower().strip()

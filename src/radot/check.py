@@ -178,11 +178,12 @@ class CheckContext:
 
     def labels_map(self) -> Dict[int, str]:
         """Label id -> ROI name, from the labels sidecar ({} if none)."""
-        s = get_sidecar_path(self.labels)
+        from radot.dose.compute import load_labels_map
+
         try:
-            return {int(k): str(v) for k, v in json.loads(s.read_text()).items()}
-        except (OSError, ValueError, AttributeError):
-            return {}
+            return load_labels_map(self.labels)  # same rule as radot dose (metadata keys are not ROIs)
+        except ValueError:
+            return {}  # reported by roi.names
 
     def roi_stats(self) -> Dict[int, dict]:
         """
@@ -325,6 +326,10 @@ def check_meta_required(ctx: CheckContext) -> List[Finding]:
         for name, (level, reason) in required_fields(unit, ctx.method).items():
             if has_key and name in ("injection_date", "acquisition_date"):
                 continue  # the time_from_injection key gives the time (used when there are no dates)
+            if name in ("weight", "activity", "height") and isinstance(m.get(name), str):
+                findings.append(Finding("meta.required", Level.FAIL, f"{name} '{m[name]}' is not a number", p.name, m[name]))
+                missing.append(name)
+                continue
             if m.get(name) in (None, ""):
                 missing.append(name)
                 findings.append(Finding("meta.required", level, f"{name} missing ({reason})", p.name))
@@ -1031,10 +1036,14 @@ def _roi_class(name: str, classes: dict) -> Optional[str]:
 def check_roi_names(ctx: CheckContext) -> List[Finding]:
     from radot.nomenclature import verify_sidecar_mappings
 
+    from radot.dose.compute import load_labels_map
+
     name = ctx.labels.name
-    labels_map = ctx.labels_map()
-    if not labels_map:
-        return [Finding("roi.names", Level.WARN, "no labels sidecar (label id -> ROI name)", name)]
+    try:
+        labels_map = load_labels_map(ctx.labels)
+    except ValueError as e:
+        # radot dose stops on it (no ROI names)
+        return [Finding("roi.names", Level.FAIL, str(e), name)]
     report = verify_sidecar_mappings(labels_map)
     findings = [Finding("roi.names", Level.OK, f"{len(report['mapped'])} of {len(labels_map)} ROIs mapped to OpenDose", name)]
     if report["unmapped"]:

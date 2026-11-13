@@ -1,6 +1,7 @@
 """Input checks and compute_roi_dose, the entry point on SimpleITK images."""
 
 import json
+import re
 import logging
 from typing import List, Optional, Dict, Any
 import numpy as np
@@ -24,8 +25,10 @@ logger = logging.getLogger("radot")
 
 
 def load_labels_map(labels_path) -> Dict[int, str]:
-    """ROI names of a label image, from its sidecar {"1": "Liver", ...}. A missing, unreadable or
-    empty sidecar is an error: without names the ROIs cannot be checked, matched or reported."""
+    """ROI names of a label image, from its sidecar {"1": "Liver", ...}: the integer keys are the label
+    ids, the other keys are metadata (e.g. "modality") and are not ROIs. A missing or unreadable sidecar,
+    or one without any label id, is an error: without names the ROIs cannot be checked, matched or
+    reported."""
     from radot.meta import get_sidecar_path
 
     labels_path = Path(labels_path)
@@ -37,13 +40,15 @@ def load_labels_map(labels_path) -> Dict[int, str]:
         )
     try:
         raw_map = json.loads(json_path.read_text())
-        labels_map = {int(k): str(v) for k, v in raw_map.items()}
+        labels_map = {int(k): str(v) for k, v in raw_map.items() if re.fullmatch(r"\s*\d+\s*", str(k))}
     except Exception as e:
         raise ValueError(
             f"Label sidecar '{json_path}' cannot be read as {{\"<label id>\": \"<ROI name>\"}}: {e}"
         ) from e
     if not labels_map:
-        raise ValueError(f"Label sidecar '{json_path}' has no ROI.")
+        raise ValueError(
+            f"Label sidecar '{json_path}' has no ROI (no label id key: {{\"<label id>\": \"<ROI name>\"}})."
+        )
     return labels_map
 
 

@@ -226,7 +226,7 @@ def convert_dicom(
         try:
             weight = float(weight_raw)
         except ValueError:
-            pass
+            logger.warning(f"Patient's Weight (0010,1030) '{weight_raw}' is not a number: weight not written.")
 
     # Radiopharmaceutical tags are in the sequence (0054,0016); top-level tags are a fallback
     radio = read_radiopharmaceutical(header_file)
@@ -238,7 +238,7 @@ def convert_dicom(
         try:
             height = round(float(height_raw) * 100.0, 2)
         except ValueError:
-            pass
+            logger.warning(f"Patient's Size (0010,1020) '{height_raw}' is not a number: height not written.")
         if height is not None and height <= 0:
             height = None
 
@@ -259,7 +259,7 @@ def convert_dicom(
         try:
             activity = float(activity_raw) / 1_000_000.0
         except ValueError:
-            pass
+            logger.warning(f"Radionuclide Total Dose (0018,1074) '{activity_raw}' is not a number: activity not written.")
 
     # Parse unit (Units 0054|1001)
     unit_raw = get_tag("0054|1001")

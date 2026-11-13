@@ -53,10 +53,7 @@ def compute_stats(
     rois = list(rois) if rois else None  # an empty ROI list is no filter: all the ROIs
     meta = {}
     if image_path is not None:
-        try:
-            meta = read_metadata(image_path).get("metadata", {})
-        except Exception:
-            pass
+        meta = read_metadata(image_path).get("metadata", {})  # an unreadable sidecar is an error
 
     stored_unit = meta.get("unit")
     if stored_unit is None:
@@ -294,22 +291,14 @@ def compute_stats_file(
         logger.info(f"Reading labels from: {labels_path}")
         labels_image = sitk.ReadImage(str(labels_path))
         
-        # Load mapping JSON if it exists in the same folder
-        json_path = labels_path.with_suffix("").with_suffix(".json")
-        if json_path.exists():
-            try:
-                with open(json_path, "r") as f:
-                    raw_map = json.load(f)
-                    labels_map = {}
-                    for k, v in raw_map.items():
-                        try:
-                            labels_map[int(k)] = v
-                        except ValueError:
-                            pass
-                if labels_map:
-                    logger.info(f"Loaded label name mappings from: {json_path}")
-            except Exception as e:
-                logger.warning(f"Could not read mapping JSON {json_path}: {e}")
+        # ROI names from the labels sidecar, if any (without one, the ROIs are named by their label id);
+        # a sidecar that is unreadable or has ids that are not numbers is an error, as in radot dose
+        from radot.dose.compute import load_labels_map
+        from radot.meta import get_sidecar_path
+
+        if get_sidecar_path(labels_path).exists():
+            labels_map = load_labels_map(labels_path)
+            logger.info(f"Loaded label name mappings from: {get_sidecar_path(labels_path)}")
     
     logger.info(f"Reading image from: {image_path}")
     image = sitk.ReadImage(str(image_path))
@@ -326,10 +315,7 @@ def compute_stats_file(
     from radot.meta import read_metadata, get_metadata_case_insensitive
     meta = {}
     if image_path is not None:
-        try:
-            meta = read_metadata(image_path).get("metadata", {})
-        except Exception:
-            pass
+        meta = read_metadata(image_path).get("metadata", {})  # an unreadable sidecar is an error
 
     # Resolve image_type (modality)
     if image_type is None:

@@ -52,7 +52,7 @@ $ radot meta spect.nii.gz --rad Lu177       # a missing radionuclide
 | Code | Check |
 |------|-------|
 | `meta.sidecar` | Sidecar JSON of each image readable (a JSON object). An unreadable sidecar is one FAIL; the other checks still run (no other `meta` finding for that image). |
-| `meta.required` | Sidecar present; fields needed by the method (unit, radionuclide, dates or a `time_from_injection` key; weight and activity for `suv`/`sul`; height and sex for `sul`); TIA images only with `svalue`/`ldm`. |
+| `meta.required` | Sidecar present; weight, activity, height are numbers; fields needed by the method (unit, radionuclide, dates or a `time_from_injection` key; weight and activity for `suv`/`sul`; height and sex for `sul`); TIA images only with `svalue`/`ldm`. |
 | `meta.modality` | Modality and unit consistent with the role of each image (activity, CT in `hu`, dose in `gy`). |
 | `meta.dates_order` | Valid dates (`YYYY-MM-DD HH:MM:SS`), injection before acquisition. |
 | `meta.time_from_injection` | Time from injection below 10 half-lives; time points distinct. Same rule as `radot dose`: the dates, else a `time_from_injection` key (hours); both and more than one minute apart is a FAIL. |
@@ -71,7 +71,7 @@ $ radot meta spect.nii.gz --rad Lu177       # a missing radionuclide
 | `geom.overlap` | Activity inside the CT field of view (WARN below 90 %); uptake organs (liver, kidneys, spleen) inside the activity field of view (else their activity and dose are underestimated). |
 | `geom.activity_in_body` | Activity inside the CT body outline (HU > −500, dilated 15 mm): WARN below 90 %, FAIL below 50 % (SPECT/PET and CT not registered). |
 | `geom.organ_shift` | For each uptake organ with enough activity: the shift of its label, within ±30 mm, that gives the most counts (cross-correlation). WARN if it is above 15 mm and gains more than 15 % counts, with the direction (e.g. "Kidney_L 20 mm anterior, +60 % counts"). |
-| `roi.names` | Labels sidecar present (label id → ROI name); ROIs without an OpenDose organ listed (no S-value). |
+| `roi.names` | Labels sidecar present and readable, with label ids (label id → ROI name; other keys are metadata): FAIL otherwise, as `radot dose` needs the names; ROIs without an OpenDose organ listed (no S-value). |
 | `roi.empty` | Labels image not empty; ROIs of the sidecar empty, smaller than 1 mL or touching the image border (truncated) listed. On a cropped image these are normal, so they are reported as INFO. |
 | `roi.laterality` | Left/right pairs (`Kidney_L`/`Kidney_R`, `kidney_left`/`kidney_right`) on the correct side in patient coordinates (LPS: patient left = +x); liver and gallbladder on the patient right, spleen and stomach on the left (catches mirrored images). |
 | `roi.mass` | With a CT: mass (density from HU, as in `radot stats`) of whole organs (liver, spleen, kidneys, pancreas, thyroid, prostate, brain) vs the OpenDose reference mass for the patient sex (male if unknown). Lobes, vessels and muscles are parts of an OpenDose organ and are not compared. Truncated organs are not compared. |

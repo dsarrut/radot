@@ -138,17 +138,13 @@ def resolve_organ_name(user_name: str, phantom: Optional[str] = None) -> str:
 
     # If phantom is provided, we can look up the exact name in masses.json case-insensitively
     if phantom is not None:
-        try:
-            norm_phantom = normalize_phantom(phantom)
-            masses = _load_masses(norm_phantom)
-            for official_name in masses.keys():
-                if (
-                    official_name.lower() == resolved.lower()
-                    or official_name.lower() == standardized.lower()
-                ):
-                    return official_name
-        except Exception:
-            pass
+        masses = _load_masses(normalize_phantom(phantom))
+        for official_name in masses.keys():
+            if (
+                official_name.lower() == resolved.lower()
+                or official_name.lower() == standardized.lower()
+            ):
+                return official_name
 
     # Fallback or resolved name
     if resolved == user_name:
@@ -576,16 +572,16 @@ def download_opendose_data(
             try:
                 with gzip.open(target_file, "rt", encoding="utf-8") as f:
                     s_matrix = json.load(f)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Partial download {target_file} unreadable ({e}): downloaded again.")
 
         masses_file = dest_dir / "masses.json"
         if masses_file.exists() and not force:
             try:
                 with open(masses_file, "r", encoding="utf-8") as f:
                     masses = json.load(f)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Partial download {masses_file} unreadable ({e}): downloaded again.")
 
         # If the file is already complete (has all source organs) and not forcing, we can skip
         if target_file.exists() and not force and len(s_matrix) >= len(source_organs):
