@@ -69,9 +69,21 @@ pytest -q                         # unit tests + validation levels that need no 
 4.  **Metadata Inheritance**: Any tool that creates or resamples an image (e.g., `resample`, `convert-units`) must copy, update, or generate a matching sidecar JSON file to accompany the new image.
 5.  **Tests**: For each such parameter, test both cases: the command works when the value is only in the sidecar, and fails with an explicit error when it is in neither the options nor the sidecar.
 
+### No Silent Decisions
+The code never makes a choice that can change a result without saying so. Inputs that are missing, malformed or contradictory raise a clear `ValueError`; a legitimate default is logged (INFO, or WARNING when it is a fallback). Established rules (PR #16–#32; tests next to each rule):
+*   **Option vs sidecar**: an option that contradicts the sidecar is an error (`--type`/`--unit` in `resample` and `stats`, `--isotope` vs `radionuclide`); the tools never relabel a unit without converting it.
+*   **Unused options**: an option the chosen computation does not use is an error (`dose.compute.check_unused_options`: `--cascade`, `--hu-threshold`, `--dose-rate`, Teff, `--total-activity`, `--resample` per method / path). A new option is added to it.
+*   **Explicit requests never fall back**: `--rois` (a requested ROI with no voxel, or unmapped, is an error; without `--rois`, skipped with a WARNING), `--series` (a DICOM folder with several series is an error listing them), a given `time_h` (used, WARNING if it differs from the sidecar).
+*   **Config precedence**: an explicit option always wins over the dose config (merged once, in `cli.py` / `dose.files`); option and config are both "given" values, checked against the sidecar as above.
+*   **One rule per quantity**, in one function: dates `meta.parse_date` (`YYYY-MM-DD HH:MM:SS`, optional fraction of second; no other format); CT density `stats.ct_density_g_ml` (1 + HU/1000, floored at 1e-3 g/mL, voxel-wise; an ROI mass is the sum of its voxel masses); radionuclide names `db.nuclide_key` (`Lu177`, `Lu-177`, `177Lu`, `99mTc`); time from injection `meta.get_time_from_injection_h` (dates, else a `time_from_injection` key, both and different is an error), also in `radot check`.
+*   **Unreadable files are errors**: a sidecar that is not a JSON object (`meta._read_sidecar`), a labels sidecar missing or without names (`dose.compute.load_labels_map`), decay data. Never rewrite a sidecar from `{}`. `radot check` reports an unreadable sidecar (FAIL `meta.sidecar`) instead of raising: check only reports.
+*   **No physics default**: no default radionuclide, phantom (sidecar `sex`, else error), unit for PET/SPECT, or image type; `resample_image` needs `image_type`.
+*   **Empty ROI list** means all the ROIs on every path.
+*   A new default or fallback is logged now, and recorded in the provenance once it exists (`docs_wip/dev_readme_110_provenance.md`).
+
 ### Resampling & Unit Conversions
-*   **Preserve Total Activity**: When resampling images in absolute activity units (e.g., `bq`), you must scale voxel values by the volume change ratio (new voxel volume / old voxel volume) to keep the total activity constant.
-*   **Interpolation Strategy**: Use Linear interpolation for continuous modalities (CT, PET, SPECT, Dose) and Nearest Neighbor interpolation for discrete labels.
+*   **Preserve Total Activity**: When resampling images in per-voxel units (`resampling.PER_VOXEL_UNITS`: `bq`, and `bqs` for a TIA image), you must scale voxel values by the volume change ratio (new voxel volume / old voxel volume) to keep the total constant. `--spacing` keeps the physical extent of the image.
+*   **Interpolation Strategy**: Use Linear interpolation for continuous modalities (CT, PET, SPECT, Dose) and Nearest Neighbor interpolation for discrete labels. The image type is one of `resampling.IMAGE_TYPES` (case-insensitive); an unknown type (`mask`, `seg`) is an error, a mask is `labels`.
 *   **Anti-Aliasing**: Apply a Gaussian anti-aliasing filter during downsampling for continuous images (enabled by default); disable it for discrete label maps.
 *   **Unit Conversions**: Convert image values between `bq`, `bqml`, `suv`, and `sul` in `convert.py`.
     *   `suv`: Requires patient weight ($W$ in kg) and activity ($A_{\text{inj}}$ in MBq).
@@ -79,7 +91,7 @@ pytest -q                         # unit tests + validation levels that need no 
 
 ### Radionuclide Decay Chains & Dosimetry
 *   **Data Prioritization**: ICRP 107 is authoritative for single-nuclide emission spectra and non-penetrating energy constants ($\Delta_{\text{local}}$); IAEA LiveChart is authoritative for decay tree topology and cumulative branch yields ($Y_i$).
-*   **Cascade Dosimetry**: LDM calculations support multi-generation cascades under secular equilibrium (`cascade=True` / `--cascade`). Total non-penetrating energy is summed over all progeny weighted by cumulative yield $Y_i$.
+*   **Cascade Dosimetry**: LDM calculations support multi-generation cascades under secular equilibrium (`cascade=True` / `--cascade`). Total non-penetrating energy is summed over the progeny in secular equilibrium with the parent (`db.cascade_members`: half-life below 1/10 of the parent's, and every nuclide in between counted too), weighted by cumulative yield $Y_i$; the excluded daughters are named in a WARNING. A daughter without ICRP 107 data is an error.
 *   **Dosimetry Model Registration**: Use the strategy registry pattern to route dosimetry methods (`hanscheid2017`, `hanscheid2018`, `madsen2018`, `ldm`; `jackson2013` for multi-time-point; `svalue` for a time-integrated activity image). New models register dynamically.
 *   **TIA Images**: Units `bqs` (Bq·s per voxel) and `bqsml` (Bq·s/mL) mark a time-integrated activity image. Only the methods in `TIA_METHODS` (`svalue`, `ldm`) accept it; no time point, Teff, dose rate or total-activity override is used. Results then report `tia_mbq_s` / `tia_mbq_h` instead of `roi_teff_h`.
 *   **Dose-rate Map**: `--dose-rate-map` (`dose_from_rate_map` in `dose/rate_map.py`) takes an external dose-rate image (e.g. OpenGATE, Gy/s) computed with the activity image as source, scaled to the image total with the map activity (`--dose-rate-map-activity` or sidecar `source_activity_mbq`). It replaces the S-value / local deposition; the method only selects the time integration (`DOSE_RATE_MAP_METHODS`). radot never runs GATE. Planned engine × time-model refactor: `docs_wip/dev_readme_090_dose_engine_time_model.md`.
