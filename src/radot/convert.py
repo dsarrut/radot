@@ -486,6 +486,7 @@ def convert_image_units_file(
         get_sidecar_path,
         get_metadata_case_insensitive,
         compute_file_sha256,
+        metadata_number,
     )
 
     modality = get_metadata_case_insensitive(image, "modality", image_path)
@@ -506,7 +507,7 @@ def convert_image_units_file(
 
     # Merge existing values with CLI parameters
     final_weight = (
-        weight if weight is not None else (float(weight_val) if weight_val else None)
+        weight if weight is not None else metadata_number(weight_val, "weight")
     )
     if final_weight:
         new_meta["weight"] = final_weight
@@ -514,7 +515,7 @@ def convert_image_units_file(
     final_activity = (
         activity
         if activity is not None
-        else (float(activity_val) if activity_val else None)
+        else metadata_number(activity_val, "activity")
     )
     if final_activity:
         new_meta["activity"] = final_activity
@@ -538,7 +539,7 @@ def convert_image_units_file(
         )
 
     final_height = (
-        height if height is not None else (float(height_val) if height_val else None)
+        height if height is not None else metadata_number(height_val, "height")
     )
     if final_height:
         new_meta["height"] = final_height

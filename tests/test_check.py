@@ -313,7 +313,9 @@ def test_roi_mass_density_names(tmp_path):
     assert warn and "Lung_L" in warn[0].value
     # no sidecar
     (tmp_path / "labels.json").unlink()
-    assert by_code(run_checks(labels=tmp_path / "labels.nii.gz"), "roi.names", Level.WARN)
+    # no labels sidecar: radot dose stops on it, so a FAIL with the reason
+    fail = by_code(run_checks(labels=tmp_path / "labels.nii.gz"), "roi.names", Level.FAIL)
+    assert fail and "has no sidecar" in fail[0].message
 
 
 def test_roi_mass_female(tmp_path):

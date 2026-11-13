@@ -111,7 +111,7 @@ def _single(tmp_path, labels_sidecar_text):
 @pytest.mark.parametrize("text, match", [
     (None, "has no sidecar 'labels.json'"),
     ("{ broken", "cannot be read"),
-    ('{"Liver": 1}', "cannot be read"),
+    ('{"Liver": 1}', "has no ROI"),
     ("{}", "has no ROI"),
 ])
 @pytest.mark.parametrize("method", ["hanscheid2017", "ldm"])
