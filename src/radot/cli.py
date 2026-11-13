@@ -1705,16 +1705,9 @@ def radionuclide_info(isotope):
     import sys
 
     try:
-        iso_clean = re.sub(r"[-_\s]", "", isotope).lower()
-        icrp_dir = importlib.resources.files("icrp107_database").joinpath("icrp107")
+        from radot.db import _icrp107_file
 
-        matched_path = None
-        for p in icrp_dir.iterdir():
-            if p.name.endswith(".json"):
-                name_without_ext = p.name[:-5]
-                if re.sub(r"[-_\s]", "", name_without_ext).lower() == iso_clean:
-                    matched_path = p
-                    break
+        matched_path = _icrp107_file(isotope)
 
         if not matched_path:
             raise ValueError(

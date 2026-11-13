@@ -249,3 +249,37 @@ def test_cli_opendose_status():
 
 
 
+
+
+# Radionuclide names: every usual spelling, mass number first included
+
+@pytest.mark.parametrize("name, key", [
+    ("Tb149", "tb149"), ("Tb-149", "tb149"), ("tb 149", "tb149"), ("149Tb", "tb149"), ("149-Tb", "tb149"),
+    ("^149^Tb", "tb149"), ("177Lu", "lu177"), ("Lu-177", "lu177"), ("Tc99m", "tc99m"), ("Tc-99m", "tc99m"),
+    ("99mTc", "tc99m"), ("177mLu", "lu177m"), ("99Mo", "mo99"), ("52mMn", "mn52m"), ("18F", "f18"),
+])
+def test_nuclide_key(name, key):
+    from radot.db import nuclide_key
+
+    assert nuclide_key(name) == key
+
+
+@pytest.mark.parametrize("name", ["149Tb", "177Lu", "99mTc", "225Ac"])
+def test_mass_first_spelling_everywhere(name):
+    from radot.db import (get_decay_chain, get_non_penetrating_energy_constant_mev, get_physical_half_life_h,
+                          nuclide_key, normalize_isotope)
+
+    symbol_first = {"149Tb": "Tb149", "177Lu": "Lu177", "99mTc": "Tc99m", "225Ac": "Ac225"}[name]
+    assert get_physical_half_life_h(name) == get_physical_half_life_h(symbol_first)
+    assert get_non_penetrating_energy_constant_mev(name) == get_non_penetrating_energy_constant_mev(symbol_first)
+    assert normalize_isotope(name) == nuclide_key(symbol_first)
+    assert get_decay_chain(name) == get_decay_chain(symbol_first)
+
+
+def test_cli_radionuclide_info_mass_first():
+    from click.testing import CliRunner
+    from radot.cli import main
+
+    result = CliRunner().invoke(main, ["radionuclide", "info", "149Tb"])
+    assert result.exit_code == 0, result.output
+    assert "Radionuclide: Tb-149" in result.output

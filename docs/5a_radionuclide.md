@@ -49,6 +49,7 @@ To query half-life and radiation emissions breakdown for a specific radionuclide
 ```bash
 radot radionuclide info Lu-177
 ```
+Radionuclide names are accepted in every usual spelling, everywhere in radot (`--isotope`, sidecars, configs, API): `Lu177`, `Lu-177`, `lu 177`, `177Lu`, `^177^Lu` (DICOM); metastable states as `Tc99m`, `Tc-99m` or `99mTc`. A mass number first is read as mass + element (`99Mo` is Mo-99), then as a metastable state (`99mTc` is Tc-99m).
 
 Example output (single-isotope decay):
 ```text
