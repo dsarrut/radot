@@ -358,8 +358,11 @@ def test_ldm_dose_rate(tmp_path):
 def _fake_chain(monkeypatch, daughters):
     import radot.db as db
 
-    chain = {"parent": "Ac225", "daughters": [
-        {"nuclide": n, "yield": y, "half_life_str": "1 s", "is_stable": False} for n, y in daughters]}
+    # each entry is the alpha daughter of the previous one (Z - 2, A - 4), short-lived after the parent
+    chain = {"parent": "Ac225", "half_life_s": 857088.0, "half_life_str": "9.92 d", "daughters": [
+        {"nuclide": n, "yield": y, "z": 89 - 2 * i, "a": 225 - 4 * i, "half_life_str": "1 s",
+         "half_life_s": 857088.0 if i == 0 else 1.0, "is_stable": False}
+        for i, (n, y) in enumerate(daughters)]}
     monkeypatch.setattr(db, "_decay_chains_cache", {"chains": {"Ac225": chain}})
 
 
@@ -396,3 +399,45 @@ def test_decay_chains_unreadable_raises(monkeypatch, tmp_path):
     with pytest.raises(RuntimeError, match="decay_chains.json"):
         db.get_cascade_energy_constant_mev("Ac225", cascade=True)
     assert db._decay_chains_cache is None  # the failure is not cached
+
+
+# Cascade: only the daughters in secular equilibrium with the parent (T1/2 << T1/2 parent)
+
+@pytest.mark.parametrize("parent, excluded", [
+    ("Ac225", set()),
+    ("Pb212", set()),
+    ("Ra223", set()),
+    ("At211", {"Bi207"}),  # Po211 (0.5 s) kept, Bi207 (31.6 y) excluded
+    ("Th227", {"Ra223", "Rn219", "Po215", "Pb211", "Bi211", "Tl207", "Po211"}),  # Ra223 (11.4 d) and below
+    ("Tb149", {"Gd149", "Eu145", "Eu149", "Sm145", "Pm145"}),
+])
+def test_cascade_members(parent, excluded):
+    from radot.db import cascade_members, get_decay_chain
+
+    kept, out = cascade_members(get_decay_chain(parent))
+    assert {d["nuclide"] for d in out} == excluded
+    assert kept[0]["nuclide"] == parent
+
+
+def test_cascade_energy_excludes_long_lived_daughters(caplog):
+    from radot.db import get_cascade_energy_constant_mev
+
+    # Ac225: unchanged (all daughters short-lived), the OpenGATE validation case
+    ac, _ = get_cascade_energy_constant_mev("Ac225", cascade=True)
+    assert ac == pytest.approx(28.704, rel=1e-3)
+    # Tb149: all the daughters live longer than T1/2 / 10: the parent alone (was 0.857 MeV, +12 %)
+    tb, contrib = get_cascade_energy_constant_mev("Tb149", cascade=True)
+    assert tb == pytest.approx(get_non_penetrating_energy_constant_mev("Tb149"))
+    assert set(contrib) == {"Tb149"}
+    assert "Cascade of Tb149: not in secular equilibrium" in caplog.text and "Gd149" in caplog.text
+    # At211: the Po211 alphas are kept, Bi207 is not
+    _, contrib = get_cascade_energy_constant_mev("At211", cascade=True)
+    assert set(contrib) == {"At211", "Po211"}
+
+
+def test_radionuclide_info_marks_excluded():
+    result = CliRunner().invoke(main, ["radionuclide", "info", "Tb149"])
+    assert result.exit_code == 0, result.output
+    assert "excluded" in result.output
+    assert "Excluded (not in secular equilibrium" in result.output and "Gd149" in result.output
+    assert "Cascade Factor: 1.00x" in result.output

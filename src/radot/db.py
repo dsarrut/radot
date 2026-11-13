@@ -730,6 +730,49 @@ def get_decay_chain(isotope: str) -> Optional[dict]:
     return None
 
 
+# Secular equilibrium: a daughter counts in the cascade when its half-life is below the parent half-life
+# divided by this ratio (T1/2 daughter << T1/2 parent), and so are all the nuclides between them
+EQUILIBRIUM_HALF_LIFE_RATIO = 10.0
+# (dZ, dA) of one decay step: alpha, beta-, EC/beta+, isomeric transition, neutron, beta- n
+_DECAY_STEPS = {(-2, -4), (1, 0), (-1, 0), (0, 0), (0, -1), (1, -1)}
+
+
+def cascade_members(chain: dict) -> tuple[list[dict], list[dict]]:
+    """
+    Split the unstable nuclides of a decay chain (parent first) into those in secular equilibrium with the
+    parent (counted by the cascade) and those excluded. A daughter is kept when its half-life is below
+    T1/2 parent / EQUILIBRIUM_HALF_LIFE_RATIO and all its possible parents are kept: a long-lived daughter
+    does not reach equilibrium in the patient, nor do its own daughters, even short-lived ones (Th227 ->
+    Ra223 (11.4 d) -> Rn219 (4 s)). The decay tree is rebuilt from the (Z, A) change of each decay mode
+    (the chain file lists the nuclides in decay order, with cumulative yields).
+    """
+    daughters = chain["daughters"]
+    t_parent = chain.get("half_life_s") or daughters[0].get("half_life_s")
+    kept_names, kept, excluded = set(), [], []
+    for i, d in enumerate(daughters):
+        if d.get("is_stable", False):
+            continue
+        if i == 0:
+            kept_names.add(d["nuclide"])
+            kept.append(d)
+            continue
+        parents = [
+            e["nuclide"]
+            for e in daughters[:i]
+            if e["nuclide"] != d["nuclide"]
+            and not e.get("is_stable", False)
+            and (d["z"] - e["z"], d["a"] - e["a"]) in _DECAY_STEPS
+        ]
+        t = d.get("half_life_s")
+        short = t is not None and t_parent is not None and t < t_parent / EQUILIBRIUM_HALF_LIFE_RATIO
+        if short and parents and all(p in kept_names for p in parents):
+            kept_names.add(d["nuclide"])
+            kept.append(d)
+        else:
+            excluded.append(d)
+    return kept, excluded
+
+
 def get_cascade_energy_constant_mev(
     isotope: str, cascade: bool = True
 ) -> tuple[float, dict[str, float]]:
@@ -737,9 +780,10 @@ def get_cascade_energy_constant_mev(
     Calculate non-penetrating decay energy constant (Delta_local) in MeV.
 
     If cascade=True and the isotope has a curated decay chain (e.g. Ac225, Ra223, Pb212),
-    computes the secular equilibrium weighted sum over all progeny in the cascade:
+    computes the secular equilibrium weighted sum over the progeny in equilibrium with the parent:
         Delta_local,cascade = sum(Y_i * Delta_local(i))
-    where Y_i is the cumulative branching yield to daughter i.
+    where Y_i is the cumulative branching yield to daughter i. Daughters that are not short-lived
+    compared with the parent, and their own daughters, are excluded (cascade_members), with a WARNING.
 
     Returns:
         (total_delta_mev, contributions_dict)
@@ -749,11 +793,16 @@ def get_cascade_energy_constant_mev(
         single_delta = get_non_penetrating_energy_constant_mev(isotope)
         return single_delta, {isotope: single_delta}
 
+    kept, excluded = cascade_members(chain)
+    if excluded:
+        logger.warning(
+            f"Cascade of {isotope}: not in secular equilibrium with {isotope} (half-life not below "
+            f"1/{EQUILIBRIUM_HALF_LIFE_RATIO:g} of {chain.get('half_life_str', 'the parent')}), excluded: "
+            + ", ".join(f"{d['nuclide']} ({d.get('half_life_str', '?')}, yield {float(d.get('yield', 1)):.3g})" for d in excluded)
+        )
     total_delta = 0.0
     contributions = {}
-    for daughter in chain["daughters"]:
-        if daughter.get("is_stable", False):
-            continue
+    for daughter in kept:
         nuclide = daughter["nuclide"]
         branch_yield = float(daughter.get("yield", 1.0))
         try:
