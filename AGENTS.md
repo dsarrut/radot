@@ -159,5 +159,6 @@ Refer to these Markdown documents in the `docs/` directory for detailed specific
 *   [docs_wip/dev_readme_083_sul.md](docs_wip/dev_readme_083_sul.md): SUL methods (done) and the proposed CT-based LBM method (`--lbm-method ct`, TODO).
 *   [docs_wip/dev_readme_085_lesion_validation.md](docs_wip/dev_readme_085_lesion_validation.md): Plan (not started) for synthetic lesions in the OpenGATE validation and a sphere S-value model.
 *   [docs_wip/dev_readme_090_dose_engine_time_model.md](docs_wip/dev_readme_090_dose_engine_time_model.md): `--dose-rate-map` (external Monte Carlo dose rate) and the planned dose-rate engine × time model refactor.
-*   Closed notes in `docs_wip/old/`: 060 OpenDose hosting (Zenodo record 23841128), 070 consolidation towards v0.1, 075 `radot check`, 080 OpenGATE validation (history and decisions), 095 docs (organ vs voxel dosimetry, vvv page).
+*   [docs_wip/dev_readme_110_provenance.md](docs_wip/dev_readme_110_provenance.md): Plan (not started) to record in the results how each was obtained: parameter values and their source (option, config, sidecar, default), defaults and decisions applied.
+*   Closed notes in `docs_wip/old/`: 060 OpenDose hosting (Zenodo record 23841128), 070 consolidation towards v0.1, 075 `radot check`, 080 OpenGATE validation (history and decisions), 095 docs (organ vs voxel dosimetry, vvv page), 100 audit of the choices made on the user's behalf (fixed in PR #16–#28; what to record → 110).
 
