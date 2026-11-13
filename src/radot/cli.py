@@ -1804,6 +1804,9 @@ def radionuclide_info(isotope):
                 except ValueError as e:
                     total_cascade_mev, cascade_error = None, str(e)
                 parent_mev = get_non_penetrating_energy_constant_mev(isotope)
+                from radot.db import EQUILIBRIUM_HALF_LIFE_RATIO, cascade_members
+
+                excluded = {d["nuclide"] for d in cascade_members(chain)[1]}
 
                 sys.stdout.write(
                     "Decay Chain Cascade (Secular Equilibrium - Source: IAEA LiveChart):\n"
@@ -1823,15 +1826,20 @@ def radionuclide_info(isotope):
                     else:
                         try:
                             delta_i = get_non_penetrating_energy_constant_mev(nuc)
-                            contrib = y * delta_i
+                            contrib = f"{y * delta_i:<14.4f}" if nuc not in excluded else f"{'excluded':<14}"
                             sys.stdout.write(
-                                f"{nuc:<10} | {hl:<12} | {y:<12.4f} | {delta_i:<18.4f} | {contrib:<14.4f}\n"
+                                f"{nuc:<10} | {hl:<12} | {y:<12.4f} | {delta_i:<18.4f} | {contrib}\n"
                             )
                         except Exception:
                             sys.stdout.write(
                                 f"{nuc:<10} | {hl:<12} | {y:<12.4f} | {'N/A':<18} | {'N/A':<14}\n"
                             )
                 sys.stdout.write("─" * 74 + "\n")
+                if excluded:
+                    sys.stdout.write(
+                        f"Excluded (not in secular equilibrium: half-life not below 1/{EQUILIBRIUM_HALF_LIFE_RATIO:g} "
+                        f"of the parent, or a daughter of such a nuclide): {', '.join(sorted(excluded))}\n"
+                    )
                 if cascade_error is not None:
                     sys.stdout.write(f"Total Cascade Non-Penetrating Energy: not available ({cascade_error})\n\n")
                 else:

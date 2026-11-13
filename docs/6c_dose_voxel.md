@@ -48,6 +48,8 @@ $$
 $$
 where $Y_i$ is the cumulative branching yield of daughter $i$ from the IAEA LiveChart of Nuclides (curated in `radot/data/decay_chains.json`, updated with `scripts/update_decay_chains.py`). For $^{225}\text{Ac}$, $\Delta_{\text{local, cascade}} \approx 28.70\text{ MeV}$ (5.92 MeV for the parent alone), within about 2.7 % of a full-chain OpenGATE simulation. Every unstable daughter must have ICRP 107 data: if one has none, `--cascade` stops with an error naming it (it is never dropped from the sum).
 
+Only the daughters in **secular equilibrium** with the parent are counted: half-life below one tenth of the parent's, and every nuclide between them counted too. A longer-lived daughter and its own daughters are excluded, with a WARNING: e.g. for $^{149}$Tb (4.1 h) the daughters $^{149}$Gd (9.3 d) and $^{145}$Eu (5.9 d) are excluded, the cascade is the parent alone; for $^{211}$At the $^{211}$Po alphas are counted, $^{207}$Bi (31.6 y) is not. See [secular equilibrium](5a_radionuclide.md#which-daughters-are-counted-secular-equilibrium).
+
 ### Examples
 
 ```bash

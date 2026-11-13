@@ -17,7 +17,7 @@ To achieve maximum clinical accuracy and consistency, `radot` adopts a clear sep
 | **Emission Spectra & $\Delta_{\text{local}}$** | **ICRP Publication 107** (`icrp107_database`) | ENSDF / IAEA | ICRP 107 is the international standard reference for medical internal dosimetry (used by OpenDose and MIRD). Local non-penetrating energy per disintegration $\Delta_{\text{local}}$ is calculated directly from its categorized transitions. |
 | **Decay Chain Topology & Branching $Y_i$** | **IAEA LiveChart** (`scripts/update_decay_chains.py` $\to$ `radot/data/decay_chains.json`) | ICRP 107 | IAEA LiveChart provides full decay network trees with multi-branch percentages for complex cascades down to stable isotopes. |
 | **Parent Physical Half-Life ($T_{1/2}$)** | **ICRP Publication 107** (`radot.db.get_physical_half_life_h`) | IAEA LiveChart | Ensures exact kinetic consistency with OpenDose S-values and clinical SPECT/CT acquisition scheduling. |
-| **Progeny Half-Lives** | **IAEA LiveChart** | ICRP 107 | Used in the cascade table to verify the validity of the secular equilibrium condition ($T_{1/2}^{\text{daughter}} \ll T_{1/2}^{\text{parent}}$). |
+| **Progeny Half-Lives** | **IAEA LiveChart** | ICRP 107 | Select the daughters in secular equilibrium with the parent ($T_{1/2}^{\text{daughter}} < T_{1/2}^{\text{parent}} / 10$, see below); the others are excluded from the cascade. |
 
 ### Combined Cascade Energy Formula
 
@@ -33,6 +33,26 @@ where:
   $$\text{Cascade Factor} = \frac{\Delta_{\text{local, cascade}}}{\Delta_{\text{local, parent}}}$$
 
 For example, $^{225}\text{Ac}$ emits a single alpha particle ($\Delta_{\text{parent}} \approx 5.92\text{ MeV}$), but its progeny cascade emits 3 additional alpha particles plus several beta decays, yielding $\Delta_{\text{cascade}} \approx 28.70\text{ MeV}$ (a cascade factor of $4.85\times$).
+
+### Which daughters are counted: secular equilibrium
+
+The sum above assumes **secular equilibrium**: each daughter decays as fast as it is produced, so its activity equals $Y_i$ times the parent activity at any time. This holds only when the daughter is much shorter-lived than the parent. A long-lived daughter builds up slowly and decays slowly (in the patient, it is also excreted before it decays): counting it with its full yield overestimates the dose.
+
+radot counts a daughter only when:
+
+1. its half-life is below one tenth of the parent half-life ($T_{1/2}^{\text{daughter}} < T_{1/2}^{\text{parent}} / 10$), and
+2. all the nuclides between the parent and it are counted too: the daughters of a long-lived daughter are excluded even when they are short-lived themselves.
+
+The other daughters are excluded from $\Delta_{\text{local, cascade}}$, with a WARNING naming them; `radot radionuclide info` marks them `excluded`. The decay tree is rebuilt from the change of $(Z, A)$ of each decay mode (α, β⁻, EC/β⁺, isomeric transition), the chain file listing the nuclides in decay order.
+
+| Chain (shipped) | Parent $T_{1/2}$ | Excluded | Effect |
+|---|---|---|---|
+| $^{225}$Ac, $^{223}$Ra, $^{212}$Pb, $^{212}$Bi | 9.9 d, 11.4 d, 10.6 h, 61 min | none | full cascade (e.g. $^{225}$Ac 28.70 MeV) |
+| $^{211}$At | 7.2 h | $^{207}$Bi (31.6 y) | the $^{211}$Po alphas (0.5 s, 58 %) are counted: 6.92 MeV |
+| $^{227}$Th | 18.7 d | $^{223}$Ra (11.4 d) and its daughters | parent alone (6.06 MeV); $^{223}$Ra builds up in vivo, not in equilibrium |
+| $^{149}$Tb | 4.1 h | $^{149}$Gd (9.3 d), $^{145}$Eu (5.9 d) and their daughters | parent alone (0.77 MeV, was 0.86 MeV) |
+
+Limits: the ratio 10 is a threshold, not a model of the in-vivo kinetics. For a daughter just below it (e.g. $^{212}$Bi, 61 min, from $^{212}$Pb, 10.6 h, ratio 0.095), the chain is in transient equilibrium: the daughter activity is about $T_{1/2}^{\text{parent}} / (T_{1/2}^{\text{parent}} - T_{1/2}^{\text{daughter}}) \approx 1.1$ times $Y_i$ times the parent activity, so the cascade slightly underestimates it. The excluded daughters still deposit some dose (their activity builds up after the injection): a full model of the chain kinetics (Bateman equations, with biological clearance) is not in radot. The $^{99}$Mo chain of `decay_chains.json` has no $^{99\text{m}}$Tc (the update script follows the ground states).
 
 ---
 
