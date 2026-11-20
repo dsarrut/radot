@@ -6,6 +6,7 @@ from click.testing import CliRunner
 from radot.cli import main
 from radot.db import get_non_penetrating_energy_constant_mev
 from radot.dose import compute_roi_dose
+from radot.dose import read_results
 
 
 def test_get_non_penetrating_energy_constant_mev():
@@ -266,7 +267,7 @@ def test_ldm_with_labels_writes_image_and_table(tmp_path, output, image_name, ta
     assert sitk.ReadImage(str(tmp_path / image_name)).GetSize() == (3, 3, 3)
     sidecar = json.loads((tmp_path / image_name.replace(".nii.gz", ".json")).read_text())
     assert sidecar["unit"] == "gy" and sidecar["modality"] == "dose"
-    table = json.loads((tmp_path / table_name).read_text())
+    table = read_results(tmp_path / table_name)
     assert table["Liver"]["mean_dose_gy"] > 0
 
 

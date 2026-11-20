@@ -24,6 +24,7 @@ from radot.nomenclature import MAPPING_STAGES, resolve_roi_name_to_opendose, res
 
 from test_dose_input_errors import _labels_arr, _mtp_study, _write
 from test_dose_tia import make_image, make_labels
+from radot.dose import read_results
 
 
 # ----------------------------------------------------------------------------------------------
@@ -193,7 +194,6 @@ def test_cli_option_wins_over_config(tmp_path):
     out = tmp_path / "out.json"
     result = CliRunner().invoke(main, ["dose", str(cfg), "--teff", "Liver:60", "-o", str(out)])
     assert result.exit_code == 0, result.output
-    rois = json.loads(out.read_text())
-    rois = rois.get("rois", rois)
+    rois = read_results(out)
     assert rois["Liver"]["roi_teff_h"] == pytest.approx(60.0)
     assert rois["Spleen"]["roi_teff_h"] == pytest.approx(48.0)

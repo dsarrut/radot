@@ -6,6 +6,7 @@ from click.testing import CliRunner
 
 from radot.cli import main
 from radot.dose import load_dose_config, compute_roi_dose_file
+from radot.dose import read_results
 
 
 @pytest.fixture
@@ -145,8 +146,7 @@ def test_cli_dose_with_config_positional(dummy_study):
     assert result.exit_code == 0, result.output
     assert output_json.exists()
 
-    with open(output_json, "r") as f:
-        data = json.load(f)
+    data = read_results(output_json)
     assert "Liver" in data
     assert data["Liver"]["roi_teff_h"] == 45.2
 
@@ -212,8 +212,7 @@ def test_cli_dose_override_config(dummy_study):
     assert not default_out.exists()
     assert override_out.exists()
 
-    with open(override_out, "r") as f:
-        data = json.load(f)
+    data = read_results(override_out)
     assert data["Liver"]["roi_teff_h"] == 50.0
 
 

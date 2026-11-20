@@ -8,6 +8,7 @@ from click.testing import CliRunner
 from radot.cli import main
 from radot.db import get_physical_half_life_h
 from radot.dose import compute_roi_dose
+from radot.dose import read_results
 
 # Mocked OpenDose values (tests/conftest.py), Lu177 male phantom
 S_KIDNEY_L = 1.5662e-4  # mGy/MBq.s
@@ -160,6 +161,6 @@ def test_svalue_cli(tmp_path):
         ["dose", str(tia_path), "-l", str(labels_path), "-m", "svalue", "--isotope", "Lu177", "-o", str(out_path)],
     )
     assert result.exit_code == 0, result.output
-    res = json.loads(out_path.read_text())
+    res = read_results(out_path)
     expected = 1e6 * S_KIDNEY_L * M_KIDNEY_L / 1000.0
     assert res["Left kidney"]["mean_dose_gy"] == pytest.approx(expected, rel=1e-6)

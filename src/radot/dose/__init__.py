@@ -10,6 +10,9 @@ from radot.dose.models import (
     dose_hanscheid2018,
     dose_madsen2018,
     dose_svalue,
+    TEFF_DEFAULTS,
+    default_teff_h,
+    resolve_teff_h,
 )
 from radot.dose.uncertainty import (
     ISOTOPE_MEAN_BETA_RANGE_MM,
@@ -41,5 +44,11 @@ from radot.dose.rate_map import (
     dose_from_rate_map,
 )
 from radot.dose.compute import check_dosimetry_inputs, compute_roi_dose
-from radot.dose.config import load_dose_config
-from radot.dose.files import compute_roi_dose_file, pretty_print_dose
+from radot.dose.config import load_dose_config, merge_dose_config
+from radot.dose.files import (
+    RESULTS_FORMAT,
+    compute_roi_dose_file,
+    pretty_print_dose,
+    read_results,
+    write_results,
+)

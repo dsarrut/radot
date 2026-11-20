@@ -192,10 +192,7 @@ def compute_roi_dose_file(
         )
 
         if output_path:
-            logger.info(f"Saving dose results to: {output_path}")
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(output_path, "w") as f:
-                json.dump(results, f, indent=4)
+            write_results(results, output_path)
         else:
             pretty_print_dose(results)
 
@@ -371,7 +368,7 @@ def compute_roi_dose_file(
                 else:
                     table_out, image_out = output_path, _with_suffix(output_path, "_dose.nii.gz")
                 _write_dose_image(dose_image, image_out, image_path, dose_rate)
-                _write_table(results_dict, table_out)
+                write_results(results_dict, table_out)
             pretty_print_dose(results_dict)
             return results
         if not output_path:
@@ -381,7 +378,7 @@ def compute_roi_dose_file(
 
     # Print results to stdout
     if output_path:
-        _write_table(results, output_path)
+        write_results(results, output_path)
     else:
         # Pretty print results as a table
         pretty_print_dose(results)
@@ -428,11 +425,44 @@ def _write_dose_image(dose_image: sitk.Image, path: Path, image_path: Path, dose
     )
 
 
-def _write_table(results: dict, path: Path) -> None:
+# Format of the dose results file. Version 1: {"radot_results": 1, "radot_version": ..., "rois": {...}}.
+# The ROI table is under "rois"; other top-level keys (e.g. the provenance) may be added without a new
+# version; a change of the "rois" entries gets a new version.
+RESULTS_FORMAT = 1
+
+
+def results_document(results: dict) -> dict:
+    """The JSON document of a ROI results table (the dict returned by compute_roi_dose)."""
+    from radot import __version__
+
+    return {"radot_results": RESULTS_FORMAT, "radot_version": __version__, "rois": results}
+
+
+def write_results(results: dict, path: Union[str, Path]) -> None:
+    """Write a ROI results table as a radot results file (results_document)."""
+    path = Path(path)
     logger.info(f"Saving dose results to: {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
-        json.dump(results, f, indent=4)
+        json.dump(results_document(results), f, indent=4)
+
+
+def read_results(path: Union[str, Path]) -> dict:
+    """The ROI table ({roi: {...}}) of a radot results file. A file that is not a radot results file, or
+    of an unknown format version, is an error."""
+    path = Path(path)
+    with open(path, "r") as f:
+        doc = json.load(f)
+    if not isinstance(doc, dict) or "radot_results" not in doc or not isinstance(doc.get("rois"), dict):
+        raise ValueError(
+            f"{path.name} is not a radot results file (no 'radot_results' and 'rois' keys). Files written "
+            f"before radot {RESULTS_FORMAT} format hold the ROI table at the top level: recompute them."
+        )
+    if doc["radot_results"] != RESULTS_FORMAT:
+        raise ValueError(
+            f"{path.name}: results format {doc['radot_results']!r}, this radot reads format {RESULTS_FORMAT}."
+        )
+    return doc["rois"]
 
 
 def pretty_print_dose(results: dict) -> None:

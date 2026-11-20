@@ -18,6 +18,7 @@ from radot.dose import (
 )
 from radot.cli import main
 from radot.db import get_physical_half_life_h
+from radot.dose import read_results
 
 
 def test_fit_exp_linear():
@@ -290,8 +291,7 @@ def test_cli_json_config_mtp(tmp_path):
 
     out_file = tmp_path / "dose_out.json"
     assert out_file.exists()
-    with open(out_file, "r") as f:
-        data = json.load(f)
+    data = read_results(out_file)
     assert "Liver" in data
     assert data["Liver"]["mean_dose_gy"] > 0.0
     assert "tia_mbq_h" in data["Liver"]
@@ -374,8 +374,7 @@ def test_cli_json_config_mtp_per_tp_labels_override(tmp_path):
 
     out_file = tmp_path / "dose_override.json"
     assert out_file.exists()
-    with open(out_file, "r") as f:
-        data = json.load(f)
+    data = read_results(out_file)
 
     # If global labels had been used, Liver activity would be 0 and dose would be 0
     # With per-timepoint labels, dose is positive and non-zero!
