@@ -482,6 +482,13 @@ def common_meta_options(f):
         "radionuclide",
         help="Radionuclide (e.g. Lu177).",
     )(f)
+    f = click.option(
+        "--decay-correction",
+        "decay_correction",
+        type=click.Choice(["start", "none", "admin"], case_sensitive=False),
+        help="Decay correction of the activity values (DICOM 0054,1102): start (acquisition start), "
+        "none (not corrected), admin (corrected to the injection time).",
+    )(f)
     return f
 
 
@@ -513,6 +520,9 @@ def meta_list():
     sys.stdout.write("         Valid choices: male, female\n")
     sys.stdout.write("  - radionuclide: Radionuclide (option --radionuclide or --rad).\n")
     sys.stdout.write("                  Format: name known to ICRP 107 (e.g. Lu177, Y90, Tc99m)\n")
+    sys.stdout.write("  - decay_correction: Time reference of the activity values (DICOM 0054,1102).\n")
+    sys.stdout.write("                      Valid choices: start, none, admin (decay-corrected to the injection)\n")
+    sys.stdout.write("                      Required for activity images (bq, bqml, suv, sul) used at a time point.\n")
 
 
 @main.command(name="meta")
@@ -529,6 +539,7 @@ def meta(
     height,
     sex,
     radionuclide,
+    decay_correction,
 ):
     """Read or write image metadata fields."""
     _run_meta_command(
@@ -543,6 +554,7 @@ def meta(
         height,
         sex,
         radionuclide,
+        decay_correction,
     )
 
 
@@ -560,6 +572,7 @@ def info(
     height,
     sex,
     radionuclide,
+    decay_correction,
 ):
     """Alias for 'meta' command to read or write image metadata fields."""
     _run_meta_command(
@@ -574,6 +587,7 @@ def info(
         height,
         sex,
         radionuclide,
+        decay_correction,
     )
 
 
@@ -589,6 +603,7 @@ def _run_meta_command(
     height,
     sex,
     radionuclide,
+    decay_correction,
 ):
     from radot.meta import manage_metadata
 
@@ -605,6 +620,7 @@ def _run_meta_command(
             height=height,
             sex=sex,
             radionuclide=radionuclide,
+            decay_correction=decay_correction,
         )
     except Exception as e:
         handle_cli_exception(e)

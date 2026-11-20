@@ -407,6 +407,12 @@ def convert_dicom(
         meta_dict["radionuclide"] = radionuclide
     if decay_correction:
         meta_dict["decay_correction"] = decay_correction
+    elif modality in ("pet", "spect"):
+        logger.warning(
+            f"{output_path.name}: no DICOM Decay Correction tag (0054,1102), the decay correction of the "
+            f"activity is unknown. Set it before using the image at its time point: radot meta "
+            f"{output_path.name} --decay-correction start|none|admin (admin = corrected to the injection)."
+        )
     if is_sinogram:
         meta_dict["sinogram"] = True
 

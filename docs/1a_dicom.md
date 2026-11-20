@@ -54,7 +54,7 @@ radot dicom <input_path> -o <output_path> [--series UID] [--all-tags]
    - Radionuclide injected activity (converted from Bq to MBq)
    - Radionuclide (e.g. `Lu177`), parsed from the Radionuclide Code Sequence (e.g. "177 Lutetium") or the Radiopharmaceutical name
    - Acquisition and Injection date/time stamps. A date is only used with its time (never a midnight default). The acquisition date comes from the Acquisition DateTime, else Acquisition Date/Time, else Series, else Study Date/Time (a WARNING names the tags when it is not an acquisition tag). The injection date comes from the Radiopharmaceutical Start DateTime only: with an injection time but no date, `injection_date` is not written (a WARNING gives the time), because a late time point is acquired days after the injection.
-   - Decay correction reference (`none`, `start` or `admin`, DICOM tag Decay Correction)
+   - Decay correction reference (`none`, `start` or `admin`, DICOM tag Decay Correction 0054,1102). Without the tag, `decay_correction` is not written and a WARNING says so: set it with `radot meta IMAGE --decay-correction ...` before using the image at its time point (see [decay correction](1b_meta.md#decay-correction-of-the-activity-images)).
 
    The injected activity, injection date/time and radionuclide are read from the Radiopharmaceutical Information Sequence (0054,0016), where PET and SPECT scanners store them; top-level tags are used as a fallback.
 3. JSON Sidecar Generation: Writes the extracted metadata to a companion `.json` sidecar matching the output image filename (e.g., converting `spect.dcm` to `spect.nii.gz` creates a `spect.json` sidecar).

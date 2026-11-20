@@ -51,6 +51,18 @@ def set_unit(image_path: Path, unit: str, modality: str = "spect") -> None:
     sidecar.write_text(json.dumps(meta, indent=4))
 
 
+def check_spect_sidecar(image_path: Path) -> None:
+    """The SPECT sidecar must give the decay correction (DICOM 0054,1102; Kurkowska 2025: patient A = 4
+    is decay-corrected to the injection, ADMIN, patient B = 6 to the scan start, START). A sidecar
+    without it comes from an older conversion (existing files are not converted again)."""
+    sidecar = image_path.parent / (image_path.name[: -len(".nii.gz")] + ".json")
+    if "decay_correction" not in json.loads(sidecar.read_text()):
+        sys.exit(
+            f"{sidecar} has no decay_correction (converted by an older radot): delete "
+            f"{image_path.parent} and run prepare_data.py again."
+        )
+
+
 def main() -> None:
     configure_logging(quiet=True)
     for key in ("tia", "voi", "spect_ct"):
@@ -67,6 +79,7 @@ def main() -> None:
         set_unit(out / "tia.nii.gz", "bqsml")
         convert(src("spect_ct", "SPECT_Cts", "scan1", "spect"), out / "spect_scan1.nii.gz")
         set_unit(out / "spect_scan1.nii.gz", "bqml")
+        check_spect_sidecar(out / "spect_scan1.nii.gz")
         convert(src("spect_ct", "SPECT_Cts", "scan1", "ct"), out / "ct_scan1.nii.gz")
         for kind, vois in (("Organs", patient.organs), ("Lesions", patient.lesions)):
             for voi in vois:

@@ -45,6 +45,7 @@ def test_dose_roi_mass_same_rule_svalue_and_ldm():
     image = sitk.GetImageFromArray(np.ones((4, 4, 4), dtype=np.float32))
     image.SetSpacing((10.0, 10.0, 10.0))
     image.SetMetaData("unit", "bq")
+    image.SetMetaData("decay_correction", "start")
     image.SetMetaData("time_from_injection", "24.0")
     h = compute_roi_dose(image, "hanscheid2017", "Lu177", labels=labels, labels_map={1: "Liver"}, ct_image=ct)
     ldm, _ = compute_roi_dose(image, "ldm", "Lu177", labels=labels, labels_map={1: "Liver"}, ct_image=ct)
@@ -58,7 +59,7 @@ def test_stats_sidecar_unit_upper_case(tmp_path):
     image = sitk.GetImageFromArray(np.full((4, 4, 4), 2.0, dtype=np.float32))
     path = tmp_path / "s.nii.gz"
     sitk.WriteImage(image, str(path))
-    (tmp_path / "s.json").write_text(json.dumps({"modality": "spect", "unit": "BQ"}))
+    (tmp_path / "s.json").write_text(json.dumps({"modality": "spect", "unit": "BQ", "decay_correction": "start"}))
     labels = sitk.GetImageFromArray(np.ones((4, 4, 4), dtype=np.uint8))
     res = compute_stats(labels, image, unit="bq", image_path=path, labels_map={1: "Liver"})
     assert res["1"]["sum"] == pytest.approx(128.0)  # no conversion attempted from 'BQ' to 'bq'
@@ -69,6 +70,7 @@ def test_stats_sidecar_unit_upper_case(tmp_path):
 def _single():
     image = sitk.GetImageFromArray(np.ones((4, 4, 4), dtype=np.float32))
     image.SetMetaData("unit", "bq")
+    image.SetMetaData("decay_correction", "start")
     image.SetMetaData("time_from_injection", "24.0")
     arr = np.zeros((4, 4, 4), dtype=np.uint8)
     arr[:2] = 1
@@ -109,7 +111,7 @@ def _mtp(tmp_path, spect_spacing):
         p = tmp_path / f"s{i}.nii.gz"
         sitk.WriteImage(img, str(p))
         (tmp_path / f"s{i}.json").write_text(json.dumps({
-            "unit": "bqml", "modality": "spect", "sex": "male", "radionuclide": "Lu177",
+            "unit": "bqml", "decay_correction": "start", "modality": "spect", "sex": "male", "radionuclide": "Lu177",
             "injection_date": "2024-01-01 10:00:00", "acquisition_date": acq}))
         paths.append(p)
     return paths, lp
@@ -179,7 +181,7 @@ def test_cli_dose_isotope_from_sidecar(tmp_path):
 
     image, labels, _ = _single()
     sitk.WriteImage(image, str(tmp_path / "spect.nii.gz"))
-    (tmp_path / "spect.json").write_text(json.dumps({"unit": "bq", "time_from_injection": 24.0,
+    (tmp_path / "spect.json").write_text(json.dumps({"unit": "bq", "decay_correction": "start", "time_from_injection": 24.0,
                                                      "radionuclide": "Lu177"}))
     sitk.WriteImage(labels, str(tmp_path / "labels.nii.gz"))
     (tmp_path / "labels.json").write_text(json.dumps({"1": "Liver", "2": "Spleen"}))

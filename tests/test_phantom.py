@@ -19,7 +19,7 @@ def _study(tmp_path, sex=None):
     labels[2, 2, 2] = 1
     sitk.WriteImage(image, str(tmp_path / "spect.nii.gz"))
     sitk.WriteImage(labels, str(tmp_path / "labels.nii.gz"))
-    meta = {"modality": "spect", "unit": "bq", "injection_date": "2026-01-10 10:00:00",
+    meta = {"modality": "spect", "unit": "bq", "decay_correction": "start", "injection_date": "2026-01-10 10:00:00",
             "acquisition_date": "2026-01-11 10:00:00"}
     if sex is not None:
         meta["sex"] = sex

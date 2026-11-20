@@ -59,13 +59,14 @@ $ radot meta spect.nii.gz --rad Lu177       # a missing radionuclide
 | `meta.patient` | Weight, height, BMI and sex in plausible ranges. |
 | `meta.activity` | Injected activity in the usual range of the radionuclide, in MBq (catches GBq or Bq typos). |
 | `meta.radionuclide` | Radionuclide known to radot (ICRP 107). |
+| `meta.decay_correction` | Activity images (not TIA): `decay_correction` present and valid (`start`, `none`, `admin`), FAIL otherwise; WARN when the time points mix decay corrections. |
 | `meta.consistency` | Multi time points: same radionuclide, injection date, activity and patient data in all the images. |
 | `units.ct_hu` | CT in HU: air near −1000, soft tissue (or fat) peak within ±150 HU, max below 4000. Catches attenuation maps and the +1024 offset; padding below −1100 is ignored. |
 | `units.activity_values` | Activity image not empty, < 1 % negative voxels; integer values with a max ≤ 65535 in `bq`/`bqml` are probably counts. |
 | `units.suv_range` | SUV/SUL images: max in [0.5, 150]. |
 | `units.dose_range` | Dose image in Gy: positive, max below 1000 Gy, no negative values. |
 | `activity.fov_fraction` | Total activity in the image / injected activity decayed to the acquisition (not decayed if the image is decay-corrected to the injection). FAIL above 110 % (units, calibration) or below 2 % (counts); WARN below 10 %. SUV images: Σ SUV·mL / weight. TIA images: compared with the injected activity × physical mean life. |
-| `activity.mtp_trend` | Multi time points: the total activity decreases at least as fast as the physical decay (20 % tolerance); else different calibrations or decay-corrected images. Reports the effective half-life. |
+| `activity.mtp_trend` | Multi time points: the total activity, at the acquisition time (an `admin` image is brought back with $e^{-\lambda t}$), decreases at least as fast as the physical decay (20 % tolerance); else different calibrations or images decay-corrected without saying so. Reports the effective half-life. |
 | `activity.lr_symmetry` | With labels: mean activity of left/right uptake organs (kidneys) within a factor 2; else a non-functioning organ, or labels not registered with the activity image. |
 | `geom.direction` | All images axis-aligned (no oblique image). |
 | `geom.overlap` | Activity inside the CT field of view (WARN below 90 %); uptake organs (liver, kidneys, spleen) inside the activity field of view (else their activity and dose are underestimated). |

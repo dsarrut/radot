@@ -233,6 +233,7 @@ def organ_images(bench: dict, time_from_injection_h: float, data_dir: Path):
         float(bench["total_activity_bq"]) / num_voxels
     )
     activity.SetMetaData("unit", "Bq")
+    activity.SetMetaData("decay_correction", "start")
     activity.SetMetaData("time_from_injection", str(time_from_injection_h))
     labels = sitk.Cast(mask, sitk.sitkUInt16)
     return activity, labels, ct
@@ -394,6 +395,7 @@ def organ_single_voxel(bench: dict, time_from_injection_h: float):
     activity = sitk.Image([1, 1, 1], sitk.sitkFloat32)
     activity.SetSpacing((s, s, s))
     activity.SetMetaData("unit", "Bq")
+    activity.SetMetaData("decay_correction", "start")
     activity.SetMetaData("time_from_injection", str(time_from_injection_h))
     activity[0, 0, 0] = float(bench["total_activity_bq"])
 

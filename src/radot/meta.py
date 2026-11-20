@@ -305,6 +305,7 @@ def write_metadata(
     height: Optional[float] = None,
     sex: Optional[str] = None,
     radionuclide: Optional[str] = None,
+    decay_correction: Optional[str] = None,
 ) -> None:
     """
     Write or merge metadata fields in the JSON sidecar file.
@@ -336,6 +337,9 @@ def write_metadata(
 
         radionuclide = radionuclide.strip()
         get_physical_half_life_h(radionuclide)  # raises ValueError if unknown
+
+    if decay_correction is not None:
+        decay_correction = normalize_decay_correction(decay_correction)
 
     # Read existing metadata to merge
     existing_modality = get_metadata_case_insensitive(None, "modality", image_path)
@@ -427,6 +431,8 @@ def write_metadata(
         meta_dict["sex"] = final_sex
     if radionuclide is not None:
         meta_dict["radionuclide"] = radionuclide
+    if decay_correction is not None:
+        meta_dict["decay_correction"] = decay_correction
 
     logger.info(f"Saving metadata to sidecar: {sidecar_path}")
     with open(sidecar_path, "w") as f:
@@ -503,8 +509,7 @@ def print_metadata(info_dict: dict) -> None:
     sys.stdout.write(f"Radionuclide: {nuclide_val if nuclide_val else '(not set)'}\n")
 
     decay_val = metadata.get("decay_correction")
-    if decay_val:
-        sys.stdout.write(f"Decay Correction: {decay_val}\n")
+    sys.stdout.write(f"Decay Correction: {decay_val if decay_val else '(not set)'}\n")
 
 
 def manage_metadata(
@@ -519,6 +524,7 @@ def manage_metadata(
     height: Optional[float] = None,
     sex: Optional[str] = None,
     radionuclide: Optional[str] = None,
+    decay_correction: Optional[str] = None,
 ) -> None:
     """
     Read or write metadata fields in the JSON sidecar file (wrapper for backward compatibility).
@@ -536,6 +542,7 @@ def manage_metadata(
             height,
             sex,
             radionuclide,
+            decay_correction,
         )
     )
     if is_writing:
@@ -551,6 +558,7 @@ def manage_metadata(
             height=height,
             sex=sex,
             radionuclide=radionuclide,
+            decay_correction=decay_correction,
         )
     else:
         info_dict = read_metadata(image_path)
@@ -593,3 +601,55 @@ def get_time_from_injection_h(
     raise ValueError(
         "Time from injection is required but was not found in the image metadata."
     )
+
+
+# Time reference of the voxel activities (DICOM Decay Correction 0054,1102):
+#   start: activity at the start of the acquisition
+#   none:  not decay-corrected (activity during the acquisition; the decay during it is neglected)
+#   admin: decay-corrected to the injection (administration) time, A(t) * exp(lambda * t)
+DECAY_CORRECTIONS = ("start", "none", "admin")
+
+
+def normalize_decay_correction(value) -> str:
+    """'START', ' admin ' -> 'start', 'admin'. An unknown value is an error."""
+    key = str(value).strip().lower()
+    if key not in DECAY_CORRECTIONS:
+        raise ValueError(
+            f"Invalid decay_correction '{value}'. Expected one of: {', '.join(DECAY_CORRECTIONS)} "
+            f"(DICOM Decay Correction 0054,1102)."
+        )
+    return key
+
+
+def get_decay_correction(image: Optional[sitk.Image], image_path: Optional[Path] = None) -> str:
+    """Decay correction of an activity image (sidecar key `decay_correction`, else the image metadata):
+    'start', 'none' or 'admin'. Needed wherever the activity at a time from injection is used (dose on an
+    activity image, multiple time points, SUV/SUL conversion): missing or unknown is an error, there is
+    no default (an image decay-corrected to the injection taken as not corrected gives an activity too
+    high by exp(lambda t))."""
+    value = get_metadata_case_insensitive(image, "decay_correction", Path(image_path) if image_path else None)
+    if value is None or not str(value).strip():
+        name = Path(image_path).name if image_path is not None else "the image"
+        raise ValueError(
+            f"Decay correction of {name} unknown (sidecar key 'decay_correction'): radot must know whether "
+            f"the activity is decay-corrected to the injection time (admin), to the acquisition start "
+            f"(start), or not corrected (none). Set it: radot meta IMAGE --decay-correction start|none|admin "
+            f"(Python: image.SetMetaData('decay_correction', 'start'))."
+        )
+    return normalize_decay_correction(value)
+
+
+def activity_at_acquisition_factor(decay_correction: str, radionuclide: str, time_from_injection_h: float) -> float:
+    """Factor from the voxel values to the activity at the acquisition time: exp(-lambda t) for an image
+    decay-corrected to the injection (admin), 1 otherwise (start; none, the decay during the acquisition
+    neglected)."""
+    if normalize_decay_correction(decay_correction) != "admin":
+        return 1.0
+    from radot.db import get_physical_half_life_h
+
+    factor = 0.5 ** (float(time_from_injection_h) / get_physical_half_life_h(radionuclide))
+    logger.info(
+        f"Image decay-corrected to the injection time (admin): activity at the acquisition "
+        f"({time_from_injection_h:.4g} h) = values x {factor:.6g}"
+    )
+    return factor

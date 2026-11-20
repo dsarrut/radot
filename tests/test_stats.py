@@ -463,6 +463,7 @@ def test_stats_onthefly_unit_conversion_and_units_table(tmp_path):
         injection_date="2026-01-10 10:00:00",
         acquisition_date="2026-01-10 10:00:00",
         radionuclide="F18",
+        decay_correction="start",
     )
 
     runner = CliRunner()
