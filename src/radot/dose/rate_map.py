@@ -7,6 +7,7 @@ import SimpleITK as sitk
 from pathlib import Path
 
 from radot.db import get_physical_half_life_h
+from radot.dose.models import log_teff_sources, resolve_teff_h
 
 logger = logging.getLogger("radot")
 
@@ -105,17 +106,9 @@ def dose_from_rate_map(
             teff = get_physical_half_life_h(isotope)
             k = ln2 / (teff * 3600.0)
             return float(np.exp(k * t_s) / k), teff
-        teff = None
-        if method_params and roi_name in method_params:
-            teff = method_params[roi_name].get("teff")
+        teff, _ = resolve_teff_h(method_key, roi_name, method_params, time_from_injection_h, isotope)
         if method_key == "hanscheid2018":
-            if teff is None:
-                teff = 2.0 * time_from_injection_h
             return teff * 3600.0 / ln2, teff
-        if teff is None:
-            raise ValueError(
-                f"Effective half-life (teff) must be provided for ROI '{roi_name}' when using the madsen2018 method."
-            )
         k = ln2 / (teff * 3600.0)
         return float(np.exp(k * t_s) / k), teff
 
@@ -190,6 +183,8 @@ def dose_from_rate_map(
             else:
                 logger.debug(log_msg)
 
+    if not is_tia and not dose_rate:
+        log_teff_sources(method_key, results.keys(), method_params, time_from_injection_h, isotope)
     if method_key == "ldm":
         return results, dose_image
     return results

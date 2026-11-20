@@ -217,7 +217,7 @@ def compute_roi_dose_mtp(
         get_metadata_case_insensitive,
         get_time_from_injection_h,
     )
-    from radot.db import resolve_organ_name, get_s_value, get_reference_mass
+    from radot.db import OrganNotFoundError, resolve_organ_name, get_s_value, get_reference_mass
     from radot.dose.compute import load_labels_map
 
     # 1. Resolve and read SimpleITK images
@@ -524,10 +524,17 @@ def compute_roi_dose_mtp(
         non_zero_vols = [v for v in roi_volumes_ml if v > 0]
         roi_volume_ml = roi_volumes_ml[0] if roi_volumes_ml[0] > 0 else non_zero_vols[0]
 
-        # Resolve OpenDose S-value and mass scaling
+        # Resolve OpenDose S-value and mass scaling (generic loop: an organ without OpenDose data is
+        # skipped with a WARNING; an explicitly requested ROI is an error)
         opendose_organ = resolve_organ_name(roi_name, phantom)
-        s_val = get_s_value(phantom, isotope, opendose_organ, opendose_organ)
-        ref_mass = get_reference_mass(phantom, opendose_organ)
+        try:
+            s_val = get_s_value(phantom, isotope, opendose_organ, opendose_organ)
+            ref_mass = get_reference_mass(phantom, opendose_organ)
+        except OrganNotFoundError as e:
+            if rois is not None:
+                raise
+            logger.warning(f"Skipping dosimetry for ROI '{roi_name}': {e}")
+            continue
         mass_scaling = roi_mass_g / ref_mass
 
         # Compute dose using Jackson 2013

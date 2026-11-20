@@ -119,10 +119,12 @@ def _read_sidecar(sidecar_path: Path) -> dict:
     return data
 
 
-def get_metadata_case_insensitive(
+def get_metadata_with_source(
     image: Optional[sitk.Image], key: str, image_path: Optional[Path] = None
-) -> Optional[str]:
-    """Retrieve metadata value case-insensitively, preferring JSON sidecar and falling back to image headers."""
+) -> tuple:
+    """(value, source) of a metadata key, case-insensitive. Sources in order: 'sidecar' (the JSON
+    sidecar of image_path), 'header' (the image file header), 'image' (the metadata of the in-memory
+    image); (None, None) when absent. The value is a string (or None)."""
     lower_key = key.lower()
 
     # 1. Try sidecar JSON first
@@ -133,7 +135,7 @@ def get_metadata_case_insensitive(
             # Case-insensitive lookup in JSON dict
             for k, v in data.items():
                 if k.lower() == lower_key:
-                    return str(v) if v is not None else None
+                    return (str(v) if v is not None else None), "sidecar"
 
     # 2. Try parsing headers using ImageFileReader (no pixel loading)
     if image_path is not None and image_path.exists():
@@ -144,20 +146,25 @@ def get_metadata_case_insensitive(
             keys = reader.GetMetaDataKeys()
             for k in keys:
                 if k.lower() == lower_key:
-                    return reader.GetMetaData(k)
+                    return reader.GetMetaData(k), "header"
         except Exception:
             pass
 
     # 3. Fallback: Parse from loaded image object headers
     if image is not None:
-        keys = image.GetMetaDataKeys()
-
-        # Try case-insensitive lookup of individual keys
-        for k in keys:
+        for k in image.GetMetaDataKeys():
             if k.lower() == lower_key:
-                return image.GetMetaData(k)
+                return image.GetMetaData(k), "image"
 
-    return None
+    return None, None
+
+
+def get_metadata_case_insensitive(
+    image: Optional[sitk.Image], key: str, image_path: Optional[Path] = None
+) -> Optional[str]:
+    """Retrieve metadata value case-insensitively, preferring JSON sidecar and falling back to image
+    headers (get_metadata_with_source without the source)."""
+    return get_metadata_with_source(image, key, image_path)[0]
 
 
 def get_pixel_size_bytes(pixel_id: int) -> int:

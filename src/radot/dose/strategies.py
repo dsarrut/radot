@@ -4,8 +4,10 @@ import logging
 from typing import List, Optional, Dict, Any
 import numpy as np
 
-from radot.db import get_physical_half_life_h
+from radot.db import OrganNotFoundError, get_physical_half_life_h
 from radot.dose.models import (
+    log_teff_sources,
+    resolve_teff_h,
     dose_hanscheid2017,
     dose_hanscheid2018,
     dose_madsen2018,
@@ -61,21 +63,8 @@ def strategy_hanscheid2017(
     ct_arr: Optional[np.ndarray] = None,
 ) -> tuple[float, float]:
     """Strategy implementation for Hanscheid 2017 method."""
-    # Teff parameter resolution
-    teff = None
-    if method_params and roi_name in method_params:
-        teff = method_params[roi_name].get("teff")
-
-    if teff is None:
-        try:
-            teff = get_physical_half_life_h(isotope)
-        except ValueError as e:
-            raise ValueError(
-                f"No effective half-life (teff) provided for ROI '{roi_name}' and {e}"
-            )
-        logger.warning(
-            f"No Teff specified for '{roi_name}'. Using physical half-life of {isotope} ({teff:.2f} h) as fallback."
-        )
+    # Teff: given, else the physical half-life (logged once per run by log_teff_sources)
+    teff, _ = resolve_teff_h("hanscheid2017", roi_name, method_params, time_from_injection_h, isotope)
 
     dose = dose_hanscheid2017(
         spect_bq_a=image_arr,
@@ -137,13 +126,8 @@ def strategy_hanscheid2018(
     from radot.db import resolve_organ_name, get_s_value, get_reference_mass
 
     phantom = _phantom(method_params)
-    teff = None
-    if method_params:
-        if roi_name in method_params:
-            teff = method_params[roi_name].get("teff")
-
-    if teff is None:
-        teff = 2.0 * time_from_injection_h
+    # Teff: given, else 2t (logged once per run by log_teff_sources)
+    teff, _ = resolve_teff_h("hanscheid2018", roi_name, method_params, time_from_injection_h, isotope)
 
     # Standardize phantom/organ/rad
     opendose_organ = resolve_organ_name(roi_name, phantom)
@@ -219,15 +203,8 @@ def strategy_madsen2018(
     from radot.db import resolve_organ_name, get_s_value, get_reference_mass
 
     phantom = _phantom(method_params)
-    teff = None
-    if method_params:
-        if roi_name in method_params:
-            teff = method_params[roi_name].get("teff")
-
-    if teff is None:
-        raise ValueError(
-            f"Effective half-life (teff) must be provided for ROI '{roi_name}' when using the madsen2018 method."
-        )
+    # Teff: given, no default (an error naming the ROI)
+    teff, _ = resolve_teff_h("madsen2018", roi_name, method_params, time_from_injection_h, isotope)
 
     # Standardize phantom/organ/rad
     opendose_organ = resolve_organ_name(roi_name, phantom)
@@ -432,20 +409,17 @@ def compute_dose_generic(
                 tia_mbq_s = float(np.sum(image_arr[mask]) / 1e6)
                 results[roi_name]["tia_mbq_s"] = tia_mbq_s
                 results[roi_name]["tia_mbq_h"] = tia_mbq_s / 3600.0
-        except ValueError as e:
-            if "not found in" in str(e) and (
-                "S-value matrix" in str(e) or "phantom" in str(e)
-            ):
-                if rois is None:
-                    logger.warning(f"Skipping dosimetry for ROI '{roi_name}': {e}")
-                else:
-                    raise ValueError(
-                        f"Dosimetry Halt: {e}\n"
-                        "Note: OpenDose lacks a single 'Skeleton' compartment and instead requires specific cortical/spongiosa targets.\n"
-                        "To proceed: rename the ROI in the labels sidecar to an OpenDose organ (radot roi match), remove it "
-                        "from --rois, or use a method without S-values (hanscheid2017 for Lu177, ldm, or --dose-rate-map)."
-                    )
+        except OrganNotFoundError as e:
+            # generic loop: skipped with a WARNING; an explicitly requested ROI is an error
+            if rois is None:
+                logger.warning(f"Skipping dosimetry for ROI '{roi_name}': {e}")
             else:
-                raise e
+                raise ValueError(
+                    f"Dosimetry Halt: {e}\n"
+                    "Note: OpenDose lacks a single 'Skeleton' compartment and instead requires specific cortical/spongiosa targets.\n"
+                    "To proceed: rename the ROI in the labels sidecar to an OpenDose organ (radot roi match), remove it "
+                    "from --rois, or use a method without S-values (hanscheid2017 for Lu177, ldm, or --dose-rate-map)."
+                ) from e
 
+    log_teff_sources(method_key, results.keys(), method_params, time_from_injection_h, isotope)
     return results

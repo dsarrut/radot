@@ -12,7 +12,7 @@ from radot.dose.compute import (
     compute_roi_dose,
     resolve_isotope,
 )
-from radot.dose.config import load_dose_config
+from radot.dose.config import load_dose_config, merge_dose_config
 from radot.dose.mtp import compute_roi_dose_mtp
 
 logger = logging.getLogger("radot")
@@ -50,47 +50,25 @@ def compute_roi_dose_file(
         config = image_path
         image_path = None
 
-    # Merge config file if provided
+    # Merge config file if provided: an explicit argument (not None) always wins over the config
     if config is not None:
-        cfg = load_dose_config(config)
-        if timepoints is None:
-            timepoints = cfg.get("timepoints")
-        if image_path is None:
-            image_path = cfg.get("image_path")
-        if labels_path is None:
-            labels_path = cfg.get("labels_path")
-        if ct_path is None:
-            ct_path = cfg.get("ct_path")
-        if method is None:
-            method = cfg.get("method")
-        if isotope is None:
-            isotope = cfg.get("isotope")
-        if total_activity_mbq is None:
-            total_activity_mbq = cfg.get("total_activity_mbq")
-        if rois is None:
-            rois = cfg.get("rois")
-        if output_path is None:
-            output_path = cfg.get("output_path")
-        if resample_target is None:
-            resample_target = cfg.get("resample_target")
-        # an explicit argument (not None) always wins over the config
-        if verbose is None:
-            verbose = cfg.get("verbose")
-        if hu_threshold is None:
-            hu_threshold = cfg.get("hu_threshold")
-        if dose_rate is None:
-            dose_rate = cfg.get("dose_rate")
-        if cascade is None:
-            cascade = cfg.get("cascade")
-        if dose_rate_map_path is None:
-            dose_rate_map_path = cfg.get("dose_rate_map_path")
-        if dose_rate_map_activity_mbq is None:
-            dose_rate_map_activity_mbq = cfg.get("dose_rate_map_activity_mbq")
-
-        cfg_mp = cfg.get("method_params", {})
-        if method_params is not None:
-            cfg_mp.update(method_params)
-        method_params = cfg_mp
+        given = dict(
+            timepoints=timepoints, image_path=image_path, labels_path=labels_path, ct_path=ct_path,
+            method=method, isotope=isotope, total_activity_mbq=total_activity_mbq, rois=rois,
+            output_path=output_path, resample_target=resample_target, verbose=verbose,
+            hu_threshold=hu_threshold, dose_rate=dose_rate, cascade=cascade,
+            dose_rate_map_path=dose_rate_map_path, dose_rate_map_activity_mbq=dose_rate_map_activity_mbq,
+            method_params=method_params,
+        )
+        merged, _ = merge_dose_config(given, load_dose_config(config), given_source="argument")
+        timepoints, image_path, labels_path = merged["timepoints"], merged["image_path"], merged["labels_path"]
+        ct_path, method, isotope = merged["ct_path"], merged["method"], merged["isotope"]
+        total_activity_mbq, rois, output_path = merged["total_activity_mbq"], merged["rois"], merged["output_path"]
+        resample_target, verbose, hu_threshold = merged["resample_target"], merged["verbose"], merged["hu_threshold"]
+        dose_rate, cascade = merged["dose_rate"], merged["cascade"]
+        dose_rate_map_path = merged["dose_rate_map_path"]
+        dose_rate_map_activity_mbq = merged["dose_rate_map_activity_mbq"]
+        method_params = merged["method_params"]
 
     # defaults, after the config
     verbose = bool(verbose) if verbose is not None else False
