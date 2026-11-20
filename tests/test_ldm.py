@@ -63,6 +63,7 @@ def test_ldm_core_calculation_without_ct():
     sitk_image.SetSpacing([2.0, 2.0, 2.0])
     sitk_image.SetMetaData("time_from_injection", "24.0")
     sitk_image.SetMetaData("unit", "Bq")
+    sitk_image.SetMetaData("decay_correction", "start")
 
     # Run LDM without CT (assumes water density = 1.0 g/cm3)
     dose_img = compute_roi_dose(
@@ -93,6 +94,7 @@ def test_ldm_core_calculation_with_ct():
     sitk_image.SetSpacing([2.0, 2.0, 2.0])
     sitk_image.SetMetaData("time_from_injection", "24.0")
     sitk_image.SetMetaData("unit", "Bq")
+    sitk_image.SetMetaData("decay_correction", "start")
 
     # Setup CT image with density corresponding to bone (HU = 1000)
     ct_arr = np.ones((2, 2, 2), dtype=np.int16) * 1000
@@ -126,7 +128,7 @@ def test_ldm_cli_execution(tmp_path):
     sitk.WriteImage(img, str(image_path))
 
     with open(tmp_path / "spect.json", "w") as f:
-        json.dump({"unit": "Bq", "time_from_injection": "24.0"}, f)
+        json.dump({"unit": "Bq", "decay_correction": "start", "time_from_injection": "24.0"}, f)
 
     # Save CT image
     ct = sitk.Image([3, 3, 3], sitk.sitkFloat32)
@@ -170,6 +172,7 @@ def test_ldm_core_calculation_with_labels_no_output():
     sitk_image.SetSpacing([2.0, 2.0, 2.0])
     sitk_image.SetMetaData("time_from_injection", "24.0")
     sitk_image.SetMetaData("unit", "Bq")
+    sitk_image.SetMetaData("decay_correction", "start")
 
     # Setup labels image
     labels = sitk.Image([2, 2, 2], sitk.sitkUInt16)
@@ -206,7 +209,7 @@ def test_ldm_cli_with_labels_no_output(tmp_path):
     sitk.WriteImage(img, str(image_path))
 
     with open(tmp_path / "spect.json", "w") as f:
-        json.dump({"unit": "Bq", "time_from_injection": "24.0"}, f)
+        json.dump({"unit": "Bq", "decay_correction": "start", "time_from_injection": "24.0"}, f)
 
     # Save labels image
     labels = sitk.Image([3, 3, 3], sitk.sitkUInt16)
@@ -247,7 +250,7 @@ def test_ldm_with_labels_writes_image_and_table(tmp_path, output, image_name, ta
     img = sitk.Image([3, 3, 3], sitk.sitkFloat32) + 1000.0
     img.SetSpacing([2.0, 2.0, 2.0])
     sitk.WriteImage(img, str(image_path))
-    (tmp_path / "spect.json").write_text(json.dumps({"unit": "bq", "time_from_injection": "24.0"}))
+    (tmp_path / "spect.json").write_text(json.dumps({"unit": "bq", "decay_correction": "start", "time_from_injection": "24.0"}))
     labels = sitk.Image([3, 3, 3], sitk.sitkUInt16)
     labels.SetSpacing([2.0, 2.0, 2.0])
     labels[1, 1, 1] = 1
@@ -276,6 +279,7 @@ def test_ldm_hu_threshold():
     sitk_image.SetSpacing([2.0, 2.0, 2.0])
     sitk_image.SetMetaData("time_from_injection", "24.0")
     sitk_image.SetMetaData("unit", "Bq")
+    sitk_image.SetMetaData("decay_correction", "start")
 
     # CT image where one voxel has HU = -900, another has HU = 0
     ct_arr = np.zeros((2, 2, 2), dtype=np.int16)
@@ -314,7 +318,7 @@ def test_ldm_dose_rate(tmp_path):
     sitk.WriteImage(img, str(image_path))
 
     with open(tmp_path / "spect.json", "w") as f:
-        json.dump({"unit": "Bq", "time_from_injection": "24.0"}, f)
+        json.dump({"unit": "Bq", "decay_correction": "start", "time_from_injection": "24.0"}, f)
 
     # Save labels image
     labels = sitk.Image([3, 3, 3], sitk.sitkUInt16)

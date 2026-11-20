@@ -8,7 +8,7 @@ import numpy as np
 import SimpleITK as sitk
 from pathlib import Path
 
-from radot.meta import get_time_from_injection_h
+from radot.meta import activity_at_acquisition_factor, get_decay_correction, get_time_from_injection_h
 from radot.dose.models import dose_ldm
 from radot.dose.mtp import compute_roi_dose_mtp
 from radot.dose.rate_map import DOSE_RATE_MAP_METHODS, dose_from_rate_map
@@ -376,6 +376,9 @@ def compute_roi_dose(
         time_from_injection_h = None
     else:
         time_from_injection_h = get_time_from_injection_h(image, image_path)
+        # Time reference of the activity values (read before a unit conversion, which drops the image
+        # metadata): an image decay-corrected to the injection is brought back to the acquisition time
+        decay_correction = get_decay_correction(image, image_path)
 
     # 4. Calibrated Activity Scaling
     if unit.lower() == "bqsml":
@@ -391,6 +394,11 @@ def compute_roi_dose(
         image = convert_image_units(
             image, to_unit="bq", from_unit=unit, image_path=image_path
         )
+
+    if not is_tia:
+        factor = activity_at_acquisition_factor(decay_correction, isotope, time_from_injection_h)
+        if factor != 1.0:
+            image = image * factor
 
     # Apply total activity override normalization if requested
     if total_activity_mbq is not None:

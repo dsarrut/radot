@@ -167,17 +167,21 @@ def resolve_decay_factor(
     """
     Decay factor of the injected activity to the acquisition time, for SUV/SUL: options first, then the
     image metadata. 1.0 if the image is decay-corrected to the injection time (DICOM decay correction
-    ADMIN). Raises ValueError if the radionuclide or a date is missing: give them (radot meta), or
-    decay_factor=1.0 to convert without decay correction on purpose.
+    ADMIN). Raises ValueError if the decay correction of the image (start, none, admin), the
+    radionuclide or a date is missing: give them (radot meta), or decay_factor=1.0 to convert without
+    decay correction on purpose.
     """
-    from radot.meta import get_metadata_case_insensitive
+    from radot.meta import get_decay_correction, get_metadata_case_insensitive
 
     if decay_factor is not None:
         if float(decay_factor) <= 0:
             raise ValueError("The decay factor must be positive.")
         return float(decay_factor)
-    reference = get_metadata_case_insensitive(image, "decay_correction", image_path)
-    if reference is not None and reference.strip().lower() == "admin":
+    try:
+        reference = get_decay_correction(image, image_path)
+    except ValueError as e:
+        raise ValueError(f"SUV/SUL conversion: {e} Or give --decay-factor.") from e
+    if reference == "admin":
         logger.info("Image decay-corrected to the injection time (ADMIN): no decay of the injected activity.")
         return 1.0
     if radionuclide is None:
@@ -385,7 +389,13 @@ def convert_image_units(
     elif to_unit != "bqml":
         raise ValueError(f"Unsupported target unit: {to_unit}")
 
-    return sitk.Cast(converted, sitk.sitkFloat32)
+    converted = sitk.Cast(converted, sitk.sitkFloat32)
+    converted.SetMetaData("unit", to_unit)
+    # same time reference as the source: a unit conversion scales the values, not their time
+    reference = get_metadata_case_insensitive(image, "decay_correction", image_path)
+    if reference:
+        converted.SetMetaData("decay_correction", str(reference))
+    return converted
 
 
 def convert_image_units_file(
@@ -570,11 +580,11 @@ def convert_image_units_file(
             _, delay = compute_decay_correction(final_injection_date, final_acquisition_date, final_radionuclide)
             new_meta["decay_delay_minutes"] = delay
         new_meta["decay_correction_reference"] = "injection_time"
-    else:
-        # activity image: same time reference as the source (DICOM decay correction START/ADMIN/NONE)
-        reference = get_metadata_case_insensitive(image, "decay_correction", image_path)
-        if reference and from_unit_is_activity(resolved_from_unit):
-            new_meta["decay_correction"] = reference
+    # Same time reference as the source (DICOM decay correction START/ADMIN/NONE): a unit conversion
+    # scales the values, it does not change the time they refer to (activity, SUV or SUL)
+    reference = get_metadata_case_insensitive(image, "decay_correction", image_path)
+    if reference:
+        new_meta["decay_correction"] = reference
 
     sha = compute_file_sha256(output_path)
     if sha:

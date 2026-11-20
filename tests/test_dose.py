@@ -17,6 +17,7 @@ def test_compute_roi_dose_core():
     image = sitk.Image([10, 10, 10], sitk.sitkFloat32)
     image.SetMetaData("time_from_injection", "24.0")
     image.SetMetaData("unit", "Bq")
+    image.SetMetaData("decay_correction", "start")
 
     labels = sitk.Image([10, 10, 10], sitk.sitkUInt16)
     labels[2, 2, 2] = 1  # Mark one voxel with label 1
@@ -43,6 +44,7 @@ def test_physical_half_life_fallback():
     image = sitk.Image([10, 10, 10], sitk.sitkFloat32)
     image.SetMetaData("time_from_injection", "24.0")
     image.SetMetaData("unit", "Bq")
+    image.SetMetaData("decay_correction", "start")
 
     labels = sitk.Image([10, 10, 10], sitk.sitkUInt16)
     labels[2, 2, 2] = 1
@@ -67,6 +69,7 @@ def test_madsen2018():
     image.SetSpacing((10.0, 10.0, 10.0))
     image.SetMetaData("time_from_injection", "24.0")
     image.SetMetaData("unit", "Bq")
+    image.SetMetaData("decay_correction", "start")
     image[2, 2, 2] = 100.0
 
     labels = sitk.Image([5, 5, 5], sitk.sitkUInt16)
@@ -106,6 +109,7 @@ def test_hanscheid2018_custom_teff():
     image.SetSpacing((10.0, 10.0, 10.0))
     image.SetMetaData("time_from_injection", "24.0")
     image.SetMetaData("unit", "Bq")
+    image.SetMetaData("decay_correction", "start")
     image[2, 2, 2] = 100.0
 
     labels = sitk.Image([5, 5, 5], sitk.sitkUInt16)
@@ -146,6 +150,7 @@ def test_invalid_isotope_error():
     image = sitk.Image([10, 10, 10], sitk.sitkFloat32)
     image.SetMetaData("time_from_injection", "24.0")
     image.SetMetaData("unit", "Bq")
+    image.SetMetaData("decay_correction", "start")
 
     labels = sitk.Image([10, 10, 10], sitk.sitkUInt16)
 
@@ -168,11 +173,12 @@ def test_dose_cli(tmp_path):
     img = sitk.Image([5, 5, 5], sitk.sitkFloat32)
     img.SetMetaData("time_from_injection", "24.0")
     img.SetMetaData("unit", "Bq")
+    img.SetMetaData("decay_correction", "start")
     sitk.WriteImage(img, str(image_path))
 
     # Write a companion spect.json sidecar to define metadata
     with open(tmp_path / "spect.json", "w") as f:
-        json.dump({"unit": "Bq", "time_from_injection": "24.0"}, f)
+        json.dump({"unit": "Bq", "decay_correction": "start", "time_from_injection": "24.0"}, f)
 
     lbls = sitk.Image([5, 5, 5], sitk.sitkUInt16)
     lbls[2, 2, 2] = 1
@@ -225,6 +231,7 @@ def test_grid_mismatch_error():
     image = sitk.Image([10, 10, 10], sitk.sitkFloat32)
     image.SetMetaData("time_from_injection", "24.0")
     image.SetMetaData("unit", "Bq")
+    image.SetMetaData("decay_correction", "start")
 
     labels = sitk.Image([5, 5, 5], sitk.sitkUInt16)  # Mismatched size
 
@@ -251,6 +258,7 @@ def test_missing_roi_in_sidecar_error(tmp_path):
     image = sitk.Image([10, 10, 10], sitk.sitkFloat32)
     image.SetMetaData("time_from_injection", "24.0")
     image.SetMetaData("unit", "Bq")
+    image.SetMetaData("decay_correction", "start")
 
     # Requesting "Kidney" which is not in sidecar
     with pytest.raises(ValueError, match="Requested ROI 'Kidney' not found"):
@@ -273,10 +281,11 @@ def test_dose_cli_resampling(tmp_path):
     img = sitk.Image([10, 10, 10], sitk.sitkFloat32)
     img.SetMetaData("time_from_injection", "24.0")
     img.SetMetaData("unit", "Bq")
+    img.SetMetaData("decay_correction", "start")
     sitk.WriteImage(img, str(image_path))
 
     with open(tmp_path / "spect.json", "w") as f:
-        json.dump({"unit": "Bq", "time_from_injection": "24.0"}, f)
+        json.dump({"unit": "Bq", "decay_correction": "start", "time_from_injection": "24.0"}, f)
 
     lbls = sitk.Image([5, 5, 5], sitk.sitkUInt16)
     lbls[2, 2, 2] = 1
@@ -335,11 +344,12 @@ def test_dose_cli_verbose(tmp_path):
     img = sitk.Image([5, 5, 5], sitk.sitkFloat32)
     img.SetMetaData("time_from_injection", "24.0")
     img.SetMetaData("unit", "Bq")
+    img.SetMetaData("decay_correction", "start")
     sitk.WriteImage(img, str(image_path))
 
     # Write companion spect.json sidecar to define metadata
     with open(tmp_path / "spect.json", "w") as f:
-        json.dump({"unit": "Bq", "time_from_injection": "24.0"}, f)
+        json.dump({"unit": "Bq", "decay_correction": "start", "time_from_injection": "24.0"}, f)
 
     lbls = sitk.Image([5, 5, 5], sitk.sitkUInt16)
     lbls[2, 2, 2] = 1
@@ -382,10 +392,11 @@ def test_dose_cli_teff_variants(tmp_path):
     img = sitk.Image([5, 5, 5], sitk.sitkFloat32)
     img.SetMetaData("time_from_injection", "24.0")
     img.SetMetaData("unit", "Bq")
+    img.SetMetaData("decay_correction", "start")
     sitk.WriteImage(img, str(image_path))
 
     with open(tmp_path / "spect.json", "w") as f:
-        json.dump({"unit": "Bq", "time_from_injection": "24.0"}, f)
+        json.dump({"unit": "Bq", "decay_correction": "start", "time_from_injection": "24.0"}, f)
 
     lbls = sitk.Image([5, 5, 5], sitk.sitkUInt16)
     lbls[2, 2, 2] = 1
@@ -442,10 +453,11 @@ def test_dose_cli_multiple_and_case_insensitive(tmp_path):
     img = sitk.Image([5, 5, 5], sitk.sitkFloat32)
     img.SetMetaData("time_from_injection", "24.0")
     img.SetMetaData("unit", "Bq")
+    img.SetMetaData("decay_correction", "start")
     sitk.WriteImage(img, str(image_path))
 
     with open(tmp_path / "spect.json", "w") as f:
-        json.dump({"unit": "Bq", "time_from_injection": "24.0"}, f)
+        json.dump({"unit": "Bq", "decay_correction": "start", "time_from_injection": "24.0"}, f)
 
     lbls = sitk.Image([5, 5, 5], sitk.sitkUInt16)
     lbls[1, 1, 1] = 1
@@ -521,10 +533,11 @@ def test_compute_roi_dose_string_inputs(tmp_path):
     img = sitk.Image([5, 5, 5], sitk.sitkFloat32)
     img.SetMetaData("time_from_injection", "24.0")
     img.SetMetaData("unit", "Bq")
+    img.SetMetaData("decay_correction", "start")
     sitk.WriteImage(img, str(image_path))
 
     with open(tmp_path / "spect.json", "w") as f:
-        json.dump({"unit": "Bq", "time_from_injection": "24.0"}, f)
+        json.dump({"unit": "Bq", "decay_correction": "start", "time_from_injection": "24.0"}, f)
 
     lbls = sitk.Image([5, 5, 5], sitk.sitkUInt16)
     lbls[2, 2, 2] = 1
@@ -558,6 +571,7 @@ def test_compute_roi_dose_hanscheid2018():
     image.SetSpacing((10.0, 10.0, 10.0))
     image.SetMetaData("time_from_injection", "24.0")
     image.SetMetaData("unit", "Bq")
+    image.SetMetaData("decay_correction", "start")
     # Put 100 Bq in voxel (2,2,2)
     image[2, 2, 2] = 100.0
 
@@ -609,6 +623,7 @@ def test_dose_missing_organ_halt():
     image = sitk.Image([3, 3, 3], sitk.sitkFloat32)
     image.SetMetaData("time_from_injection", "24.0")
     image.SetMetaData("unit", "Bq")
+    image.SetMetaData("decay_correction", "start")
 
     labels = sitk.Image([3, 3, 3], sitk.sitkUInt16)
     labels[1, 1, 1] = 1
@@ -638,6 +653,7 @@ def test_dose_missing_organ_loop_warning():
     image = sitk.Image([3, 3, 3], sitk.sitkFloat32)
     image.SetMetaData("time_from_injection", "24.0")
     image.SetMetaData("unit", "Bq")
+    image.SetMetaData("decay_correction", "start")
 
     labels = sitk.Image([3, 3, 3], sitk.sitkUInt16)
     labels[1, 1, 1] = 1

@@ -521,6 +521,53 @@ def check_meta_radionuclide(ctx: CheckContext) -> List[Finding]:
     return findings
 
 
+@register_check("meta.decay_correction", ["activity"], "Decay correction of each activity image known (start, none, admin)")
+def check_meta_decay_correction(ctx: CheckContext) -> List[Finding]:
+    from radot.dose.strategies import TIA_UNITS
+    from radot.meta import DECAY_CORRECTIONS
+
+    findings = []
+    seen = {}
+    for p in ctx.activity:
+        m = ctx.meta(p)
+        if m["_error"]:
+            continue  # reported by meta.sidecar
+        if (m.get("unit") or "").lower() in TIA_UNITS:
+            continue  # a time-integrated image has no time point
+        value = m.get("decay_correction")
+        if value in (None, ""):
+            findings.append(
+                Finding(
+                    "meta.decay_correction",
+                    Level.FAIL,
+                    "decay_correction missing: set it with radot meta IMAGE --decay-correction start|none|admin "
+                    "(admin = decay-corrected to the injection time)",
+                    p.name,
+                )
+            )
+            continue
+        key = str(value).strip().lower()
+        if key not in DECAY_CORRECTIONS:
+            findings.append(
+                Finding("meta.decay_correction", Level.FAIL, f"decay_correction '{value}' unknown (start, none, admin)", p.name, value)
+            )
+            continue
+        seen.setdefault(key, []).append(p.name)
+        findings.append(Finding("meta.decay_correction", Level.OK, key, p.name, key))
+    if len(seen) > 1:
+        detail = "; ".join(f"{k}: {', '.join(names)}" for k, names in seen.items())
+        findings.append(
+            Finding(
+                "meta.decay_correction",
+                Level.WARN,
+                f"the time points mix decay corrections ({detail}): handled, but check it is intended",
+                None,
+                list(seen),
+            )
+        )
+    return findings
+
+
 @register_check("meta.consistency", ["activity"], "Same patient data in all the activity images (multi time points)")
 def check_meta_consistency(ctx: CheckContext) -> List[Finding]:
     from radot.db import normalize_isotope
@@ -759,8 +806,10 @@ def check_activity_mtp_trend(ctx: CheckContext) -> List[Finding]:
         m = ctx.meta(p)
         t, total = ctx.time_from_injection(p)[0], total_activity_mbq(ctx, p)
         hl = _half_life_h(m.get("radionuclide")) if m.get("radionuclide") else None
-        if t is None or total is None or hl is None or not _decay_to_acquisition(ctx, p):
-            return [Finding("activity.mtp_trend", Level.INFO, "skipped: time, unit (bq, bqml), radionuclide or decay correction", p.name)]
+        if t is None or total is None or hl is None:
+            return [Finding("activity.mtp_trend", Level.INFO, "skipped: time, unit (bq, bqml) or radionuclide", p.name)]
+        if not _decay_to_acquisition(ctx, p):
+            total *= 0.5 ** (t / hl)  # decay-corrected to the injection: back to the acquisition time
         points.append((t, total, hl, p))
     points.sort(key=lambda x: x[0])
     findings = []

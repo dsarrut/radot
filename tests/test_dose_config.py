@@ -16,13 +16,14 @@ def dummy_study(tmp_path):
     image.SetSpacing((2.0, 2.0, 2.0))
     image.SetMetaData("time_from_injection", "24.0")
     image.SetMetaData("unit", "Bq")
+    image.SetMetaData("decay_correction", "start")
     image[2, 2, 2] = 1000.0
     image_path = tmp_path / "spect.nii.gz"
     sitk.WriteImage(image, str(image_path))
 
     # Write a companion spect.json sidecar to define metadata
     with open(tmp_path / "spect.json", "w") as f:
-        json.dump({"unit": "Bq", "time_from_injection": "24.0"}, f)
+        json.dump({"unit": "Bq", "decay_correction": "start", "time_from_injection": "24.0"}, f)
 
     # Labels image
     labels = sitk.Image([5, 5, 5], sitk.sitkUInt16)

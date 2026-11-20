@@ -50,10 +50,11 @@ def test_cli_verbosity_flags(tmp_path):
     img = sitk.Image([2, 2, 2], sitk.sitkFloat32)
     img.SetMetaData("time_from_injection", "24.0")
     img.SetMetaData("unit", "Bq")
+    img.SetMetaData("decay_correction", "start")
     sitk.WriteImage(img, str(image_path))
     
     with open(tmp_path / "spect.json", "w") as f:
-        json.dump({"unit": "Bq", "time_from_injection": "24.0"}, f)
+        json.dump({"unit": "Bq", "decay_correction": "start", "time_from_injection": "24.0"}, f)
         
     lbls = sitk.Image([2, 2, 2], sitk.sitkUInt16)
     lbls[1, 1, 1] = 1

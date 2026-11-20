@@ -108,6 +108,7 @@ def test_convert_metadata_fallback(tmp_path):
         injection_date="2026-01-10 10:00:00",
         acquisition_date="2026-01-10 10:00:00",
         radionuclide="F18",
+        decay_correction="start",
     )
 
     runner = CliRunner()
@@ -239,6 +240,7 @@ def test_convert_units_cli_sul(tmp_path):
         injection_date="2026-01-10 10:00:00",
         acquisition_date="2026-01-10 10:00:00",
         radionuclide="F18",
+        decay_correction="start",
     )
 
     runner = CliRunner()
@@ -314,6 +316,7 @@ def test_convert_with_decay_correction_api():
     arr = np.full((5, 5, 5), 1000.0, dtype=np.float32)
     image = sitk.GetImageFromArray(arr)
     image.SetSpacing((1.0, 1.0, 1.0))
+    image.SetMetaData("decay_correction", "start")
 
     converted = convert_image_units(
         image,
@@ -354,6 +357,8 @@ def test_convert_units_cli_with_decay(tmp_path):
     image = sitk.GetImageFromArray(arr)
     image.SetSpacing((1.0, 1.0, 1.0))
     sitk.WriteImage(image, str(image_path))
+    # the decay correction describes the image: set in the sidecar (radot meta), not a convert option
+    (tmp_path / "pet_decay.json").write_text(json.dumps({"decay_correction": "start"}))
 
     output_path = tmp_path / "out_decay_suv.nii.gz"
     runner = CliRunner()
@@ -402,6 +407,7 @@ def _pet(tmp_path, **meta):
     image_path = tmp_path / "pet.nii.gz"
     image = sitk.GetImageFromArray(np.full((5, 5, 5), 1000.0, dtype=np.float32))
     sitk.WriteImage(image, str(image_path))
+    meta.setdefault("decay_correction", "start")
     manage_metadata(image_path, modality="pet", unit="bqml", weight=75.0, activity=250.0, **meta)
     return image_path
 

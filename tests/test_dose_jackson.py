@@ -192,7 +192,7 @@ def test_compute_roi_dose_mtp_synthetic(tmp_path):
         with open(tmp_path / f"spect_tp{i+1}.json", "w") as f:
             json.dump(
                 {
-                    "unit": "bqml",
+                    "unit": "bqml", "decay_correction": "start",
                     "modality": "spect",
                     "sex": "male",
                     "injection_date": "2024-01-01 10:00:00",
@@ -257,7 +257,7 @@ def test_cli_json_config_mtp(tmp_path):
         with open(tmp_path / f"spect_tp{i+1}.json", "w") as f:
             json.dump(
                 {
-                    "unit": "bqml",
+                    "unit": "bqml", "decay_correction": "start",
                     "modality": "spect",
                     "sex": "male",
                     "injection_date": "2024-01-01 10:00:00",
@@ -341,7 +341,7 @@ def test_cli_json_config_mtp_per_tp_labels_override(tmp_path):
         with open(tmp_path / f"spect_tp{i+1}.json", "w") as f:
             json.dump(
                 {
-                    "unit": "bqml",
+                    "unit": "bqml", "decay_correction": "start",
                     "modality": "spect",
                     "sex": "male",
                     "injection_date": "2024-01-01 10:00:00",
@@ -404,7 +404,7 @@ def _mtp_files(tmp_path, dates=True):
         img.SetSpacing((2.0, 2.0, 2.0))
         path = tmp_path / f"spect_tp{i+1}.nii.gz"
         sitk.WriteImage(img, str(path))
-        sc = {"unit": "bqml", "modality": "spect", "activity": 5000.0, "sex": "male"}
+        sc = {"unit": "bqml", "decay_correction": "start", "modality": "spect", "activity": 5000.0, "sex": "male"}
         if dates:
             sc.update({"injection_date": "2024-01-01 10:00:00", "acquisition_date": acq})
         (tmp_path / f"spect_tp{i+1}.json").write_text(json.dumps(sc))

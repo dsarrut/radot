@@ -212,6 +212,8 @@ def compute_roi_dose_mtp(
     from radot.stats import has_same_grid
     from radot.resampling import resample_image
     from radot.meta import (
+        activity_at_acquisition_factor,
+        get_decay_correction,
         get_metadata_case_insensitive,
         get_time_from_injection_h,
     )
@@ -448,6 +450,12 @@ def compute_roi_dose_mtp(
             raise ValueError(
                 f"Unsupported SPECT unit '{unit}' for timepoint {i+1}. Expected 'bqml' or 'bq'."
             )
+        # Activity at the acquisition time (an image decay-corrected to the injection is brought back)
+        try:
+            decay_correction = get_decay_correction(img, p_img)
+        except ValueError as e:
+            raise ValueError(f"Time point {i+1}: {e}") from e
+        mbq_arr = mbq_arr * activity_at_acquisition_factor(decay_correction, isotope, times_h[i])
 
         tp_data.append({
             "lbl_arr": lbl_arr,

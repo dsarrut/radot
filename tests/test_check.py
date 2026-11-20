@@ -10,7 +10,7 @@ from radot.cli import main
 
 GOOD_META = {
     "modality": "spect",
-    "unit": "bqml",
+    "unit": "bqml", "decay_correction": "start",
     "radionuclide": "Lu177",
     "injection_date": "2026-01-10 10:00:00",
     "acquisition_date": "2026-01-11 10:00:00",
@@ -135,7 +135,7 @@ def test_patient_and_activity(tmp_path):
 
 def test_radionuclide_and_modality(tmp_path):
     assert by_code(run_checks(spect(tmp_path, radionuclide="Xx999")), "meta.radionuclide", Level.FAIL)
-    ct = write_image(tmp_path, "ct", {"modality": "ct", "unit": "bqml"}, ct_values())
+    ct = write_image(tmp_path, "ct", {"modality": "ct", "unit": "bqml", "decay_correction": "start"}, ct_values())
     assert by_code(run_checks(ct=ct), "meta.modality", Level.FAIL)
     ct = write_image(tmp_path, "ct", {"modality": "ct", "unit": "hu"}, ct_values())
     assert worst_level(run_checks(ct=ct)) == Level.OK
@@ -340,7 +340,7 @@ def geom_case(tmp_path, name="g", label_shift=(0, 0, 0), act_shift=(0, 0, 0), le
     for kind, arr, meta in (
         ("ct", ct, {"modality": "ct", "unit": "hu"}),
         ("labels", lab, {"1": "Kidney_R", "2": "Kidney_L"}),
-        ("spect", act * 1e4, {"modality": "spect", "unit": "bqml"}),
+        ("spect", act * 1e4, {"modality": "spect", "unit": "bqml", "decay_correction": "start"}),
     ):
         img = sitk.GetImageFromArray(np.ascontiguousarray(arr))
         img.SetSpacing((4.0, 4.0, 4.0))

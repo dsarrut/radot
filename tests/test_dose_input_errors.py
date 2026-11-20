@@ -33,7 +33,8 @@ def _mtp_study(tmp_path, unit="bqml", labels_sidecar={"1": "Liver", "2": "Spleen
     spects = []
     for i, date in enumerate(DATES):
         sc = {"modality": "spect", "injection_date": "2024-01-01 10:00:00",
-              "acquisition_date": date, "activity": 5000.0, "sex": "male"}
+              "acquisition_date": date, "activity": 5000.0, "sex": "male",
+              "decay_correction": "start"}
         if unit:
             sc["unit"] = unit
         arr = np.where(_labels_arr() > 0, 1e4 * np.exp(-0.03 * (i + 1) * 24), 0).astype(np.float32)
@@ -105,6 +106,7 @@ def _single(tmp_path, labels_sidecar_text):
     image.SetSpacing((2.0, 2.0, 2.0))
     image.SetMetaData("time_from_injection", "24.0")
     image.SetMetaData("unit", "bq")
+    image.SetMetaData("decay_correction", "start")
     return image, labels
 
 
@@ -137,6 +139,7 @@ def _with_empty_spleen(tmp_path):
     image.SetSpacing((2.0, 2.0, 2.0))
     image.SetMetaData("time_from_injection", "24.0")
     image.SetMetaData("unit", "bq")
+    image.SetMetaData("decay_correction", "start")
     return image, labels
 
 

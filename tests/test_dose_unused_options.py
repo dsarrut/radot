@@ -51,6 +51,7 @@ def _study(tmp_path):
     image = sitk.Image([5, 5, 5], sitk.sitkFloat32)
     image[2, 2, 2] = 1000.0
     image.SetMetaData("unit", "bq")
+    image.SetMetaData("decay_correction", "start")
     image.SetMetaData("time_from_injection", "24.0")
     labels = sitk.Image([5, 5, 5], sitk.sitkUInt8)
     labels[2, 2, 2] = 1
@@ -96,7 +97,7 @@ def test_file_mtp_config_with_hu_threshold_errors(tmp_path):
 def test_cli_hanscheid_with_hu_threshold_errors(tmp_path):
     image, labels = _study(tmp_path)
     sitk.WriteImage(image, str(tmp_path / "spect.nii.gz"))
-    (tmp_path / "spect.json").write_text(json.dumps({"unit": "bq", "time_from_injection": 24.0, "sex": "male"}))
+    (tmp_path / "spect.json").write_text(json.dumps({"unit": "bq", "decay_correction": "start", "time_from_injection": 24.0, "sex": "male"}))
     sitk.WriteImage(labels, str(tmp_path / "labels.nii.gz"))
     (tmp_path / "labels.json").write_text(json.dumps({"1": "Liver"}))
     result = CliRunner().invoke(main, ["dose", str(tmp_path / "spect.nii.gz"), "-l", str(tmp_path / "labels.nii.gz"),

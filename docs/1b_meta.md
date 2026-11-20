@@ -72,6 +72,9 @@ Supported image metadata keys:
          Valid choices: male, female
   - radionuclide: Radionuclide (option --radionuclide or --rad).
                   Format: name known to ICRP 107 (e.g. Lu177, Y90, Tc99m)
+  - decay_correction: Time reference of the activity values (DICOM 0054,1102).
+                      Valid choices: start, none, admin (decay-corrected to the injection)
+                      Required for activity images (bq, bqml, suv, sul) used at a time point.
 ```
 
 ---
@@ -94,6 +97,19 @@ radot meta <image_path> [options]
 * `--height <float>`: Patient height in cm.
 * `--sex <male|female>`: Patient sex.
 * `--radionuclide <name>` (or `--rad`): Radionuclide, e.g. `Lu177`; must be known to ICRP 107.
+* `--decay-correction <start|none|admin>`: Time reference of the activity values (DICOM Decay Correction 0054,1102). See [decay correction](#decay-correction-of-the-activity-images) below.
+
+#### Decay correction of the activity images
+
+The reconstruction may correct the activity for the physical decay to a reference time. The sidecar key `decay_correction` says which:
+
+| `decay_correction` | The image holds | radot uses |
+|--------------------|-----------------|------------|
+| `start` | the activity at the start of the acquisition | the values as they are |
+| `none` | the activity during the acquisition, not corrected | the values as they are (the decay during the acquisition is neglected) |
+| `admin` | the activity decay-corrected to the injection time, $A(t)\,e^{\lambda t}$ | the values $\times\, e^{-\lambda t}$: the activity at the acquisition time |
+
+There is no default: an `admin` image read as not corrected gives an activity, and a dose, too high by $e^{\lambda t}$ (for ¹⁷⁷Lu about +10 % at 24 h and +50 % at 96 h). The key is required wherever the activity at a time point is used: `radot dose` on an activity image (`bq`, `bqml`, `suv`, `sul`), multiple time points, and the conversions to and from SUV/SUL. A TIA image (`bqs`, `bqsml`), a dose, a CT or a label image does not need it. `radot dicom` writes it from the DICOM tag when present; it is usually present for PET and may be absent for SPECT (a WARNING says so): set it with `radot meta IMAGE --decay-correction start`. A unit conversion keeps it (the values are scaled, their time reference does not change). For an in-memory image with the Python API: `image.SetMetaData("decay_correction", "start")`.
 
 #### Default Unit Mapping:
 When saving metadata, if modality is specified but the unit is left empty, it defaults automatically:

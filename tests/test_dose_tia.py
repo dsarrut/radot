@@ -19,6 +19,8 @@ def make_image(value, unit, time_from_injection=None):
     image = sitk.Image([5, 5, 5], sitk.sitkFloat32)
     image.SetSpacing((10.0, 10.0, 10.0))
     image.SetMetaData("unit", unit)
+    if unit.lower() in ("bq", "bqml"):
+        image.SetMetaData("decay_correction", "start")
     image.SetMetaData("sex", "male")  # the patient sex gives the OpenDose phantom
     if time_from_injection is not None:
         image.SetMetaData("time_from_injection", str(time_from_injection))
