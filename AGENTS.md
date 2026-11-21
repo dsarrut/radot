@@ -26,7 +26,7 @@ pytest -q                         # unit tests + validation levels that need no 
 *   **`src/radot/resampling.py`**: Performs isotropic resampling or grid-alignment resampling. Handles continuous values vs. discrete labels, and isotope activity preservation.
 *   **`src/radot/stats.py`**: Computes volumes, masses (density-calibrated from CT HU), and intensity/peak metrics (e.g. SUVpeak via Gaussian smoothing).
 *   **`src/radot/db.py`**: Coordinates radionuclide physical data (using `icrp107-database`), decay chain network trees and cumulative secular equilibrium yields from curated IAEA LiveChart data (`decay_chains.json`), and OpenDose reference masses and S-values (CC BY-SA 4.0): masses and Lu177 shipped, the rest downloaded once from Zenodo (checksum) into the user cache (`$RADOT_DATA_DIR` or `~/.cache/radot`), OpenDose website as fallback. Never write into the installed package.
-*   **`src/radot/nomenclature.py`**: Encapsulates the 3-stage cascading mapping dictionary logic between segmentations (TotalSegmentator), clinical naming standards (AAPM TG-263), and reference phantoms (OpenDose).
+*   **`src/radot/nomenclature.py`**: Encapsulates the 2-stage cascading mapping dictionary logic between segmentations (TotalSegmentator), clinical naming standards (AAPM TG-263), and reference phantoms (OpenDose).
 *   **`src/radot/convert.py`**: Handles conversion of image voxel values and files between radioactivity units (`bq`, `bqml`, `suv`, `sul`), using patient weight, injected activity, height, sex, and Lean Body Mass (LBM) calculation methods.
 *   **`src/radot/check.py`**: `radot check`, quality control of the dosimetry inputs. Registry of checks (`register_check`, code `category.name`, declared inputs), `Finding` with a `Level` (OK, INFO, WARN, FAIL), thresholds in `data/check_thresholds.json` (sections, merged with a user file). Only reads the files and reports; never raises on a suspicious value. Plan and history: `docs_wip/old/dev_readme_075_check_qc.md`.
 *   **`src/radot/log.py`**: Configures package-level logging levels (`QUIET`, `INFO`, `DEBUG`) and formats standard outputs.
@@ -99,10 +99,10 @@ The code never makes a choice that can change a result without saying so. Inputs
 
 ### ROI Nomenclature & OpenDose Mapping
 *   **Master Anchor**: AAPM TG-263 is the primary hub standard.
-*   **3-Stage Resolution Cascade**:
+*   **2-Stage Resolution Cascade** (after the explicit aliases `od_aliases.json` and the exact OpenDose names):
     1.  *Stage 1*: Segmented Name $\rightarrow$ TG-263 standard code $\rightarrow$ OpenDose organ name.
-    2.  *Stage 2*: Direct TS-to-OD bypass fallback when no standard TG-263 name exists.
-    3.  *Stage 3*: Raw retain fallback for custom structures.
+    2.  *Stage 2*: Raw retain fallback for custom structures.
+    No direct TotalSegmentator → OpenDose table: a structure without a TG-263 name gets a TG-263-like entry in `ts_to_tg263.json` + `tg263_to_od.json`, or a short name in `od_aliases.json`.
 *   **Skeletal Aggregation Prohibition**: Do NOT automatically group individual bones (`rib_*`, `vertebra_*`) into a single `"Skeleton"` compartment. OpenDose defines detailed sub-components and lacks a unified `"Skeleton"` S-value. If an unmapped bone is requested, halt with an exception.
 *   **Failsafe Rule**:
     *   *Generic Loop*: If looping over all labels in a volume, log warnings and skip unmapped targets.

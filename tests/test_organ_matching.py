@@ -8,7 +8,7 @@ import pytest
 
 import radot
 import radot.db as db
-from radot.nomenclature import OD_ALIASES, TG263_TO_OD, TS_TO_OD_FALLBACK
+from radot.nomenclature import OD_ALIASES, TG263_TO_OD
 
 SHIPPED = Path(radot.__file__).parent / "data" / "opendose"
 MALE_ONLY = {"Prostate"}
@@ -34,7 +34,7 @@ def real_opendose(monkeypatch):
 def test_nomenclature_targets_are_opendose_keys(phantom):
     # every OpenDose name produced by the nomenclature is an exact key of the masses and S-values
     masses, s = _masses(phantom), _lu177(phantom)
-    targets = set(TG263_TO_OD.values()) | set(TS_TO_OD_FALLBACK.values()) | set(OD_ALIASES.values())
+    targets = set(TG263_TO_OD.values()) | set(OD_ALIASES.values())
     if phantom == "icrp_110_female":
         targets -= MALE_ONLY
     missing = sorted(t for t in targets if t not in masses or t not in s or t not in s[t])

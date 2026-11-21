@@ -1,6 +1,6 @@
 # RADOT ROI Nomenclature & Mapping Policy
 
-This document defines the 3-stage cascading policy used by `radot` to bridge segmentations, clinical naming standards, and reference phantoms for internal dosimetry calculations.
+This document defines the 2-stage cascading policy used by `radot` to bridge segmentations, clinical naming standards, and reference phantoms for internal dosimetry calculations.
 
 ## 1. Core Principles
 
@@ -13,7 +13,7 @@ This document defines the 3-stage cascading policy used by `radot` to bridge seg
 
 ---
 
-## 2. The 3-Stage Resolution Cascade
+## 2. The 2-Stage Resolution Cascade
 
 When the dosimetry engine looks up an S-value matrix ($S(\text{Target} \leftarrow \text{Source})$), it maps the user's segmented mask name to the OpenDose reference phantom name using the following priority order:
 
@@ -22,12 +22,11 @@ The segmented name is translated to its official TG-263 alphanumeric code via `T
 
 *Example:* `kidney_left` → `Kidney_L` → `Left kidney C+M+P` (the whole kidney: cortex, medulla and pelvis)
 
-### Stage 2: The Direct TS-to-OD Bypass Bridge
-If a structure exists in both TotalSegmentator and OpenDose phantoms but lacks a standard or specific designation in TG-263 guidelines, the mapping completely bypasses the TG-263 layer using `TS_TO_OD_FALLBACK`.
+Structures without a specific OpenDose organ follow the same route to a broader OpenDose compartment, e.g. `iliopsoas_left` → `Muscle`.
 
-*Example:* `iliopsoas_left` → `Muscle`
+Before stage 1, two exact lookups are tried: the explicit aliases (`od_aliases.json`, e.g. `Left kidney`) and the OpenDose names themselves. `radot roi match NAME` shows which rule applied.
 
-### Stage 3: Absolute Raw Retain Fallback & Safeguard
+### Stage 2: Raw Retain Fallback & Safeguard
 If no explicit mapping exists anywhere in the cross-walk dictionaries, the initial name is preserved exactly as it appears in the user sidecar (e.g., custom manual segmentations like `Tumor_Lesion_1`). 
 
 **Exact names only.** The OpenDose organ must then match an OpenDose name exactly, ignoring case and separators (spaces, `_`, `-`): `liver`, `LIVER` and `Liver` are the same organ. There is no partial or approximate matching: `Liver_met1`, `Spleen_2`, `Kidney` or `Lung` do not get the S-value or mass of an organ, they have none. A few usual short names are explicit aliases (`src/radot/data/od_aliases.json`): `Left kidney` and `Right kidney` → `Left kidney C+M+P`, `Right kidney C+M+P`. Bilateral organs are not merged: `Eye_L` and `Eye_R` map to `Eye bulb, left` and `Eye bulb, right`. When a name is not found, the error suggests the closest known names, one per organ, in TG-263 when there is one, with the OpenDose organ they lead to (e.g. `kidney left`: `Did you mean: Kidney_L (TG-263, OpenDose organ 'Left kidney C+M+P')?`); they are suggestions only, never applied.

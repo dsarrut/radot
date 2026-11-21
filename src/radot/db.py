@@ -355,7 +355,7 @@ def _closest_hint(name: str, od_keys, n: int = 3, cutoff: float = 0.6) -> str:
     when no TG-263 name maps to it; each with its naming system written out. Only names leading to an organ of od_keys are suggested.
     """
     import difflib
-    from radot.nomenclature import TS_TO_TG263, TG263_TO_OD, TS_TO_OD_FALLBACK
+    from radot.nomenclature import TS_TO_TG263, TG263_TO_OD
 
     od_keys = set(od_keys)
     od_to_tg = {}  # one TG-263 name per OpenDose organ (the first in the table)
@@ -373,7 +373,6 @@ def _closest_hint(name: str, od_keys, n: int = 3, cutoff: float = 0.6) -> str:
     # accepted name -> OpenDose organ it leads to
     leads = {tg: od for tg, od in TG263_TO_OD.items()}
     leads.update({ts: TG263_TO_OD.get(tg) for ts, (_, tg) in TS_TO_TG263.items()})
-    leads.update(TS_TO_OD_FALLBACK)
     leads.update({od: od for od in od_keys})
 
     query = re.sub(r"[-_\s]+", " ", name.strip().lower())

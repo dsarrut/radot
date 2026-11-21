@@ -1420,9 +1420,7 @@ def roi_list(source):
     from radot.nomenclature import (
         TS_TO_TG263,
         OD_TO_TG263,
-        TS_TO_OD_FALLBACK,
         TG263_TO_OD,
-        TS_GROUPS,
         OPENDOSE_PASSIVE_TARGETS,
     )
 
@@ -1451,17 +1449,11 @@ def roi_list(source):
             od_target = TG263_TO_OD.get(tg263_label, "")
 
             if od_target:
-                route = "[STAGE 1] Hub"
+                route = "[STAGE 1] TG-263"
                 resolves_to = od_target
-            elif ts_name in TS_TO_OD_FALLBACK:
-                route = "[STAGE 2] Bypass"
-                resolves_to = TS_TO_OD_FALLBACK[ts_name]
-            elif ts_name in TS_GROUPS:
-                route = "[STAGE 2] Group"
-                resolves_to = TS_GROUPS[ts_name]
             else:
-                route = "[STAGE 3] UNMAPPED"
-                resolves_to = "⛔ CRASH SAFEGUARD"
+                route = "[STAGE 2] Kept"
+                resolves_to = "(no OpenDose organ)"
 
             click.echo(f"{ts_name:<30} {tg263_label:<20} {route:<20} {resolves_to:<25}")
         click.echo()
@@ -1475,12 +1467,6 @@ def roi_list(source):
             if od_target:
                 od_to_ts_names.setdefault(od_target, []).append(ts_name)
 
-        for ts_name, od_val in TS_TO_OD_FALLBACK.items():
-            od_to_ts_names.setdefault(od_val, []).append(ts_name)
-
-        for ts_name, od_val in TS_GROUPS.items():
-            od_to_ts_names.setdefault(od_val, []).append(ts_name)
-
         from radot.db import _find_matching_key, _load_masses
 
         try:
@@ -1490,7 +1476,6 @@ def roi_list(source):
         except Exception:
             standard_od_organs = (
                 set(OD_TO_TG263.keys())
-                | set(TS_TO_OD_FALLBACK.values())
                 | set(OPENDOSE_PASSIVE_TARGETS)
             )
 
@@ -1572,7 +1557,6 @@ def roi_match(name):
         find_closest_matches,
         TS_TO_TG263,
         TG263_TO_OD,
-        TS_TO_OD_FALLBACK,
     )
 
     lower_name = name.lower()
@@ -1583,8 +1567,6 @@ def roi_match(name):
     elif lower_name in [k.lower() for k in TG263_TO_OD.keys()]:
         is_registered = True
     elif lower_name in [k.lower() for k in TG263_TO_OD.values()]:
-        is_registered = True
-    elif lower_name in [k.lower() for k in TS_TO_OD_FALLBACK.keys()]:
         is_registered = True
 
     if is_registered:

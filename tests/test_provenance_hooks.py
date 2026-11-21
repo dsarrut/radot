@@ -69,15 +69,6 @@ def test_roi_name_stage(name, organ, stage):
     assert stage in MAPPING_STAGES
 
 
-def test_roi_name_stage_ts_bypass(monkeypatch):
-    # with the shipped tables every stage-2 entry is already resolved at stage 1 (same organ): the rule
-    # is tested with an added entry
-    from radot import nomenclature
-
-    monkeypatch.setitem(nomenclature.TS_TO_OD_FALLBACK, "some_ts_structure", "Liver")
-    assert resolve_roi_name_with_stage("Some_TS_Structure") == ("Liver", "ts_bypass")
-
-
 # ----------------------------------------------------------------------------------------------
 # OrganNotFoundError
 # ----------------------------------------------------------------------------------------------
