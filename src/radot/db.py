@@ -101,6 +101,31 @@ _masses_cache: Dict[str, Dict[str, float]] = {}
 _s_values_cache: Dict[tuple, Dict[str, Dict[str, float]]] = {}
 
 
+class OrganNotFoundError(ValueError):
+    """An organ (a ROI name after the nomenclature) that is not in the OpenDose data of the phantom
+    (masses or S-value matrix). A ValueError: callers that skip ROIs catch this class, never a message."""
+
+
+# OpenDose files read in this process: (phantom, file name) -> path and origin (shipped with radot,
+# user cache, downloaded now from the Zenodo archive, or from the OpenDose website)
+_opendose_files_used: Dict[tuple, Dict[str, str]] = {}
+
+
+def _record_opendose_file(phantom: str, filename: str, path: Path, origin: str) -> Path:
+    _opendose_files_used[(phantom, filename)] = {"path": str(path), "origin": origin}
+    return path
+
+
+def opendose_files_used() -> list:
+    """The OpenDose files read so far: phantom, file, origin ('shipped', 'cache', 'zenodo', 'website')
+    and SHA-256 of the file read."""
+    out = []
+    for (phantom, filename), info in sorted(_opendose_files_used.items()):
+        sha = hashlib.sha256(Path(info["path"]).read_bytes()).hexdigest()
+        out.append({"phantom": phantom, "file": filename, "origin": info["origin"], "sha256": sha})
+    return out
+
+
 def normalize_phantom(phantom: str) -> str:
     """Normalize phantom name to standard OpenDose folder names."""
     p = phantom.lower().strip()
@@ -232,7 +257,8 @@ def _ensure_file_downloaded(phantom: str, filename: str) -> Path:
     """
     local_file = _find_opendose_file(phantom, filename)
     if local_file is not None:
-        return local_file
+        shipped = Path(local_file).is_relative_to(opendose_package_dir())
+        return _record_opendose_file(phantom, filename, local_file, "shipped" if shipped else "cache")
 
     try:
         download_opendose_archive()
@@ -245,7 +271,7 @@ def _ensure_file_downloaded(phantom: str, filename: str) -> Path:
         archive_error = None
         local_file = _find_opendose_file(phantom, filename)
         if local_file is not None:
-            return local_file
+            return _record_opendose_file(phantom, filename, local_file, "zenodo")
 
     try:
         if filename == "masses.json":
@@ -265,7 +291,8 @@ def _ensure_file_downloaded(phantom: str, filename: str) -> Path:
             f"  - OpenDose website: {od_err}\n"
             f"  Cache folder: {opendose_cache_dir()} (set RADOT_DATA_DIR to change it)."
         )
-    return local_file
+    logger.warning(f"OpenDose '{filename}' ({phantom}) downloaded from the OpenDose website, not the Zenodo archive.")
+    return _record_opendose_file(phantom, filename, local_file, "website")
 
 
 def _load_masses(phantom: str) -> Dict[str, float]:
@@ -328,7 +355,7 @@ def _closest_hint(name: str, od_keys, n: int = 3, cutoff: float = 0.6) -> str:
     when no TG-263 name maps to it; each with its naming system written out. Only names leading to an organ of od_keys are suggested.
     """
     import difflib
-    from radot.nomenclature import TS_TO_TG263, TG263_TO_OD, TS_TO_OD_FALLBACK
+    from radot.nomenclature import TS_TO_TG263, TG263_TO_OD
 
     od_keys = set(od_keys)
     od_to_tg = {}  # one TG-263 name per OpenDose organ (the first in the table)
@@ -346,7 +373,6 @@ def _closest_hint(name: str, od_keys, n: int = 3, cutoff: float = 0.6) -> str:
     # accepted name -> OpenDose organ it leads to
     leads = {tg: od for tg, od in TG263_TO_OD.items()}
     leads.update({ts: TG263_TO_OD.get(tg) for ts, (_, tg) in TS_TO_TG263.items()})
-    leads.update(TS_TO_OD_FALLBACK)
     leads.update({od: od for od in od_keys})
 
     query = re.sub(r"[-_\s]+", " ", name.strip().lower())
@@ -381,7 +407,7 @@ def get_reference_mass(phantom: str, organ: str) -> float:
     if match_key is not None:
         return masses[match_key]
 
-    raise ValueError(
+    raise OrganNotFoundError(
         f"RADOT Database: Organ '{organ}' (resolved as '{resolved_organ}') not found in phantom '{phantom}' masses."
         + _closest_hint(organ, masses.keys())
     )
@@ -400,7 +426,7 @@ def get_s_value(
 
     src_key = _find_matching_key(s_matrix, resolved_src)
     if src_key is None:
-        raise ValueError(
+        raise OrganNotFoundError(
             f"RADOT Database: Source organ '{source_organ}' (resolved as '{resolved_src}') not found in S-value matrix."
             + _closest_hint(source_organ, s_matrix.keys())
         )
@@ -411,7 +437,7 @@ def get_s_value(
     if tgt_key is not None:
         return tgt_matrix[tgt_key]
 
-    raise ValueError(
+    raise OrganNotFoundError(
         f"RADOT Database: Target organ '{target_organ}' (resolved as '{resolved_tgt}') not found in S-value matrix for source '{resolved_src}'."
         + _closest_hint(target_organ, tgt_matrix.keys())
     )

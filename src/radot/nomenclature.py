@@ -14,8 +14,6 @@ def _load_json_data(filename: str) -> dict:
 
 # Load the raw mapping dictionaries
 TS_TO_TG263: Dict[str, List] = _load_json_data("ts_to_tg263.json")
-TS_TO_OD_FALLBACK: Dict[str, str] = _load_json_data("ts_to_od_fallback.json")
-TS_GROUPS: Dict[str, str] = _load_json_data("ts_groups.json")
 OPENDOSE_PASSIVE_TARGETS: List[str] = _load_json_data("opendose_passive_targets.json")
 
 # Load TG-263 to OpenDose mapping and invert it for reverse lookup
@@ -70,10 +68,20 @@ def assert_no_id_range_overlap() -> None:
 assert_no_id_range_overlap()
 
 
-def resolve_roi_name_to_opendose(name: str) -> str:
+# Stage of the ROI name resolution (resolve_roi_name_with_stage)
+MAPPING_STAGES = {
+    "alias": "explicit alias of an OpenDose name (od_aliases.json)",
+    "opendose": "already an OpenDose name",
+    "ts_tg263": "stage 1: TotalSegmentator name -> TG-263 -> OpenDose",
+    "tg263": "stage 1: TG-263 name -> OpenDose",
+    "raw": "stage 2: kept as is (custom structure)",
+}
+
+
+def resolve_roi_name_with_stage(name: str) -> Tuple[str, str]:
     """
-    Resolve user-supplied ROI names (TotalSegmentator, TG-263, or custom names)
-    to official OpenDose reference organ names using the 3-stage cascade.
+    Resolve a ROI name (TotalSegmentator, TG-263, or custom) to the OpenDose reference organ name with
+    the 2-stage cascade (TG-263 route, else kept as is), and say which rule applied (a key of MAPPING_STAGES).
     """
     clean_name = name.strip()
     lower_name = clean_name.lower()
@@ -82,12 +90,12 @@ def resolve_roi_name_to_opendose(name: str) -> str:
     sep_name = re.sub(r"[-_\s]+", " ", lower_name)
     for alias, od_name in OD_ALIASES.items():
         if re.sub(r"[-_\s]+", " ", alias.lower()) == sep_name:
-            return od_name
+            return od_name, "alias"
 
     # Already a standard OpenDose name (case-insensitive)
     for od_name in OD_TO_TG263:
         if od_name.lower() == lower_name:
-            return od_name
+            return od_name, "opendose"
 
     # 1. Stage 1: The Standard TG-263 Route
     # A. Check if name is a TotalSegmentator name
@@ -96,20 +104,23 @@ def resolve_roi_name_to_opendose(name: str) -> str:
             tg263_label = val[1]
             for tg_key, od_val in TG263_TO_OD.items():
                 if tg_key.lower() == tg263_label.lower():
-                    return od_val
+                    return od_val, "ts_tg263"
 
     # B. Check if name is a TG-263 label directly
     for tg_key, od_val in TG263_TO_OD.items():
         if tg_key.lower() == lower_name:
-            return od_val
+            return od_val, "tg263"
 
-    # 2. Stage 2: The Direct TS-to-OD Bypass Bridge
-    for ts_name, od_val in TS_TO_OD_FALLBACK.items():
-        if ts_name.lower() == lower_name:
-            return od_val
+    # 2. Stage 2: kept as is (custom structure, e.g. a lesion)
+    return clean_name, "raw"
 
-    # 3. Stage 3: Absolute Raw Retain Fallback & Safeguard
-    return clean_name
+
+def resolve_roi_name_to_opendose(name: str) -> str:
+    """
+    Resolve user-supplied ROI names (TotalSegmentator, TG-263, or custom names)
+    to official OpenDose reference organ names using the 2-stage cascade.
+    """
+    return resolve_roi_name_with_stage(name)[0]
 
 
 def get_all_mappings() -> List[Tuple[str, str, str]]:
@@ -118,8 +129,6 @@ def get_all_mappings() -> List[Tuple[str, str, str]]:
     for ts_name, val in TS_TO_TG263.items():
         tg263_label = val[1]
         od_target = TG263_TO_OD.get(tg263_label, "")
-        if not od_target:
-            od_target = TS_TO_OD_FALLBACK.get(ts_name, "")
         mappings.append((ts_name, tg263_label, od_target))
     return sorted(mappings, key=lambda x: x[0])
 
@@ -135,9 +144,6 @@ def find_closest_matches(query: str, n: int = 10) -> List[Tuple[str, str]]:
         candidates.append((name, "TG-263"))
     for name in OD_TO_TG263.keys():
         candidates.append((name, "OpenDose"))
-    for name in TS_TO_OD_FALLBACK.keys():
-        if not any(c[0] == name for c in candidates):
-            candidates.append((name, "TotalSegmentator"))
 
     scored = []
     for cand_name, source in candidates:
@@ -164,7 +170,7 @@ def find_closest_matches(query: str, n: int = 10) -> List[Tuple[str, str]]:
 
 def verify_sidecar_mappings(labels_map: Dict[int, str]) -> Dict[str, dict]:
     """Verify labels sidecar mapping, identifying mapped and unmapped dosimetry structures."""
-    standard_od_names = set(OD_TO_TG263.keys()) | set(TS_TO_OD_FALLBACK.values())
+    standard_od_names = set(OD_TO_TG263.keys())
     report = {"mapped": {}, "unmapped": {}}
     for lid, name in labels_map.items():
         resolved = resolve_roi_name_to_opendose(name)

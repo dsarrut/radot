@@ -8,6 +8,7 @@ import SimpleITK as sitk
 
 from radot.dose import compute_roi_dose, compute_roi_dose_mtp
 from radot.stats import DENSITY_FLOOR_G_ML, compute_stats, ct_density_g_ml
+from radot.dose import read_results
 
 
 # D1: one CT density rule, voxel-wise, floored
@@ -188,7 +189,7 @@ def test_cli_dose_isotope_from_sidecar(tmp_path):
     result = CliRunner().invoke(main, ["dose", str(tmp_path / "spect.nii.gz"), "-l", str(tmp_path / "labels.nii.gz"),
                                        "-m", "hanscheid2017", "-o", str(tmp_path / "out.json")])
     assert result.exit_code == 0, result.output
-    assert set(json.loads((tmp_path / "out.json").read_text())) >= {"Liver", "Spleen"}
+    assert set(read_results(tmp_path / "out.json")) >= {"Liver", "Spleen"}
 
 
 def test_mtp_config_resample_like_labels(tmp_path):

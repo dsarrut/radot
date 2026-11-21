@@ -7,6 +7,7 @@ import SimpleITK as sitk
 from click.testing import CliRunner
 
 from radot.cli import main
+from radot.dose import read_results
 
 
 def _study(tmp_path, sex=None):
@@ -34,7 +35,7 @@ def _dose(study, *args):
         main, ["dose", str(study / "spect.nii.gz"), "-l", str(study / "labels.nii.gz"), "--isotope", "Lu177",
                "-o", str(out), *args]
     )
-    return result, (json.loads(out.read_text()) if out.exists() else None)
+    return result, (read_results(out) if out.exists() else None)
 
 
 def test_phantom_from_sidecar_sex(tmp_path):

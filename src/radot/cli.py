@@ -870,6 +870,7 @@ def dose(
 ):
     """Compute absorbed doses for specified regions of interest (ROI)."""
     from radot.dose import compute_roi_dose_file, load_dose_config
+    from radot.dose.config import merge_dose_config
     from radot.log import configure_logging
 
     ctx = click.get_current_context(silent=True)
@@ -917,54 +918,57 @@ def dose(
         raise click.UsageError("Options --verbose and --quiet are mutually exclusive.")
     configure_logging(verbose=cli_verbose, quiet=cli_quiet)
 
-    # Resolve inputs (CLI overrides config)
-    timepoints = config_dict.get("timepoints")
-    if image_path is None:
-        image_path = config_dict.get("image_path")
+    # Values typed on the command line (ROI list, Teff, phantom parsed first), then the one merge with
+    # the config (merge_dose_config): an option always wins over the config
+    rois_list = [item.strip() for r in (rois or ()) for item in r.split(",") if item.strip()] or None
+    cli_method_params = {}
+    if param_from_cli("phantom"):
+        cli_method_params["phantom"] = phantom
+    for t in teff or ():
+        for item in t.split(","):
+            item_stripped = item.strip()
+            if not item_stripped:
+                continue
+            parts = item_stripped.split(":")
+            if len(parts) != 2:
+                raise click.BadParameter(
+                    f"Teff parameter '{item_stripped}' must be in ROI:value format (e.g. Liver:45.2)."
+                )
+            roi_name = parts[0].strip()
+            try:
+                cli_method_params[roi_name] = {"teff": float(parts[1].strip())}
+            except ValueError:
+                raise click.BadParameter(f"Invalid teff value: {parts[1]} for ROI: {roi_name}")
+
+    cli_values = {
+        "image_path": image_path,
+        "labels_path": labels_path,
+        "ct_path": ct_path,
+        "method": method,
+        "isotope": isotope,
+        "total_activity_mbq": total_activity,
+        "rois": rois_list,
+        "output_path": output_path,
+        "resample_target": resample,
+        "hu_threshold": hu_threshold if param_from_cli("hu_threshold") else None,
+        "dose_rate": dose_rate if param_from_cli("dose_rate") else None,
+        "cascade": cascade if param_from_cli("cascade") else None,
+        "dose_rate_map_path": dose_rate_map_path,
+        "dose_rate_map_activity_mbq": dose_rate_map_activity,
+        "method_params": cli_method_params,
+    }
+    merged, _ = merge_dose_config(cli_values, config_dict, given_source="option")
+
+    timepoints = merged["timepoints"]
+    image_path, labels_path, ct_path = merged["image_path"], merged["labels_path"], merged["ct_path"]
+    method, isotope, output_path = merged["method"], merged["isotope"], merged["output_path"]
+    method_params = merged["method_params"]
     if not image_path and not timepoints:
         raise click.UsageError(
             "Missing required activity image path (provide via argument or config file)."
         )
-
-    if method is None:
-        method = config_dict.get("method")
     if not method:
         raise click.UsageError("Missing option '-m' / '--method'.")
-
-    if isotope is None:
-        isotope = config_dict.get("isotope")
-
-    if labels_path is None:
-        labels_path = config_dict.get("labels_path")
-
-    if ct_path is None:
-        ct_path = config_dict.get("ct_path")
-
-    if output_path is None:
-        output_path = config_dict.get("output_path")
-
-    if total_activity is None and "total_activity_mbq" in config_dict:
-        total_activity = config_dict["total_activity_mbq"]
-
-    if resample is None and "resample_target" in config_dict:
-        resample = config_dict["resample_target"]
-
-    if not param_from_cli("dose_rate") and config_dict.get("dose_rate"):
-        dose_rate = True
-
-    if not param_from_cli("cascade") and "cascade" in config_dict:
-        cascade = config_dict["cascade"]
-
-    if not param_from_cli("hu_threshold") and "hu_threshold" in config_dict:
-        hu_threshold = config_dict["hu_threshold"]
-
-    if not param_from_cli("phantom") and "phantom" in config_dict:
-        phantom = config_dict["phantom"]
-
-    if dose_rate_map_path is None:
-        dose_rate_map_path = config_dict.get("dose_rate_map_path")
-    if dose_rate_map_activity is None:
-        dose_rate_map_activity = config_dict.get("dose_rate_map_activity_mbq")
 
     method_key = method.lower()
     has_tp_labels = False
@@ -980,47 +984,6 @@ def dose(
             "Option '-o' / '--output' is required when using the LDM method without labels."
         )
 
-    rois_list = []
-    if rois:
-        for r in rois:
-            for item in r.split(","):
-                item_stripped = item.strip()
-                if item_stripped:
-                    rois_list.append(item_stripped)
-    elif config_dict.get("rois"):
-        rois_list = config_dict["rois"]
-    if not rois_list:
-        rois_list = None
-
-    # config method_params (per-ROI Teff, phantom), then the command line wins
-    method_params = dict(config_dict.get("method_params", {}))
-    if phantom is not None and (param_from_cli("phantom") or "phantom" not in method_params):
-        method_params["phantom"] = phantom
-
-    if teff:
-        for t in teff:
-            for item in t.split(","):
-                item_stripped = item.strip()
-                if not item_stripped:
-                    continue
-                if ":" not in item_stripped:
-                    raise click.BadParameter(
-                        f"Teff parameter '{item_stripped}' must be in ROI:value format (e.g. Liver:45.2)."
-                    )
-                parts = item_stripped.split(":")
-                if len(parts) != 2:
-                    raise click.BadParameter(
-                        f"Teff parameter '{item_stripped}' must be in ROI:value format (e.g. Liver:45.2)."
-                    )
-                roi_name = parts[0].strip()
-                try:
-                    teff_val = float(parts[1].strip())
-                    method_params[roi_name] = {"teff": teff_val}
-                except ValueError:
-                    raise click.BadParameter(
-                        f"Invalid teff value: {parts[1]} for ROI: {roi_name}"
-                    )
-
     try:
         compute_roi_dose_file(
             image_path=image_path,
@@ -1028,20 +991,20 @@ def dose(
             method=method,
             isotope=isotope,
             ct_path=ct_path,
-            total_activity_mbq=total_activity,
-            rois=rois_list,
+            total_activity_mbq=merged["total_activity_mbq"],
+            rois=merged["rois"],
             method_params=method_params,
             output_path=output_path,
-            resample_target=resample,
+            resample_target=merged["resample_target"],
             verbose=cli_verbose,
-            hu_threshold=hu_threshold,
-            dose_rate=dose_rate,
-            cascade=cascade,
+            hu_threshold=merged["hu_threshold"],
+            dose_rate=merged["dose_rate"],
+            cascade=merged["cascade"],
             # the config is already merged above (command line first): not merged a second time
             config=None,
             timepoints=timepoints,
-            dose_rate_map_path=dose_rate_map_path,
-            dose_rate_map_activity_mbq=dose_rate_map_activity,
+            dose_rate_map_path=merged["dose_rate_map_path"],
+            dose_rate_map_activity_mbq=merged["dose_rate_map_activity_mbq"],
         )
     except Exception as e:
         handle_cli_exception(e)
@@ -1457,9 +1420,7 @@ def roi_list(source):
     from radot.nomenclature import (
         TS_TO_TG263,
         OD_TO_TG263,
-        TS_TO_OD_FALLBACK,
         TG263_TO_OD,
-        TS_GROUPS,
         OPENDOSE_PASSIVE_TARGETS,
     )
 
@@ -1488,17 +1449,11 @@ def roi_list(source):
             od_target = TG263_TO_OD.get(tg263_label, "")
 
             if od_target:
-                route = "[STAGE 1] Hub"
+                route = "[STAGE 1] TG-263"
                 resolves_to = od_target
-            elif ts_name in TS_TO_OD_FALLBACK:
-                route = "[STAGE 2] Bypass"
-                resolves_to = TS_TO_OD_FALLBACK[ts_name]
-            elif ts_name in TS_GROUPS:
-                route = "[STAGE 2] Group"
-                resolves_to = TS_GROUPS[ts_name]
             else:
-                route = "[STAGE 3] UNMAPPED"
-                resolves_to = "⛔ CRASH SAFEGUARD"
+                route = "[STAGE 2] Kept"
+                resolves_to = "(no OpenDose organ)"
 
             click.echo(f"{ts_name:<30} {tg263_label:<20} {route:<20} {resolves_to:<25}")
         click.echo()
@@ -1512,12 +1467,6 @@ def roi_list(source):
             if od_target:
                 od_to_ts_names.setdefault(od_target, []).append(ts_name)
 
-        for ts_name, od_val in TS_TO_OD_FALLBACK.items():
-            od_to_ts_names.setdefault(od_val, []).append(ts_name)
-
-        for ts_name, od_val in TS_GROUPS.items():
-            od_to_ts_names.setdefault(od_val, []).append(ts_name)
-
         from radot.db import _find_matching_key, _load_masses
 
         try:
@@ -1527,7 +1476,6 @@ def roi_list(source):
         except Exception:
             standard_od_organs = (
                 set(OD_TO_TG263.keys())
-                | set(TS_TO_OD_FALLBACK.values())
                 | set(OPENDOSE_PASSIVE_TARGETS)
             )
 
@@ -1604,11 +1552,11 @@ def roi_list(source):
 def roi_match(name):
     """Query an ROI name to find exact matches or closest nomenclature suggestions."""
     from radot.nomenclature import (
-        resolve_roi_name_to_opendose,
+        MAPPING_STAGES,
+        resolve_roi_name_with_stage,
         find_closest_matches,
         TS_TO_TG263,
         TG263_TO_OD,
-        TS_TO_OD_FALLBACK,
     )
 
     lower_name = name.lower()
@@ -1620,12 +1568,10 @@ def roi_match(name):
         is_registered = True
     elif lower_name in [k.lower() for k in TG263_TO_OD.values()]:
         is_registered = True
-    elif lower_name in [k.lower() for k in TS_TO_OD_FALLBACK.keys()]:
-        is_registered = True
 
     if is_registered:
-        resolved = resolve_roi_name_to_opendose(name)
-        click.echo(f'\n✅ "{name}" is registered. Resolves to OpenDose: "{resolved}"\n')
+        resolved, stage = resolve_roi_name_with_stage(name)
+        click.echo(f'\n✅ "{name}" is registered. Resolves to OpenDose: "{resolved}" ({MAPPING_STAGES[stage]})\n')
     else:
         click.echo(f'\n❌ "{name}" is not explicitly registered.')
         closest = find_closest_matches(name)

@@ -12,7 +12,7 @@ from radot.dose.compute import (
     compute_roi_dose,
     resolve_isotope,
 )
-from radot.dose.config import load_dose_config
+from radot.dose.config import load_dose_config, merge_dose_config
 from radot.dose.mtp import compute_roi_dose_mtp
 
 logger = logging.getLogger("radot")
@@ -50,47 +50,25 @@ def compute_roi_dose_file(
         config = image_path
         image_path = None
 
-    # Merge config file if provided
+    # Merge config file if provided: an explicit argument (not None) always wins over the config
     if config is not None:
-        cfg = load_dose_config(config)
-        if timepoints is None:
-            timepoints = cfg.get("timepoints")
-        if image_path is None:
-            image_path = cfg.get("image_path")
-        if labels_path is None:
-            labels_path = cfg.get("labels_path")
-        if ct_path is None:
-            ct_path = cfg.get("ct_path")
-        if method is None:
-            method = cfg.get("method")
-        if isotope is None:
-            isotope = cfg.get("isotope")
-        if total_activity_mbq is None:
-            total_activity_mbq = cfg.get("total_activity_mbq")
-        if rois is None:
-            rois = cfg.get("rois")
-        if output_path is None:
-            output_path = cfg.get("output_path")
-        if resample_target is None:
-            resample_target = cfg.get("resample_target")
-        # an explicit argument (not None) always wins over the config
-        if verbose is None:
-            verbose = cfg.get("verbose")
-        if hu_threshold is None:
-            hu_threshold = cfg.get("hu_threshold")
-        if dose_rate is None:
-            dose_rate = cfg.get("dose_rate")
-        if cascade is None:
-            cascade = cfg.get("cascade")
-        if dose_rate_map_path is None:
-            dose_rate_map_path = cfg.get("dose_rate_map_path")
-        if dose_rate_map_activity_mbq is None:
-            dose_rate_map_activity_mbq = cfg.get("dose_rate_map_activity_mbq")
-
-        cfg_mp = cfg.get("method_params", {})
-        if method_params is not None:
-            cfg_mp.update(method_params)
-        method_params = cfg_mp
+        given = dict(
+            timepoints=timepoints, image_path=image_path, labels_path=labels_path, ct_path=ct_path,
+            method=method, isotope=isotope, total_activity_mbq=total_activity_mbq, rois=rois,
+            output_path=output_path, resample_target=resample_target, verbose=verbose,
+            hu_threshold=hu_threshold, dose_rate=dose_rate, cascade=cascade,
+            dose_rate_map_path=dose_rate_map_path, dose_rate_map_activity_mbq=dose_rate_map_activity_mbq,
+            method_params=method_params,
+        )
+        merged, _ = merge_dose_config(given, load_dose_config(config), given_source="argument")
+        timepoints, image_path, labels_path = merged["timepoints"], merged["image_path"], merged["labels_path"]
+        ct_path, method, isotope = merged["ct_path"], merged["method"], merged["isotope"]
+        total_activity_mbq, rois, output_path = merged["total_activity_mbq"], merged["rois"], merged["output_path"]
+        resample_target, verbose, hu_threshold = merged["resample_target"], merged["verbose"], merged["hu_threshold"]
+        dose_rate, cascade = merged["dose_rate"], merged["cascade"]
+        dose_rate_map_path = merged["dose_rate_map_path"]
+        dose_rate_map_activity_mbq = merged["dose_rate_map_activity_mbq"]
+        method_params = merged["method_params"]
 
     # defaults, after the config
     verbose = bool(verbose) if verbose is not None else False
@@ -214,10 +192,7 @@ def compute_roi_dose_file(
         )
 
         if output_path:
-            logger.info(f"Saving dose results to: {output_path}")
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(output_path, "w") as f:
-                json.dump(results, f, indent=4)
+            write_results(results, output_path)
         else:
             pretty_print_dose(results)
 
@@ -393,7 +368,7 @@ def compute_roi_dose_file(
                 else:
                     table_out, image_out = output_path, _with_suffix(output_path, "_dose.nii.gz")
                 _write_dose_image(dose_image, image_out, image_path, dose_rate)
-                _write_table(results_dict, table_out)
+                write_results(results_dict, table_out)
             pretty_print_dose(results_dict)
             return results
         if not output_path:
@@ -403,7 +378,7 @@ def compute_roi_dose_file(
 
     # Print results to stdout
     if output_path:
-        _write_table(results, output_path)
+        write_results(results, output_path)
     else:
         # Pretty print results as a table
         pretty_print_dose(results)
@@ -450,11 +425,44 @@ def _write_dose_image(dose_image: sitk.Image, path: Path, image_path: Path, dose
     )
 
 
-def _write_table(results: dict, path: Path) -> None:
+# Format of the dose results file. Version 1: {"radot_results": 1, "radot_version": ..., "rois": {...}}.
+# The ROI table is under "rois"; other top-level keys (e.g. the provenance) may be added without a new
+# version; a change of the "rois" entries gets a new version.
+RESULTS_FORMAT = 1
+
+
+def results_document(results: dict) -> dict:
+    """The JSON document of a ROI results table (the dict returned by compute_roi_dose)."""
+    from radot import __version__
+
+    return {"radot_results": RESULTS_FORMAT, "radot_version": __version__, "rois": results}
+
+
+def write_results(results: dict, path: Union[str, Path]) -> None:
+    """Write a ROI results table as a radot results file (results_document)."""
+    path = Path(path)
     logger.info(f"Saving dose results to: {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
-        json.dump(results, f, indent=4)
+        json.dump(results_document(results), f, indent=4)
+
+
+def read_results(path: Union[str, Path]) -> dict:
+    """The ROI table ({roi: {...}}) of a radot results file. A file that is not a radot results file, or
+    of an unknown format version, is an error."""
+    path = Path(path)
+    with open(path, "r") as f:
+        doc = json.load(f)
+    if not isinstance(doc, dict) or "radot_results" not in doc or not isinstance(doc.get("rois"), dict):
+        raise ValueError(
+            f"{path.name} is not a radot results file (no 'radot_results' and 'rois' keys). Files written "
+            f"before radot {RESULTS_FORMAT} format hold the ROI table at the top level: recompute them."
+        )
+    if doc["radot_results"] != RESULTS_FORMAT:
+        raise ValueError(
+            f"{path.name}: results format {doc['radot_results']!r}, this radot reads format {RESULTS_FORMAT}."
+        )
+    return doc["rois"]
 
 
 def pretty_print_dose(results: dict) -> None:

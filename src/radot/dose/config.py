@@ -1,8 +1,66 @@
 """JSON dose configuration files."""
 
 import json
-from typing import Optional, Dict, Any, Union
+import logging
+from typing import Optional, Dict, Any, Tuple, Union
 from pathlib import Path
+
+logger = logging.getLogger("radot")
+
+# Values of a dose computation given either explicitly (CLI option, Python argument) or by a dose config
+# (keys of load_dose_config); method_params (per-ROI Teff, phantom) is merged per entry
+DOSE_CONFIG_KEYS = (
+    "timepoints",
+    "image_path",
+    "labels_path",
+    "ct_path",
+    "method",
+    "isotope",
+    "total_activity_mbq",
+    "rois",
+    "output_path",
+    "resample_target",
+    "verbose",
+    "hu_threshold",
+    "dose_rate",
+    "cascade",
+    "dose_rate_map_path",
+    "dose_rate_map_activity_mbq",
+)
+
+
+def merge_dose_config(
+    given: Dict[str, Any], cfg: Optional[Dict[str, Any]], given_source: str = "argument"
+) -> Tuple[Dict[str, Any], Dict[str, str]]:
+    """
+    The one merge of the explicit values and a dose config (load_dose_config output): an explicit value
+    (not None) always wins over the config. method_params entries (a ROI Teff, 'phantom') are merged per
+    entry, the explicit entry winning. Returns (merged, sources): merged has every DOSE_CONFIG_KEYS key
+    (None when given nowhere) and 'method_params'; sources[key] is given_source ('option' from the
+    command line, 'argument' from the Python API) or 'config', for the keys with a value
+    ('method_params.<entry>' for the method_params entries).
+    """
+    cfg = cfg or {}
+    unknown = set(given) - set(DOSE_CONFIG_KEYS) - {"method_params"}
+    if unknown:
+        raise ValueError(f"merge_dose_config: unknown keys {sorted(unknown)}")
+    merged: Dict[str, Any] = {}
+    sources: Dict[str, str] = {}
+    for key in DOSE_CONFIG_KEYS:
+        if given.get(key) is not None:
+            merged[key], sources[key] = given[key], given_source
+        elif cfg.get(key) is not None:
+            merged[key], sources[key] = cfg[key], "config"
+        else:
+            merged[key] = None
+    method_params: Dict[str, Any] = {}
+    for origin, entries in (("config", cfg.get("method_params")), (given_source, given.get("method_params"))):
+        for name, value in (entries or {}).items():
+            method_params[name] = value
+            sources[f"method_params.{name}"] = origin
+    merged["method_params"] = method_params
+    logger.debug("Dose parameters: " + ", ".join(f"{k} ({v})" for k, v in sources.items()))
+    return merged, sources
 
 
 def load_dose_config(

@@ -19,12 +19,12 @@ def test_resolve_roi_name_to_opendose():
     assert resolve_roi_name_to_opendose("Kidney_L") == "Left kidney C+M+P"
     assert resolve_roi_name_to_opendose("Left kidney") == "Left kidney C+M+P"
 
-    # Stage 2: Bypass TG-263 (Direct TS to OpenDose fallback)
+    # TotalSegmentator structures without a specific OpenDose organ, still through TG-263
     assert resolve_roi_name_to_opendose("adrenal_gland_left") == "Adrenal, left"
-    assert resolve_roi_name_to_opendose("rib_left_5") == "rib_left_5"
     assert resolve_roi_name_to_opendose("autochthon_left") == "Muscle"
 
-    # Stage 3: Raw retain fallback
+    # Stage 2: kept as is (no OpenDose organ: a bone is never grouped into a skeleton)
+    assert resolve_roi_name_to_opendose("rib_left_5") == "rib_left_5"
     assert resolve_roi_name_to_opendose("Tumor_Lesion_1") == "Tumor_Lesion_1"
 
 
@@ -73,7 +73,8 @@ def test_cli_roi_list():
     assert "OpenDose Target" in result_ts.output
     assert "kidney_left" in result_ts.output
     assert "Kidney_L" in result_ts.output
-    assert "[STAGE 1] Hub" in result_ts.output
+    assert "[STAGE 1] TG-263" in result_ts.output
+    assert "[STAGE 2] Kept" in result_ts.output
 
     # Source OD option
     result_od = runner.invoke(main, ["roi", "list", "--source", "od"])

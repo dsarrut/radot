@@ -9,6 +9,7 @@ from radot.cli import main
 from radot.dose import compute_roi_dose
 
 from test_dose_tia import M_KIDNEY_L, S_KIDNEY_L, make_image, make_labels
+from radot.dose import read_results
 
 ROI = "Left kidney"
 COMMON = dict(isotope="Lu177", labels_map={1: ROI})
@@ -125,9 +126,9 @@ def test_map_cli(tmp_path):
     result = CliRunner().invoke(main, args + ["--dose-rate-map-activity", "1"])
     assert result.exit_code == 0, result.output
     expected = 1e6 * S_KIDNEY_L * M_KIDNEY_L / 1000.0
-    assert json.loads(out_path.read_text())[ROI]["mean_dose_gy"] == pytest.approx(expected, rel=1e-6)
+    assert read_results(out_path)[ROI]["mean_dose_gy"] == pytest.approx(expected, rel=1e-6)
 
     (tmp_path / "gate_dose.json").write_text(json.dumps({"unit": "gy/s", "source_activity_mbq": 1.0}))
     result = CliRunner().invoke(main, args)
     assert result.exit_code == 0, result.output
-    assert json.loads(out_path.read_text())[ROI]["mean_dose_gy"] == pytest.approx(expected, rel=1e-6)
+    assert read_results(out_path)[ROI]["mean_dose_gy"] == pytest.approx(expected, rel=1e-6)

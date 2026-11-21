@@ -1,9 +1,71 @@
 """Dose formulas of the single-time-point models (LDM, Hanscheid, Madsen, S-value)."""
 
-from typing import Optional
+import logging
+from typing import Any, Dict, Iterable, Optional, Tuple
 import numpy as np
 
 from radot.db import get_physical_half_life_h
+
+logger = logging.getLogger("radot")
+
+# Default effective half-life of the single-time-point methods when none is given for a ROI
+TEFF_DEFAULTS = {
+    "hanscheid2018": "2 x time from injection (Hanscheid 2018)",
+    "hanscheid2017": "physical half-life (no biological clearance)",
+}
+
+
+def default_teff_h(method: str, time_from_injection_h: float, isotope: str) -> float:
+    """The default Teff (h) of a method (TEFF_DEFAULTS); a method without a default is an error."""
+    m = method.lower()
+    if m == "hanscheid2018":
+        return 2.0 * time_from_injection_h
+    if m == "hanscheid2017":
+        return get_physical_half_life_h(isotope)
+    raise ValueError(f"Method '{method}' has no default effective half-life (teff): give one per ROI.")
+
+
+def resolve_teff_h(
+    method: str,
+    roi_name: str,
+    method_params: Optional[Dict[str, Any]],
+    time_from_injection_h: float,
+    isotope: str,
+) -> Tuple[float, str]:
+    """Teff (h) of one ROI and its source: 'given' (method_params[roi]['teff']: option or config), else
+    'default' (default_teff_h). madsen2018 has no default: an error naming the ROI."""
+    entry = (method_params or {}).get(roi_name)
+    teff = entry.get("teff") if isinstance(entry, dict) else None
+    if teff is not None:
+        return float(teff), "given"
+    if method.lower() not in TEFF_DEFAULTS:
+        raise ValueError(
+            f"Effective half-life (teff) must be provided for ROI '{roi_name}' when using the {method} method."
+        )
+    return default_teff_h(method, time_from_injection_h, isotope), "default"
+
+
+def log_teff_sources(
+    method: str,
+    roi_names: Iterable[str],
+    method_params: Optional[Dict[str, Any]],
+    time_from_injection_h: float,
+    isotope: str,
+) -> None:
+    """One line per run: the ROIs with the default Teff (INFO; WARNING for hanscheid2017, which assumes
+    no biological clearance) and the ROIs with a given Teff."""
+    m = method.lower()
+    if m not in TEFF_DEFAULTS:
+        return
+    given, default = [], []
+    for r in roi_names:
+        (given if resolve_teff_h(m, r, method_params, time_from_injection_h, isotope)[1] == "given" else default).append(r)
+    if default:
+        teff = default_teff_h(m, time_from_injection_h, isotope)
+        msg = f"Teff default for {len(default)} ROI(s), {TEFF_DEFAULTS[m]} = {teff:.4g} h: {', '.join(default)}"
+        if given:
+            msg += f"; given for {', '.join(given)}"
+        (logger.warning if m == "hanscheid2017" else logger.info)(msg)
 
 
 def dose_ldm(
@@ -129,7 +191,7 @@ def dose_hanscheid2018(
     v = spect_bq_a[act_mask]
     At = np.sum(v) / 1e6
 
-    teff = effective_time_h if effective_time_h is not None else (2.0 * time_from_injection_h)
+    teff = effective_time_h if effective_time_h is not None else default_teff_h("hanscheid2018", time_from_injection_h, "")
 
     # S is in (mGy/MBq/s), so we get dose in mGy
     dose = (

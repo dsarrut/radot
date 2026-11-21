@@ -5,6 +5,7 @@ import SimpleITK as sitk
 from click.testing import CliRunner
 from radot.cli import main
 from radot.dose import (
+    read_results,
     compute_roi_dose,
     roi_dose_uncertainty_bounds,
     roi_dose_uncertainty_estimate,
@@ -220,8 +221,7 @@ def test_dose_cli(tmp_path):
     assert result.exit_code == 0, f"CLI output: {result.output}"
     assert output_path.exists()
 
-    with open(output_path, "r") as f:
-        data = json.load(f)
+    data = read_results(output_path)
 
     assert "Liver" in data
     assert data["Liver"]["roi_teff_h"] == 45.2
