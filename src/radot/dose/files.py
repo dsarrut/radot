@@ -39,10 +39,13 @@ def compute_roi_dose_file(
     dose_rate_map_activity_mbq: Optional[float] = None,
 ) -> Any:
     # 0. Check if image_path is actually a JSON config file
+    from radot.integrate import is_integrate_file
+
     if (
         image_path is not None
         and isinstance(image_path, (str, Path))
         and str(image_path).lower().endswith(".json")
+        and not is_integrate_file(image_path)
         and config is None
         and method is None
         and isotope is None
@@ -76,6 +79,31 @@ def compute_roi_dose_file(
     dose_rate = bool(dose_rate) if dose_rate is not None else False
     cascade = bool(cascade) if cascade is not None else False
     rois = list(rois) if rois else None  # an empty ROI list is no filter: all the ROIs
+
+    # ROI TIA table (radot integrate, fit first at ROI level) dispatch
+    from radot.integrate import is_integrate_file
+
+    if isinstance(image_path, (str, Path)) and is_integrate_file(image_path):
+        from radot.dose.tia_table import check_tia_table_options, compute_roi_dose_tia_table
+
+        if timepoints is not None:
+            raise ValueError("A ROI TIA table already integrates the time points: no 'timepoints'.")
+        check_tia_table_options(
+            method, cascade=cascade, hu_threshold=hu_threshold, dose_rate=dose_rate,
+            total_activity_mbq=total_activity_mbq, dose_rate_map=dose_rate_map_path is not None,
+            resample=resample_target, method_params=method_params,
+        )
+        if not labels_path:
+            raise ValueError("Labels path is required with a ROI TIA table (the ROI masses).")
+        results = compute_roi_dose_tia_table(
+            image_path, labels=Path(labels_path), method=method, ct_image=Path(ct_path) if ct_path else None,
+            isotope=isotope, rois=rois, method_params=method_params, resample=resample_target, verbose=verbose,
+        )
+        if output_path:
+            write_results(results, output_path)
+        else:
+            pretty_print_dose(results)
+        return results
 
     # Multi-timepoint (MTP) dispatch
     if timepoints is not None or isinstance(image_path, (list, tuple)):

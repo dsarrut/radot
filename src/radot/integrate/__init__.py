@@ -20,6 +20,7 @@ from radot.integrate.models import (
 from radot.integrate.roi import (
     INTEGRATE_FORMAT,
     integrate_rois,
+    is_integrate_file,
     read_integrate,
     roi_time_activity_curves,
     write_integrate,
@@ -39,6 +40,7 @@ __all__ = [
     "parse_error_model",
     "INTEGRATE_FORMAT",
     "integrate_rois",
+    "is_integrate_file",
     "read_integrate",
     "roi_time_activity_curves",
     "write_integrate",

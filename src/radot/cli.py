@@ -875,8 +875,11 @@ def dose(
 
     ctx = click.get_current_context(silent=True)
 
-    # Detect if image_path is actually a JSON config file
-    if image_path is not None and image_path.name.lower().endswith(".json"):
+    # Detect if image_path is actually a JSON config file (a radot integrate ROI TIA table is an input)
+    from radot.integrate import is_integrate_file
+
+    if (image_path is not None and image_path.name.lower().endswith(".json")
+            and not is_integrate_file(image_path)):
         if config_path is None:
             config_path = image_path
             image_path = None

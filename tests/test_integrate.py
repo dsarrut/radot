@@ -169,7 +169,7 @@ def _write(path, arr, sidecar):
     return path
 
 
-def _study(tmp_path, decay_correction="start", spleen_at=(0, 1, 2, 3), drop=None, unit="bqml"):
+def _study(tmp_path, decay_correction="start", spleen_at=(0, 1, 2, 3), drop=None, unit="bqml", sex=None):
     """Liver: f2 (A = 100 MBq, lambda1 = 0.02/h); spleen: f2 (20 MBq, 0.05/h). bqml, 2 mm voxels."""
     lab = np.zeros((10, 10, 10), np.uint8)
     lab[LIVER] = 1
@@ -187,6 +187,8 @@ def _study(tmp_path, decay_correction="start", spleen_at=(0, 1, 2, 3), drop=None
             arr[SPLEEN] = spleen * 1e6 / (8 * 0.008)
         sc = {"modality": "spect", "unit": unit, "radionuclide": "Lu177", "time_from_injection": t,
               "decay_correction": decay_correction}
+        if sex:
+            sc["sex"] = sex
         if drop:
             sc.pop(drop)
         images.append(_write(tmp_path / f"spect_tp{i + 1}.nii.gz", arr, sc))
@@ -300,7 +302,12 @@ def test_cli_integrate(tmp_path):
     assert "Liver" in result.output
     doc = read_integrate(out)
     assert doc["rois"]["Liver"]["tia_mbq_h"] == pytest.approx(100.0 / (0.02 + LP), rel=1e-5)
-    assert doc["error_model"] == "proportional" and doc["model"] == "f2"
+    assert doc["error_model"] == "proportional" and doc["model"] == "f2" and doc["sex"] is None
+
+
+def test_patient_sex_recorded(tmp_path):
+    images, labels = _study(tmp_path, sex="female")
+    assert integrate_rois(images, labels, model="f2", error_model="proportional")["sex"] == "female"
 
 
 @pytest.mark.parametrize("drop, err", [("--error-model", "Missing option '--error-model'"),

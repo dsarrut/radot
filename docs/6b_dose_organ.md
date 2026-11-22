@@ -66,7 +66,7 @@ $$
 ---
 
 ### S-value on a TIA image (`svalue`)
-When the time-integrated activity is already known (for example a TIA map from another software, or the TIA maps of the SNMMI Dosimetry Challenge), $\tilde{A}$ is the sum of the TIA image in the ROI (MBq·s). No time point and no effective half-life are needed. The results also report the ROI TIA (`tia_mbq_s`, `tia_mbq_h`). See [TIA images](6a_dose.md#time-integrated-activity-tia-images).
+When the time-integrated activity is already known (for example a TIA map from another software, or the TIA maps of the SNMMI Dosimetry Challenge), $\tilde{A}$ is the sum of the TIA image in the ROI (MBq·s). No time point and no effective half-life are needed. The results also report the ROI TIA (`tia_mbq_s`, `tia_mbq_h`). See [TIA images](6a_dose.md#time-integrated-activity-tia-images). The same formula applies to a ROI TIA table from `radot integrate` (`radot dose tia_rois.json -m svalue -l labels.nii.gz`), see [time integration](6e_time_integration.md#6-command-line).
 
 ---
 

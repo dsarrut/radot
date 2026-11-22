@@ -97,6 +97,12 @@ def roi_time_activity_curves(
         raise ValueError(f"The images have different units: {', '.join(f'{a}: {u}' for a, u in zip(names, units))}.")
     if len(set(times)) != n:
         raise ValueError(f"Two images have the same time from injection: {times} h.")
+    # patient sex (for the OpenDose phantom of a later `radot dose` on the table): the image sidecars
+    sexes = {str(v).strip().lower() for v in (get_metadata_case_insensitive(im, "sex", p) for im, p in zip(imgs, paths))
+             if v is not None and str(v).strip()}
+    if len(sexes) > 1:
+        raise ValueError(f"The image sidecars give different patient sexes: {', '.join(sorted(sexes))}.")
+    sex = sexes.pop() if sexes else None
     if len(set(dcs)) > 1:
         logger.warning(
             "The images have different decay corrections ("
@@ -160,6 +166,7 @@ def roi_time_activity_curves(
         "isotope": isotope,
         "decay_correction": [dcs[i] for i in order],
         "image_names": [names[i] for i in order],
+        "sex": sex,
         "rois": curves,
         "volumes_ml": volumes,
     }
@@ -233,6 +240,7 @@ def integrate_rois(
         "times_h": tac["times_h"],
         "images": tac["image_names"],
         "decay_correction": tac["decay_correction"],
+        "sex": tac["sex"],
     }
     return integrate_document(out, settings)
 
@@ -263,6 +271,19 @@ def _finite(o):
     if isinstance(o, float) and not math.isfinite(o):
         return None
     return o
+
+
+def is_integrate_file(path) -> bool:
+    """True for a radot integrate file (a JSON object with the 'radot_integrate' key)."""
+    p = Path(path)
+    if p.suffix.lower() != ".json" or not p.is_file():
+        return False
+    try:
+        with open(p) as f:
+            doc = json.load(f)
+    except (OSError, ValueError):
+        return False
+    return isinstance(doc, dict) and "radot_integrate" in doc
 
 
 def read_integrate(path: Union[str, Path]) -> dict:

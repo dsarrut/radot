@@ -2,9 +2,9 @@
 
 !!! warning "Partly implemented"
     Implemented: `radot integrate` at **ROI level** on **activity images** (fit first), with the fitted
-    models `f1`–`f6a` (§3.1), the error models (§3.2), model selection (§4) and the ROI table (§5).
-    Planned: `trapezoid` (§3.3), single time point models (§3.4), voxel level, dose-rate images (fit
-    after), and `radot dose` on the ROI table.
+    models `f1`–`f6a` (§3.1), the error models (§3.2), model selection (§4) and the ROI table (§5); and
+    `radot dose` on the ROI table (§6). Planned: `trapezoid` (§3.3), single time point models (§3.4),
+    voxel level, dose-rate images (fit after).
 
 Time integration turns a series of images acquired at several times after injection into one
 time-integrated image or one value per ROI:
@@ -277,10 +277,10 @@ in h) when the injected activity is in the sidecar.
 ## 6. Command line
 
 ```bash
-# ROI level, model averaging (implemented); then S-value doses on the ROI TIA table (planned)
+# ROI level, model averaging; then S-value doses on the ROI TIA table (implemented)
 radot integrate tp1.nii.gz tp2.nii.gz tp3.nii.gz tp4.nii.gz tp5.nii.gz tp6.nii.gz -l labels.nii.gz \
     --model auto --candidates f2,f3,f4a --select average --error-model proportional -o tia_rois.json
-radot dose tia_rois.json -m svalue --ct ct.nii.gz
+radot dose tia_rois.json -m svalue -l labels.nii.gz --ct ct.nii.gz -o dose.json
 
 # ROI level, one model, known 10 % standard deviation of each point (implemented)
 radot integrate tp1.nii.gz tp2.nii.gz tp3.nii.gz -l labels.nii.gz --model f2 --error-model fsd:0.1 \
@@ -308,6 +308,21 @@ radot meta tp1.nii.gz --decay-correction admin
 # list the models and their options
 radot integrate --list-models
 ```
+
+**Dose on the ROI TIA table** (`radot dose tia_rois.json -m svalue -l labels.nii.gz [--ct ct.nii.gz]`):
+the OpenDose self S-value of each ROI, scaled to the ROI mass, as `svalue` on a TIA image
+([organ level](6b_dose_organ.md)):
+
+* the method is `svalue` (the time integration is done); `--teff`, `--total-activity`, `--dose-rate`,
+  `--cascade`, `--hu-threshold`, a dose-rate map are errors;
+* ROI mass from `-l` (required) and `--ct` (CT density, voxel-wise); without a CT, the label volume with
+  water density 1 g/mL (logged). `--resample like_labels` resamples the CT to the labels grid;
+* radionuclide from the table (`--isotope` that contradicts it is an error); phantom from `--phantom`,
+  else the patient sex recorded in the table (from the image sidecars), else an error;
+* ROIs: all those of the table, or `--rois` (a requested ROI missing from the table or the labels, or
+  without OpenDose data, is an error; without `--rois`, skipped with a WARNING);
+* results: as any `radot dose` ROI table, plus `mean_dose_fit_se_gy` (the dose uncertainty from the
+  TIA fit only: S-value and mass not included), `tia_se_mbq_h` and `tia_model`.
 
 Time points with one label image each: repeat `-l`, one per image, in the same order as the images
 (they are then sorted by time from injection). `--resample like_labels` resamples each image to the grid

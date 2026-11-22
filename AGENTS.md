@@ -38,9 +38,10 @@ pytest -q                         # unit tests + validation levels that need no 
     *   `uncertainty.py`: ROI dose uncertainty (`roi_dose_uncertainty_estimate`, also used by the validation).
     *   `compute.py`: input checks and `compute_roi_dose` (SimpleITK images, dispatch to the above).
     *   `config.py`: JSON dose configs (`load_dose_config`); `files.py`: `compute_roi_dose_file` (files, resampling, output) and the results table.
+    *   `tia_table.py`: `compute_roi_dose_tia_table`, `svalue` on a ROI TIA table from `radot integrate` (`radot dose tia_rois.json -m svalue -l labels`): mass from labels (+ CT), phantom from the option or the sex recorded in the table, `mean_dose_fit_se_gy`. `compute_roi_dose_file` and the CLI tell an integrate file (`radot.integrate.is_integrate_file`) from a dose config.
 *   **`src/radot/integrate/`**: `radot integrate`, time integration of a series of images (`docs/6e_time_integration.md`). Import from `radot.integrate`.
     *   `models.py`: Kletting 2013 models `f1`–`f6a` (`TAC_MODELS`), error models (`parse_error_model`: `constant`, `proportional`, `fsd:X`, `sd:X`, no default), fit (grid starts, then `scipy.optimize.least_squares` with the bound λ ≥ 0), AICc, `integrate_tac` (`--model auto` with `--candidates` and `--select best|average`).
-    *   `roi.py`: ROI time-activity curves from activity images (`roi_time_activity_curves`), `integrate_rois`, the integrate file (`{"radot_integrate": 1, ...}`, `write_integrate` / `read_integrate`).
+    *   `roi.py`: ROI time-activity curves from activity images (`roi_time_activity_curves`), `integrate_rois`, the integrate file (`{"radot_integrate": 1, ...}` with the patient `sex` of the sidecars, `write_integrate` / `read_integrate` / `is_integrate_file`).
 *   **`src/radot/data/`**: Packaged JSON data (mapping dictionaries, decay chains) and the shipped OpenDose files `data/opendose/icrp_110_{male,female}/{masses.json,lu177.json.gz}` + `README.txt` (licence). The package-data patterns in `pyproject.toml` list these files exactly: a local cache in that folder must not end up in a build.
 
 ### Repository Layout (outside the package)
