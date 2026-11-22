@@ -52,3 +52,8 @@ from radot.dose.files import (
     read_results,
     write_results,
 )
+from radot.dose.tia_table import (
+    TIA_TABLE_METHODS,
+    check_tia_table_options,
+    compute_roi_dose_tia_table,
+)

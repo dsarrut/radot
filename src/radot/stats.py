@@ -19,6 +19,22 @@ def ct_density_g_ml(hu):
     return np.maximum(1.0 + np.asarray(hu, dtype=float) / 1000.0, DENSITY_FLOOR_G_ML)
 
 
+WATER_DENSITY_G_ML = 1.0
+WATER_DENSITY_WARNING = (
+    "No CT: masses computed with water density 1 g/mL (give the CT, --ct, for the CT density)."
+)
+
+
+def density_map_g_ml(ct_hu=None, shape=None, log: bool = True):
+    """Voxel mass density (g/mL): from the CT values (ct_density_g_ml), else water density for every
+    voxel (array of `shape`), with a WARNING (log=False when the caller has already logged it)."""
+    if ct_hu is not None:
+        return ct_density_g_ml(ct_hu)
+    if log:
+        logger.warning(WATER_DENSITY_WARNING)
+    return np.full(shape, WATER_DENSITY_G_ML, dtype=float)
+
+
 def has_same_grid(img1: sitk.Image, img2: sitk.Image) -> bool:
     """Check if two SimpleITK images share the exact same grid (size, spacing, origin, direction)."""
     if img1.GetSize() != img2.GetSize():

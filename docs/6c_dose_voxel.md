@@ -28,7 +28,7 @@ $$
     $$
     where $A(t, x,y,z)$ is the voxel activity at the acquisition time (Bq), $t$ the time from injection (h), $\lambda = \ln(2)/T_p$ (h⁻¹) and $\lambda_{\text{s}} = \lambda / 3600$ (s⁻¹). From a TIA image (`bqs`, `bqsml`), $\tilde{A}$ is the image itself.
 *   $\Delta_{\text{local}}$: non-penetrating energy per decay of the radionuclide (MeV), from ICRP 107 (see [radionuclides](5a_radionuclide.md)).
-*   $m(x,y,z) = V_{\text{voxel}} \cdot \rho(x,y,z)$: voxel mass (g), with the density from the CT, $\rho = 1 + \text{HU}/1000$ (at least 0.001 g/mL); without CT, 1 g/mL. Voxels below `--hu-threshold` (−800 HU) get no dose.
+*   $m(x,y,z) = V_{\text{voxel}} \cdot \rho(x,y,z)$: voxel mass (g), with the density from the CT, $\rho = 1 + \text{HU}/1000$ (at least 0.001 g/mL); without CT, water density 1 g/mL, with a WARNING. Voxels below `--hu-threshold` (−800 HU) get no dose.
 *   $1.60218 \times 10^{-10}$: MeV/g to Gy ($1\text{ MeV} = 1.60218 \times 10^{-13}\text{ J}$).
 
 Since only the physical decay is used, LDM on an activity image overestimates the dose where the activity clears biologically; on a TIA image it uses the measured kinetics.

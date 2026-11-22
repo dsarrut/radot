@@ -12,7 +12,7 @@ The organ-level methods give one mean absorbed dose per ROI (organ or lesion), f
   $$
   S_{\text{patient}} = \frac{S}{\text{mass-scaling}}, \qquad \text{mass-scaling} = \frac{m_{\text{patient}}}{m_{\text{reference}}}
   $$
-  where $m_{\text{patient}}$ is the ROI mass from the CT density (sum of the voxel masses, $\rho = 1 + \text{HU}/1000$ floored at 0.001 g/mL; without CT, 1 g/mL) and $m_{\text{reference}}$ the OpenDose phantom organ mass.
+  where $m_{\text{patient}}$ is the ROI mass from the CT density (sum of the voxel masses, $\rho = 1 + \text{HU}/1000$ floored at 0.001 g/mL; without CT, water density 1 g/mL, with a WARNING) and $m_{\text{reference}}$ the OpenDose phantom organ mass.
 * **ROI names**: each ROI name is mapped to an OpenDose organ (TotalSegmentator → TG-263 → OpenDose, see [ROI names](2b_roi_names.md)); the OpenDose name must match exactly, ignoring case and separators only: no partial matching, so a lesion named `Liver_met1` gets no liver S-value.
 * **ROIs without an OpenDose organ** (lesions, custom structures): no S-value. When looping over all the labels, they are skipped with a warning. When requested with `--rois`, radot stops with an error. `hanscheid2017` needs no S-value and works for any ROI.
 
@@ -66,7 +66,7 @@ $$
 ---
 
 ### S-value on a TIA image (`svalue`)
-When the time-integrated activity is already known (for example a TIA map from another software, or the TIA maps of the SNMMI Dosimetry Challenge), $\tilde{A}$ is the sum of the TIA image in the ROI (MBq·s). No time point and no effective half-life are needed. The results also report the ROI TIA (`tia_mbq_s`, `tia_mbq_h`). See [TIA images](6a_dose.md#time-integrated-activity-tia-images).
+When the time-integrated activity is already known (for example a TIA map from another software, or the TIA maps of the SNMMI Dosimetry Challenge), $\tilde{A}$ is the sum of the TIA image in the ROI (MBq·s). No time point and no effective half-life are needed. The results also report the ROI TIA (`tia_mbq_s`, `tia_mbq_h`). See [TIA images](6a_dose.md#time-integrated-activity-tia-images). The same formula applies to a ROI TIA table from `radot integrate` (`radot dose tia_rois.json -m svalue -l labels.nii.gz`), see [time integration](6e_time_integration.md#6-command-line).
 
 ---
 

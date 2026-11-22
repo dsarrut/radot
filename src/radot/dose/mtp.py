@@ -352,6 +352,7 @@ def compute_roi_dose_mtp(
     # 6. Process each timepoint: alignment, mass, and activity extraction
     tp_data = []
     all_known_rois = set()
+    water_logged = False
 
     for i in range(num_tp):
         img = itk_images[i]
@@ -430,13 +431,14 @@ def compute_roi_dose_mtp(
         vox_vol_ml = (sp[0] * sp[1] * sp[2]) / 1000.0
         lbl_arr = sitk.GetArrayFromImage(lbl)
 
-        if ct_aligned is not None:
-            ct_arr = sitk.GetArrayFromImage(ct_aligned)
-            from radot.stats import ct_density_g_ml
+        from radot.stats import density_map_g_ml
 
-            density_arr = ct_density_g_ml(ct_arr)
-        else:
-            density_arr = np.ones_like(lbl_arr, dtype=float)
+        # CT density, else water (WARNING once, at the first time point without a CT)
+        density_arr = density_map_g_ml(
+            sitk.GetArrayFromImage(ct_aligned) if ct_aligned is not None else None, lbl_arr.shape,
+            log=not water_logged,
+        )
+        water_logged = water_logged or ct_aligned is None
 
         vox_mass_g = vox_vol_ml * density_arr
 

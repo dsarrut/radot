@@ -27,7 +27,7 @@ A dose calculation combines two independent parts:
 ## 2. Which one?
 
 * **One SPECT/PET time point, organ doses**: `hanscheid2018` (no effective half-life needed) or `madsen2018` (with a known $T_{\text{eff}}$ per ROI). `hanscheid2017` for Lu-177 when only the mean concentration is available.
-* **Three time points**: `jackson2013`.
+* **Several time points**: `radot integrate` (fit per ROI, model selection), then `radot dose` on its ROI TIA table with `svalue` (see [time integration](6e_time_integration.md)); `jackson2013` for exactly three time points.
 * **A TIA image from another software** (unit `bqs` or `bqsml`): `svalue` (organ) or `ldm` (voxel).
 * **A dose map** (dose distribution, DVH, lesion heterogeneity): `ldm`, or a Monte Carlo map; view it and its DVH with [vvv](viewing.md).
 * **Cross-doses, photons, patient anatomy**: the organ methods give the self-dose only (the S-value of the organ to itself), and LDM the local dose only. A Monte Carlo map (OpenGATE `opengate_dose_rate`) includes all of them.

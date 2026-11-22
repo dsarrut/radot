@@ -100,12 +100,9 @@ def dose_ldm(
     mev_to_joules_per_g = 1.60218e-10
 
     # Compute density map (g/cm3 = g/mL) from Hounsfield Units (HU)
-    if ct_arr is not None:
-        from radot.stats import ct_density_g_ml
+    from radot.stats import density_map_g_ml
 
-        density_arr = ct_density_g_ml(ct_arr)
-    else:
-        density_arr = np.ones_like(image_arr)
+    density_arr = density_map_g_ml(ct_arr, image_arr.shape)  # CT, else water with a WARNING
 
     # Voxel mass in grams: Volume (mL) * Density (g/mL)
     voxel_mass_g = voxel_volume_ml * density_arr
