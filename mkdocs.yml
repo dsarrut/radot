@@ -78,6 +78,7 @@ nav:
       - Organ-level Dosimetry: 6b_dose_organ.md
       - Voxel-level Dosimetry: 6c_dose_voxel.md
       - Statistics & Reporting: 6d_stats.md
+      - Time Integration: 6e_time_integration.md
       - Validation vs Monte Carlo: 7_validation_opengate.md
       - Validation vs SNMMI Challenge: 8_validation_snmmi.md
   - Reference:

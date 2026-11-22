@@ -32,6 +32,7 @@ dependencies = [
     "pydicom",
     "click",
     "numpy",
+    "scipy",
     "tqdm",
     "icrp107-database",
 ]
@@ -42,7 +43,6 @@ seg = [
 ]
 dev = [
     "pytest",
-    "scipy",
 ]
 docs = [
     "mkdocs-material>=9.5",

@@ -12,7 +12,7 @@ radot computes absorbed doses (Gy), or dose rates (Gy/h), at two levels:
 A dose calculation combines two independent parts:
 
 * **How the energy is deposited** (the dose-rate engine): organ S-values (OpenDose, self-dose), a constant (Hänscheid 2017), the local deposition of the non-penetrating emissions (LDM), or an external Monte Carlo map (photons and cross-doses included).
-* **How the activity is integrated over time** (the time model): from one time point with an effective half-life (Hänscheid 2017/2018, Madsen 2018), physical decay only (LDM), a fit of several time points (Jackson 2013), or nothing when the image is already a time-integrated activity (TIA).
+* **How the activity is integrated over time** (the time model): from one time point with an effective half-life (Hänscheid 2017/2018, Madsen 2018), physical decay only (LDM), a fit of several time points (Jackson 2013; or `radot integrate`, see [time integration](6e_time_integration.md)), or nothing when the image is already a time-integrated activity (TIA).
 
 | Method | Level | Energy deposition | Time model | Input images | Output |
 |---|---|---|---|---|---|
