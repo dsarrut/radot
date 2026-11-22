@@ -1011,6 +1011,108 @@ def dose(
 
 
 #### QUALITY CONTROL ####
+@main.command(name="integrate")
+@click.argument("image_paths", nargs=-1, type=click.Path(exists=True, path_type=Path))
+@click.option(
+    "-l",
+    "--labels",
+    "labels_paths",
+    multiple=True,
+    type=click.Path(exists=True, path_type=Path),
+    help="Label image: once (registered time points), or once per image (same order). Required (ROI level).",
+)
+@click.option(
+    "--model",
+    help="Time-activity model: f1, f2, f3, f4, f4a, f5, f6, f6a (Kletting 2013), or auto (with "
+    "--candidates and --select). See --list-models.",
+)
+@click.option(
+    "--candidates",
+    help="With --model auto: candidate models, comma-separated (e.g. f2,f3,f4a).",
+)
+@click.option(
+    "--select",
+    type=click.Choice(["best", "average"]),
+    help="With --model auto: best (lowest AICc) or average (Akaike weights > 1 %, as NUKFIT).",
+)
+@click.option(
+    "--error-model",
+    "error_model",
+    help="Variance of the points: constant or proportional (scale estimated from the data), fsd:X (known "
+    "fractional SD, e.g. fsd:0.1) or sd:X (known SD in MBq). No default.",
+)
+@click.option("--isotope", help="Radionuclide (default: the image sidecars).")
+@click.option(
+    "--rois",
+    multiple=True,
+    help="ROI names (repeat or comma-separated). Default: all the ROIs of the labels.",
+)
+@click.option(
+    "--resample",
+    type=click.Choice(["like_labels"]),
+    help="Resample each image to the grid of its labels (else a grid mismatch is an error).",
+)
+@click.option(
+    "-o",
+    "--output",
+    "output_path",
+    type=click.Path(path_type=Path),
+    help="Output JSON file (radot integrate format).",
+)
+@click.option("--list-models", is_flag=True, help="List the models and exit.")
+def integrate(image_paths, labels_paths, model, candidates, select, error_model, isotope, rois, resample,
+              output_path, list_models):
+    """Time integration of activity images: TIA per ROI (fit first). Times and decay correction from
+    the sidecars; fitted on the activities at the acquisition times, physical decay in the model."""
+    from radot.integrate import TAC_MODELS, integrate_rois, write_integrate
+
+    if list_models:
+        for m in TAC_MODELS.values():
+            click.echo(f"{m.name:<5} K={m.n_params}  {m.description}")
+        click.echo("auto  fit the --candidates, compare with the AICc, --select best|average")
+        return
+    if len(image_paths) < 2:
+        raise click.UsageError("Give at least 2 activity images (time points).")
+    if not labels_paths:
+        raise click.UsageError(
+            "Missing option '-l' / '--labels': only the ROI level is available (voxel level: later)."
+        )
+    if not model:
+        raise click.UsageError("Missing option '--model' (see --list-models).")
+    if not error_model:
+        raise click.UsageError(
+            "Missing option '--error-model': constant, proportional, fsd:X or sd:X (no default)."
+        )
+    cand_list = [c.strip() for c in candidates.split(",") if c.strip()] if candidates else None
+    rois_list = [item.strip() for r in (rois or ()) for item in r.split(",") if item.strip()] or None
+    try:
+        doc = integrate_rois(
+            list(image_paths),
+            list(labels_paths),
+            model=model,
+            error_model=error_model,
+            candidates=cand_list,
+            select=select,
+            isotope=isotope,
+            rois=rois_list,
+            resample=resample,
+        )
+        if output_path:
+            write_integrate(doc, output_path)
+    except Exception as e:
+        handle_cli_exception(e)
+
+    click.echo(
+        f"{'ROI':<28} {'model':<8} {'TIA (MBq.h)':>12} {'SE':>10} {'Teff term. (h)':>15}  issues"
+    )
+    for roi, r in doc["rois"].items():
+        f = r["fits"].get(r["model"], {})
+        se = f"{r['tia_se_mbq_h']:.4g}" if r["tia_se_mbq_h"] is not None else "-"
+        teff = f"{f['teff_terminal_h']:.4g}" if f.get("teff_terminal_h") else "-"
+        issues = "; ".join(f.get("issues", []))
+        click.echo(f"{roi:<28} {r['model']:<8} {r['tia_mbq_h']:>12.5g} {se:>10} {teff:>15}  {issues}")
+
+
 @main.command(name="check")
 @click.argument(
     "activity_paths", nargs=-1, type=click.Path(exists=True, path_type=Path)

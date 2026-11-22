@@ -5,7 +5,7 @@ Instructions for AI coding agents working on `radot`: setup, architecture, modul
 ## 0. Quick Start
 
 ```bash
-pip install -e ".[dev]"          # core + pytest/scipy; ".[seg]" adds TotalSegmentator
+pip install -e ".[dev]"          # core + pytest; ".[seg]" adds TotalSegmentator
 pytest -q                         # unit tests + validation levels that need no data (CI: Python 3.11–3.14)
 ```
 
@@ -38,6 +38,9 @@ pytest -q                         # unit tests + validation levels that need no 
     *   `uncertainty.py`: ROI dose uncertainty (`roi_dose_uncertainty_estimate`, also used by the validation).
     *   `compute.py`: input checks and `compute_roi_dose` (SimpleITK images, dispatch to the above).
     *   `config.py`: JSON dose configs (`load_dose_config`); `files.py`: `compute_roi_dose_file` (files, resampling, output) and the results table.
+*   **`src/radot/integrate/`**: `radot integrate`, time integration of a series of images (`docs/6e_time_integration.md`). Import from `radot.integrate`.
+    *   `models.py`: Kletting 2013 models `f1`–`f6a` (`TAC_MODELS`), error models (`parse_error_model`: `constant`, `proportional`, `fsd:X`, `sd:X`, no default), fit (grid starts, then `scipy.optimize.least_squares` with the bound λ ≥ 0), AICc, `integrate_tac` (`--model auto` with `--candidates` and `--select best|average`).
+    *   `roi.py`: ROI time-activity curves from activity images (`roi_time_activity_curves`), `integrate_rois`, the integrate file (`{"radot_integrate": 1, ...}`, `write_integrate` / `read_integrate`).
 *   **`src/radot/data/`**: Packaged JSON data (mapping dictionaries, decay chains) and the shipped OpenDose files `data/opendose/icrp_110_{male,female}/{masses.json,lu177.json.gz}` + `README.txt` (licence). The package-data patterns in `pyproject.toml` list these files exactly: a local cache in that folder must not end up in a build.
 
 ### Repository Layout (outside the package)
@@ -54,8 +57,8 @@ pytest -q                         # unit tests + validation levels that need no 
 
 ### Packaging
 *   License: LGPL-3.0-or-later (`LICENSE.md`, same as opengate).
-*   Core dependencies are light: SimpleITK, pydicom, click, numpy, tqdm, icrp107-database. Do not add heavy runtime dependencies.
-*   Extras: `[seg]` = TotalSegmentator (imported lazily in `segmentation.py`, with a clear error if missing), `[dev]` = pytest + scipy, `[docs]` = mkdocs-material.
+*   Core dependencies are light: SimpleITK, pydicom, click, numpy, scipy (curve fits, `radot integrate`), tqdm, icrp107-database. Do not add heavy runtime dependencies.
+*   Extras: `[seg]` = TotalSegmentator (imported lazily in `segmentation.py`, with a clear error if missing), `[dev]` = pytest, `[docs]` = mkdocs-material.
 *   `opengate` is **not** a dependency of radot; only the `--opengate=simulate` validation level needs it.
 
 ---
@@ -95,6 +98,7 @@ The code never makes a choice that can change a result without saying so. Inputs
 *   **Dosimetry Model Registration**: Use the strategy registry pattern to route dosimetry methods (`hanscheid2017`, `hanscheid2018`, `madsen2018`, `ldm`; `jackson2013` for multi-time-point; `svalue` for a time-integrated activity image). New models register dynamically.
 *   **TIA Images**: Units `bqs` (Bq·s per voxel) and `bqsml` (Bq·s/mL) mark a time-integrated activity image. Only the methods in `TIA_METHODS` (`svalue`, `ldm`) accept it; no time point, Teff, dose rate or total-activity override is used. Results then report `tia_mbq_s` / `tia_mbq_h` instead of `roi_teff_h`.
 *   **Dose-rate Map**: `--dose-rate-map` (`dose_from_rate_map` in `dose/rate_map.py`) takes an external dose-rate image (e.g. OpenGATE, Gy/s) computed with the activity image as source, scaled to the image total with the map activity (`--dose-rate-map-activity` or sidecar `source_activity_mbq`). It replaces the S-value / local deposition; the method only selects the time integration (`DOSE_RATE_MAP_METHODS`). radot never runs GATE. Planned engine × time-model refactor: `docs_wip/dev_readme_090_dose_engine_time_model.md`.
+*   **Time integration** (`radot.integrate`): fitted on the activities at the acquisition times (an `admin` image brought back with `meta.activity_at_acquisition_factor`), λ_phys inside the models, never decay-corrected before the fit (`jackson2013` keeps its own convention). Number of points per Kletting 2013 Table I (J = K, or K+1 when ν is estimated): fit J ≤ N, SE J+1 ≤ N, AICc J+2 ≤ N (a candidate that fails it is an error, no AIC fallback). In `auto`, only fits with every parameter CV < 50 % are compared; the others are listed in `excluded`. A ROI whose fit fails or which is absent at a time point: error when requested (`--rois`), else skipped with a WARNING.
 *   **Validation**: Any change to a dosimetry model, S-values, masses or decay data must keep `pytest validation` passing, then regenerate `docs/7_validation_opengate.md` and `docs/8_validation_snmmi.md` (see sections 3 and 4).
 
 ### ROI Nomenclature & OpenDose Mapping
@@ -147,6 +151,7 @@ Refer to these Markdown documents in the `docs/` directory for detailed specific
 *   [6a_dose.md](docs/6a_dose.md): Dosimetry overview: organ vs voxel level, energy deposition × time model table, choosing a method, inputs/outputs, CLI and API.
 *   [6b_dose_organ.md](docs/6b_dose_organ.md): Organ-level methods (S-values, mass scaling, Hänscheid 2017/2018, Madsen 2018, svalue, Jackson 2013).
 *   [6c_dose_voxel.md](docs/6c_dose_voxel.md): Voxel-level methods (LDM, cascade, dose rate, external Monte Carlo map, ROI uncertainty).
+*   [6e_time_integration.md](docs/6e_time_integration.md): `radot integrate`: models, error models, AICc selection, ROI table (ROI level implemented; trapezoid, voxel level, fit after planned).
 *   [3a_images_units.md](docs/3a_images_units.md): Unit conversions (`bq`, `bqml`, `suv`, `sul`) and LBM strategies.
 *   [5a_radionuclide.md](docs/5a_radionuclide.md): ICRP-107 and IAEA LiveChart decay cascade data integration and prioritization.
 *   [1a_dicom.md](docs/1a_dicom.md): DICOM conversion, series sorting, and sidecar metadata extraction.
