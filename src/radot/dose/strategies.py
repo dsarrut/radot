@@ -356,6 +356,10 @@ def compute_dose_generic(
 
     unique_labels = sorted(np.unique(labels_arr))
     results = {}
+    if ct_arr is None:
+        from radot.stats import WATER_DENSITY_WARNING
+
+        logger.warning(WATER_DENSITY_WARNING)
 
     for label_id in unique_labels:
         if label_id == 0:
@@ -374,13 +378,11 @@ def compute_dose_generic(
         # Common calculations: volume and mass
         roi_volume_ml = np.sum(mask) * voxel_volume_ml
 
-        if ct_arr is not None:
-            from radot.stats import ct_density_g_ml
+        from radot.stats import density_map_g_ml
 
-            density = ct_density_g_ml(ct_arr[mask])
-            roi_mass_g = np.sum(density) * voxel_volume_ml
-        else:
-            roi_mass_g = roi_volume_ml
+        # CT density, else water (the WARNING above)
+        density = density_map_g_ml(ct_arr[mask] if ct_arr is not None else None, int(np.sum(mask)), log=False)
+        roi_mass_g = np.sum(density) * voxel_volume_ml
 
         # Delegate calculation and logging to the strategy
         try:

@@ -3,8 +3,8 @@ self S-values scaled to the ROI mass (same formula as `svalue` on a TIA image):
 
     D = TIA (MBq.s) * S (mGy/MBq.s) / (m_ROI / m_phantom) / 1000
 
-The ROI mass comes from a label image (and a CT: stats.ct_density_g_ml, voxel-wise; without a CT, water
-density 1 g/mL, logged). docs/6e_time_integration.md §6."""
+The ROI mass comes from a label image and a CT (stats.density_map_g_ml: CT density voxel-wise; without a
+CT, water density 1 g/mL with a WARNING). docs/6e_time_integration.md §6."""
 
 import logging
 from pathlib import Path
@@ -87,7 +87,7 @@ def compute_roi_dose_tia_table(
     from radot.dose.compute import load_labels_map
     from radot.integrate import read_integrate
     from radot.resampling import resample_image
-    from radot.stats import ct_density_g_ml, has_same_grid
+    from radot.stats import density_map_g_ml, has_same_grid
 
     check_tia_table_options(method, resample=resample, method_params=method_params)
     if isinstance(table, (str, Path)):
@@ -145,12 +145,11 @@ def compute_roi_dose_tia_table(
             logger.info("CT resampled to the labels grid.")
             ct_image = resample_image(ct_image, image_type="ct", preserve_total=False, gaussian=True,
                                       reference_image=labels)
-        density = ct_density_g_ml(sitk.GetArrayFromImage(ct_image))
+        density = density_map_g_ml(sitk.GetArrayFromImage(ct_image))
         mass_source = "CT"
     else:
-        density = None
-        mass_source = "volume, water density 1 g/mL"
-        logger.info("No CT: ROI masses from the label volume with water density 1 g/mL.")
+        density = density_map_g_ml(None, lbl_arr.shape)  # water, with a WARNING
+        mass_source = "water density 1 g/mL"
     name_to_id = {v.lower(): k for k, v in labels_map.items()}
 
     table_rois = doc["rois"]
@@ -184,7 +183,7 @@ def compute_roi_dose_tia_table(
             logger.warning(f"Skipping dosimetry for ROI '{roi}': {e}")
             continue
         volume = nvox * vox_ml
-        mass = float(np.sum(density[mask]) * vox_ml) if density is not None else volume
+        mass = float(np.sum(density[mask]) * vox_ml)
         mass_scaling = mass / ref_mass
         gy_per_mbq_s = s_value / mass_scaling / 1000.0
         tia_mbq_s = float(entry["tia_mbq_s"])

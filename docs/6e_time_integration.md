@@ -315,8 +315,8 @@ the OpenDose self S-value of each ROI, scaled to the ROI mass, as `svalue` on a 
 
 * the method is `svalue` (the time integration is done); `--teff`, `--total-activity`, `--dose-rate`,
   `--cascade`, `--hu-threshold`, a dose-rate map are errors;
-* ROI mass from `-l` (required) and `--ct` (CT density, voxel-wise); without a CT, the label volume with
-  water density 1 g/mL (logged). `--resample like_labels` resamples the CT to the labels grid;
+* ROI mass from `-l` (required) and `--ct` (CT density, voxel-wise); without a CT, water density 1 g/mL
+  (WARNING). `--resample like_labels` resamples the CT to the labels grid;
 * radionuclide from the table (`--isotope` that contradicts it is an error); phantom from `--phantom`,
   else the patient sex recorded in the table (from the image sidecars), else an error;
 * ROIs: all those of the table, or `--rois` (a requested ROI missing from the table or the labels, or

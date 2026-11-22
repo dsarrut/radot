@@ -468,12 +468,10 @@ def compute_roi_dose(
         labels_arr = sitk.GetArrayFromImage(labels)
 
         # Compute voxel mass array for region-absorbed dose aggregation
-        if ct_image is not None:
-            from radot.stats import ct_density_g_ml
+        from radot.stats import density_map_g_ml
 
-            density_arr = ct_density_g_ml(ct_arr)
-        else:
-            density_arr = np.ones_like(image_arr)
+        # the same density as dose_ldm (which logged the water fallback)
+        density_arr = density_map_g_ml(ct_arr if ct_image is not None else None, image_arr.shape, log=False)
         voxel_mass_g = voxel_volume_ml * density_arr
 
         results = {}
