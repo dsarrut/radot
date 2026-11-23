@@ -17,6 +17,16 @@ from radot.integrate.models import (
     integrate_tac,
     parse_error_model,
 )
+from radot.integrate.simple import (
+    ALL_MODELS,
+    STP_MODELS,
+    TRAPEZOID_HEADS,
+    TRAPEZOID_TAILS,
+    check_integration_options,
+    integrate_curve,
+    integrate_stp,
+    integrate_trapezoid,
+)
 from radot.integrate.roi import (
     INTEGRATE_FORMAT,
     integrate_rois,
@@ -27,6 +37,14 @@ from radot.integrate.roi import (
 )
 
 __all__ = [
+    "ALL_MODELS",
+    "STP_MODELS",
+    "TRAPEZOID_HEADS",
+    "TRAPEZOID_TAILS",
+    "check_integration_options",
+    "integrate_curve",
+    "integrate_stp",
+    "integrate_trapezoid",
     "CV_ACCEPTABLE",
     "SELECT_METHODS",
     "TAC_MODELS",
