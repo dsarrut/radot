@@ -1026,8 +1026,9 @@ def dose(
 )
 @click.option(
     "--model",
-    help="Time-activity model: f1, f2, f3, f4, f4a, f5, f6, f6a (Kletting 2013), or auto (with "
-    "--candidates and --select). See --list-models.",
+    help="Time-activity model: f1 ... f6a (fitted, Kletting 2013), auto (with --candidates and --select), "
+    "trapezoid (with --head and --tail), or for one image physical, hanscheid2018, madsen2018. See "
+    "--list-models.",
 )
 @click.option(
     "--candidates",
@@ -1041,8 +1042,27 @@ def dose(
 @click.option(
     "--error-model",
     "error_model",
-    help="Variance of the points: constant or proportional (scale estimated from the data), fsd:X (known "
-    "fractional SD, e.g. fsd:0.1) or sd:X (known SD in MBq). No default.",
+    help="Fitted models: variance of the points, constant or proportional (scale estimated from the data), "
+    "fsd:X (known fractional SD, e.g. fsd:0.1) or sd:X (known SD in MBq). No default.",
+)
+@click.option(
+    "--head",
+    type=click.Choice(["zero", "ramp", "const", "extrap"]),
+    help="trapezoid, 0 -> t1: zero, ramp (linear from 0), const (first value), extrap (mono-exponential "
+    "through the first two points). No default.",
+)
+@click.option(
+    "--tail",
+    type=click.Choice(["phys", "fit"]),
+    help="trapezoid, after the last point: phys (physical decay) or fit (mono-exponential on the last "
+    "--tail-points points). No default.",
+)
+@click.option("--tail-points", "tail_points", type=int, help="trapezoid --tail fit: number of last points (>= 2).")
+@click.option(
+    "--teff",
+    multiple=True,
+    help="hanscheid2018 / madsen2018: effective half-life per ROI in h (e.g. --teff Liver:45). Required for "
+    "madsen2018; hanscheid2018 uses 2t when not given.",
 )
 @click.option("--isotope", help="Radionuclide (default: the image sidecars).")
 @click.option(
@@ -1063,29 +1083,40 @@ def dose(
     help="Output JSON file (radot integrate format).",
 )
 @click.option("--list-models", is_flag=True, help="List the models and exit.")
-def integrate(image_paths, labels_paths, model, candidates, select, error_model, isotope, rois, resample,
-              output_path, list_models):
+def integrate(image_paths, labels_paths, model, candidates, select, error_model, head, tail, tail_points,
+              teff, isotope, rois, resample, output_path, list_models):
     """Time integration of activity images: TIA per ROI (fit first). Times and decay correction from
     the sidecars; fitted on the activities at the acquisition times, physical decay in the model."""
     from radot.integrate import TAC_MODELS, integrate_rois, write_integrate
 
     if list_models:
         for m in TAC_MODELS.values():
-            click.echo(f"{m.name:<5} K={m.n_params}  {m.description}")
-        click.echo("auto  fit the --candidates, compare with the AICc, --select best|average")
+            click.echo(f"{m.name:<13} K={m.n_params}  {m.description}  [--error-model]")
+        click.echo(f"{'auto':<13} fit the --candidates, compare with the AICc, --select best|average")
+        click.echo(f"{'trapezoid':<13} through the points, --head zero|ramp|const|extrap, --tail phys|fit")
+        click.echo(f"{'physical':<13} one image: A(t) e^(λp t) / λp")
+        click.echo(f"{'hanscheid2018':<13} one image: A(t) Teff / ln2 (Teff = 2t unless --teff)")
+        click.echo(f"{'madsen2018':<13} one image: A(t) e^(λeff t) / λeff (--teff per ROI)")
         return
-    if len(image_paths) < 2:
-        raise click.UsageError("Give at least 2 activity images (time points).")
+    if not image_paths:
+        raise click.UsageError("Give the activity images (time points).")
     if not labels_paths:
         raise click.UsageError(
             "Missing option '-l' / '--labels': only the ROI level is available (voxel level: later)."
         )
     if not model:
         raise click.UsageError("Missing option '--model' (see --list-models).")
-    if not error_model:
-        raise click.UsageError(
-            "Missing option '--error-model': constant, proportional, fsd:X or sd:X (no default)."
-        )
+    teff_map = {}
+    for item in (x.strip() for t in teff or () for x in t.split(",")):
+        if not item:
+            continue
+        name, sep, value = item.rpartition(":")
+        try:
+            teff_map[name.strip()] = float(value)
+        except ValueError:
+            name = ""
+        if not sep or not name.strip():
+            raise click.BadParameter(f"--teff '{item}': ROI:hours (e.g. Liver:45).")
     cand_list = [c.strip() for c in candidates.split(",") if c.strip()] if candidates else None
     rois_list = [item.strip() for r in (rois or ()) for item in r.split(",") if item.strip()] or None
     try:
@@ -1099,6 +1130,10 @@ def integrate(image_paths, labels_paths, model, candidates, select, error_model,
             isotope=isotope,
             rois=rois_list,
             resample=resample,
+            head=head,
+            tail=tail,
+            tail_points=tail_points,
+            teff=teff_map or None,
         )
         if output_path:
             write_integrate(doc, output_path)

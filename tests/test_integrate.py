@@ -272,14 +272,14 @@ def test_roi_fit_failure_skipped_in_loop_error_when_requested(tmp_path, caplog, 
     from radot.integrate import roi as roi_module
 
     images, labels = _study(tmp_path)
-    real = roi_module.integrate_tac
+    real = roi_module.integrate_curve
 
     def failing_for_spleen(times, acts, *a, **k):
         if acts[0] < 50:  # the spleen starts at ~16 MBq, the liver at ~91 MBq
             raise ValueError("Model f2: non-physical fit")
         return real(times, acts, *a, **k)
 
-    monkeypatch.setattr(roi_module, "integrate_tac", failing_for_spleen)
+    monkeypatch.setattr(roi_module, "integrate_curve", failing_for_spleen)
     with caplog.at_level(logging.WARNING, logger="radot"):
         doc = integrate_rois(images, labels, model="f2", error_model="proportional")
     assert list(doc["rois"]) == ["Liver"] and "ROI 'Spleen' skipped: Model f2" in caplog.text
@@ -310,7 +310,7 @@ def test_patient_sex_recorded(tmp_path):
     assert integrate_rois(images, labels, model="f2", error_model="proportional")["sex"] == "female"
 
 
-@pytest.mark.parametrize("drop, err", [("--error-model", "Missing option '--error-model'"),
+@pytest.mark.parametrize("drop, err", [("--error-model", "Missing error model"),
                                        ("--model", "Missing option '--model'"),
                                        ("-l", "Missing option '-l'")])
 def test_cli_integrate_no_default(tmp_path, drop, err):

@@ -1,10 +1,10 @@
 # Dosimetry: Time Integration
 
 !!! warning "Partly implemented"
-    Implemented: `radot integrate` at **ROI level** on **activity images** (fit first), with the fitted
-    models `f1`–`f6a` (§3.1), the error models (§3.2), model selection (§4) and the ROI table (§5); and
-    `radot dose` on the ROI table (§6). Planned: `trapezoid` (§3.3), single time point models (§3.4),
-    voxel level, dose-rate images (fit after).
+    Implemented: `radot integrate` at **ROI level** on **activity images** (fit first): the fitted
+    models `f1`–`f6a` (§3.1) with the error models (§3.2) and model selection (§4), `trapezoid` (§3.3),
+    the single time point models (§3.4), the ROI table (§5), and `radot dose` on the ROI table (§6).
+    Planned: voxel level, dose-rate images (fit after).
 
 Time integration turns a series of images acquired at several times after injection into one
 time-integrated image or one value per ROI:
@@ -170,11 +170,16 @@ the SNMMI challenge analysis (Kurkowska 2025):
 |------|----------|---------|
 | head | $0 \to t_1$ | `zero` (no activity before $t_1$), `ramp` (linear from $A(0)=0$: $A_1 t_1/2$), `const` ($A_1 t_1$), `extrap` (mono-exponential through the first two points, back to $t=0$) |
 | body | $t_1 \to t_N$ | trapezoids between the points |
-| tail | $t_N \to \infty$ | `phys` ($A_N/\lambda_{\text{phys}}$), `fit` (mono-exponential `f2` on the last `--tail-points` points, to give) |
+| tail | $t_N \to \infty$ | `phys` ($A_N/\lambda_{\text{phys}}$), `fit` ($A_N/\lambda_{\text{eff}}$, $\lambda_{\text{eff}}$ from a mono-exponential on the last `--tail-points` points) |
 
-`--head` and `--tail` have no default: they change the result and must be given. The physical-decay
-tail is conservative but often inaccurate (it overestimates the TIA when the activity clears;
-Ivashchenko 2024). A fitted tail slower than the physical decay is an error: use `--tail phys`.
+`--head` and `--tail` have no default: they change the result and must be given; `--tail-points` (2 to
+$N$) is required with `--tail fit` and an error otherwise. The `extrap` head integrates
+$A_1 e^{k(t_1 - t)}$ from 0 to $t_1$, with $k = \ln(A_1/A_2)/(t_2 - t_1)$ (exact for a mono-exponential).
+The `fit` tail rate is a log-linear least squares fit of the last points; the tail starts from the
+measured last value $A_N$, so the curve is continuous. A fitted tail slower than the physical decay is an
+error: use `--tail phys`. The physical-decay tail is conservative but often inaccurate (it overestimates
+the TIA when the activity clears; Ivashchenko 2024). `extrap` and `fit` need values $> 0$. No standard
+error is given (`tia_se_mbq_h` null); the table gives the three parts (`parts_mbq_h`).
 
 ### 3.4 Single time point (one image)
 
@@ -183,12 +188,14 @@ The curve shape is assumed, not measured:
 | Model | $\tilde{A}$ | Needs |
 |-------|-------------|-------|
 | `physical` | $A(t)\, e^{\lambda_{\text{phys}} t} / \lambda_{\text{phys}}$ | $t$ |
-| `hanscheid2018` | $A(t) \cdot 2t / \ln 2$ | $t$ (assumes $T_{\text{eff}} = 2t$ when not given) |
+| `hanscheid2018` | $A(t) \cdot T_{\text{eff}} / \ln 2$ | $t$; $T_{\text{eff}}$ per ROI with `--teff ROI:h`, else $2t$ (logged) |
 | `madsen2018` | $A(t)\, e^{\lambda_{\text{eff}} t} / \lambda_{\text{eff}}$, $\lambda_{\text{eff}} = \ln 2 / T_{\text{eff}}$ | $t$, $T_{\text{eff}}$ per ROI |
 
-These are the time factors used today inside `radot dose` (see [organ level](6b_dose_organ.md)). With
-`integrate` they produce a TIA, so that `radot dose -m hanscheid2018` is the same as `radot integrate
---model hanscheid2018` followed by `radot dose -m svalue`. Hänscheid 2017 is not here: it is an
+One image, exactly. `--teff` is used only by `hanscheid2018` and `madsen2018` (an error otherwise); the
+Teff rule is the one of `radot dose` (given, or the method default, logged once per run). These are the
+time factors used inside `radot dose` (see [organ level](6b_dose_organ.md)). With `integrate` they
+produce a TIA, so that `radot dose -m hanscheid2018` is the same as `radot integrate --model
+hanscheid2018` followed by `radot dose -m svalue` (tested). Hänscheid 2017 is not here: it is an
 empirical dose formula, not a time model. Planned: single-time-point with population-based model
 selection and nonlinear mixed-effects modelling (Hardiansyah 2021, 2024).
 
@@ -269,7 +276,10 @@ reads it; an unknown format version is an error):
 ```
 
 `activities_mbq` are the activities at the acquisition times (after undoing an `admin` decay
-correction). Planned: the time-integrated activity coefficient (TIAC, $\tilde{a} = \tilde{A} / A_0$,
+correction). The settings also hold `head`, `tail`, `tail_points` (trapezoid) and `teff_h` (given Teff);
+the options a model does not use are null. With `trapezoid`, `fits.trapezoid` holds `parts_mbq_h`
+(`head`, `body`, `tail`), `tail_lambda_eff_h` and `teff_terminal_h`; with a single time point model,
+`fits.<model>` holds `teff_h`, `teff_source` (`given`, `default` or `physical`) and `time_h`. Planned: the time-integrated activity coefficient (TIAC, $\tilde{a} = \tilde{A} / A_0$,
 in h) when the injected activity is in the sidecar.
 
 ---

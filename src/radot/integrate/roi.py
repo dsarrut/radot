@@ -10,7 +10,8 @@ from typing import Dict, List, Optional, Sequence, Union
 import numpy as np
 import SimpleITK as sitk
 
-from radot.integrate.models import check_model_choice, integrate_tac, parse_error_model
+from radot.integrate.models import parse_error_model
+from radot.integrate.simple import TEFF_MODELS, check_integration_options, integrate_curve
 
 logger = logging.getLogger("radot")
 
@@ -57,8 +58,8 @@ def roi_time_activity_curves(
     from radot.stats import has_same_grid
 
     n = len(images)
-    if n < 2:
-        raise ValueError(f"Time integration needs at least 2 images (time points), got {n}.")
+    if n < 1:
+        raise ValueError("Time integration needs at least one image.")
     image_paths = list(image_paths) if image_paths else [None] * n
     imgs, paths = zip(*[_read(im, image_paths[i] if i < len(image_paths) else None) for i, im in enumerate(images)])
     if isinstance(labels, (list, tuple)):
@@ -176,7 +177,7 @@ def integrate_rois(
     images: Sequence[ImageLike],
     labels: Union[ImageLike, Sequence[ImageLike]],
     model: str,
-    error_model: str,
+    error_model: Optional[str] = None,
     candidates: Optional[Sequence[str]] = None,
     select: Optional[str] = None,
     isotope: Optional[str] = None,
@@ -185,24 +186,41 @@ def integrate_rois(
     labels_paths=None,
     labels_map: Optional[Dict[int, str]] = None,
     resample: Optional[str] = None,
+    head: Optional[str] = None,
+    tail: Optional[str] = None,
+    tail_points: Optional[int] = None,
+    teff: Optional[Dict[str, float]] = None,
 ) -> dict:
     """TIA per ROI (fit first, ROI level). Returns the integrate document (see integrate_document):
     {"radot_integrate", ..., "rois": {name: {"tia_mbq_h", "tia_mbq_s", "tia_se_mbq_h", "model", "fits",
-    "times_h", "activities_mbq", ...}}}. A ROI whose fit fails is an error when requested (rois), else
+    "times_h", "activities_mbq", ...}}}.
+
+    model: a fitted model (f1 ... f6a, auto: error_model, candidates, select), 'trapezoid' (head, tail,
+    tail_points) or a single time point model (physical, hanscheid2018, madsen2018: one image; teff
+    {roi: hours}, required for madsen2018, else hanscheid2018 uses 2t). The options are checked once
+    (check_integration_options). A ROI whose integration fails is an error when requested (rois), else
     skipped with a WARNING."""
     from radot.db import get_physical_half_life_h
+    from radot.dose.models import log_teff_sources, resolve_teff_h
 
-    em = parse_error_model(error_model)
+    key = (model or "").strip().lower()
+    # the options depend only on the model and the number of time points: one error, not one per ROI
+    check_integration_options(model, len(images), error_model, candidates, select, head, tail, tail_points,
+                              teff_given=bool(teff))
     tac = roi_time_activity_curves(images, labels, isotope=isotope, rois=rois, image_paths=image_paths,
                                    labels_paths=labels_paths, labels_map=labels_map, resample=resample)
     lam_p = math.log(2.0) / get_physical_half_life_h(tac["isotope"])
-    # the model choice depends only on the number of time points: one error, not one per ROI
-    check_model_choice(model, em, len(tac["times_h"]), candidates, select)
+    teff_params = {r: {"teff": float(v)} for r, v in (teff or {}).items()}
     out = {}
     at_bound = []
     for roi, acts in tac["rois"].items():
+        teff_h = teff_source = None
+        if key in TEFF_MODELS:  # a missing Teff (madsen2018) is an error, not a skipped ROI
+            teff_h, teff_source = resolve_teff_h(key, roi, teff_params, tac["times_h"][0], tac["isotope"])
         try:
-            r = integrate_tac(tac["times_h"], acts, lam_p, model, em, candidates=candidates, select=select)
+            r = integrate_curve(tac["times_h"], acts, lam_p, model, error_model=error_model,
+                                candidates=candidates, select=select, head=head, tail=tail,
+                                tail_points=tail_points, teff_h=teff_h, teff_source=teff_source)
         except ValueError as e:
             if rois:
                 raise ValueError(f"ROI '{roi}': {e}") from e
@@ -212,7 +230,7 @@ def integrate_rois(
             for issue in f["issues"]:
                 if name == r["model"] or r["model"] == "average":
                     logger.info(f"ROI '{roi}', model {name}: {issue}")
-            if f["at_bound"] and name == r["model"]:
+            if f.get("at_bound") and name == r["model"]:
                 at_bound.append(roi)
         out[roi] = {
             "tia_mbq_h": r["tia_mbq_h"],
@@ -229,6 +247,8 @@ def integrate_rois(
         logger.warning(
             f"Biological clearance at the bound 0 (pure physical decay) for: {', '.join(at_bound)}."
         )
+    if key in TEFF_MODELS:
+        log_teff_sources(key, out.keys(), teff_params, tac["times_h"][0], tac["isotope"])
     settings = {
         "quantity": "activity",
         "radionuclide": tac["isotope"],
@@ -236,7 +256,11 @@ def integrate_rois(
         "model": model,
         "candidates": list(candidates) if candidates else None,
         "select": select,
-        "error_model": em.name,
+        "error_model": parse_error_model(error_model).name if error_model else None,
+        "head": head,
+        "tail": tail,
+        "tail_points": tail_points,
+        "teff_h": dict(teff) if teff else None,
         "times_h": tac["times_h"],
         "images": tac["image_names"],
         "decay_correction": tac["decay_correction"],
