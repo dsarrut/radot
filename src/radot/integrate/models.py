@@ -209,6 +209,21 @@ def _amplitudes(model, t, y, w, rates, lam_p):
     return amps, float(np.sum(w * r * r))
 
 
+def _grid_wrss(model: TacModel, t, y, w, mesh: np.ndarray, lam_p: float) -> np.ndarray:
+    """Weighted RSS of every row of rates in mesh (M, n_rates), the amplitudes in closed form (batched
+    weighted least squares through the pseudo-inverse)."""
+    X = np.zeros((len(mesh), len(t), model.n_amplitudes))
+    for coefs, r in model.terms:
+        lam = lam_p + (mesh[:, r] if r is not None else np.zeros(len(mesh)))
+        X += np.exp(-lam[:, None] * t[None, :])[:, :, None] * np.asarray(coefs)[None, None, :]
+    sw = np.sqrt(w)
+    Xw = X * sw[None, :, None]
+    yw = y * sw
+    amps = np.linalg.pinv(Xw) @ yw  # (M, n_amplitudes)
+    r = yw[None, :] - np.einsum("mnk,mk->mn", Xw, amps)
+    return np.sum(r * r, axis=1)
+
+
 def _rate_grid(n_rates: int) -> np.ndarray:
     """Biological rates tried as starting points (1/h): 0, then half-lives from ~7000 h to ~4 min."""
     n = {1: 60, 2: 30, 3: 14}[n_rates]
@@ -228,7 +243,7 @@ def _fit_rates(model: TacModel, t, y, w, lam_p) -> Tuple[np.ndarray, np.ndarray,
         mesh = mesh[keep]
     if model.name == "f4a":  # uptake (lambda2) faster than washout (lambda1), the other order is -A1
         mesh = mesh[mesh[:, 1] > mesh[:, 0]]
-    scores = np.array([_amplitudes(model, t, y, w, r, lam_p)[1] for r in mesh])
+    scores = _grid_wrss(model, t, y, w, mesh, lam_p)
     starts = mesh[np.argsort(scores)[:3]]
 
     # refinement of all the parameters together: bounded least squares (trust region reflective,
@@ -387,8 +402,8 @@ def fit_tac(model_name: str, times_h, values_mbq, lambda_phys_h: float, error_mo
             res.params_cv = {nm: (float(s / abs(p)) if p != 0 else float("inf"))
                              for nm, s, p in zip(names, se, params)}
             res.tia_se_mbq_h = float(math.sqrt(max(float(grad @ cov @ grad), 0.0)))
-            if k > 1:
-                d = np.sqrt(np.diag(cov))
+            d = np.sqrt(np.clip(np.diag(cov), 0, None))
+            if k > 1 and np.all(d > 0):  # a parameter with a zero SE (degenerate fit): no correlation
                 corr = cov / np.outer(d, d)
                 off = np.abs(corr[~np.eye(k, dtype=bool)])
                 res.correlation_max = float(np.max(off))

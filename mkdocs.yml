@@ -81,5 +81,6 @@ nav:
       - Time Integration: 6e_time_integration.md
       - Validation vs Monte Carlo: 7_validation_opengate.md
       - Validation vs SNMMI Challenge: 8_validation_snmmi.md
+      - Validation of Time Integration: 9_validation_time_integration.md
   - Reference:
       - Logging: logging.md
