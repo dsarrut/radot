@@ -244,7 +244,7 @@ def test_isotope_option_vs_sidecar(tmp_path):
 
 def test_roi_unit_not_activity_is_an_error(tmp_path):
     images, labels = _study(tmp_path, unit="suv")
-    with pytest.raises(ValueError, match="bq or bqml"):
+    with pytest.raises(ValueError, match="bq, bqml"):
         integrate_rois(images, labels, model="f2", error_model="proportional")
 
 

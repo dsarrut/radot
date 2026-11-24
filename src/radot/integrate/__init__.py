@@ -28,7 +28,11 @@ from radot.integrate.simple import (
     integrate_trapezoid,
 )
 from radot.integrate.roi import (
+    ACTIVITY_UNITS,
+    DOSE_RATE_UNITS,
     INTEGRATE_FORMAT,
+    QUANTITIES,
+    quantity_of_unit,
     integrate_rois,
     is_integrate_file,
     read_integrate,
@@ -56,7 +60,11 @@ __all__ = [
     "get_tac_model",
     "integrate_tac",
     "parse_error_model",
+    "ACTIVITY_UNITS",
+    "DOSE_RATE_UNITS",
     "INTEGRATE_FORMAT",
+    "QUANTITIES",
+    "quantity_of_unit",
     "integrate_rois",
     "is_integrate_file",
     "read_integrate",

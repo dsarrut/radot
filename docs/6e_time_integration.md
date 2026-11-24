@@ -1,10 +1,11 @@
 # Dosimetry: Time Integration
 
 !!! warning "Partly implemented"
-    Implemented: `radot integrate` at **ROI level** on **activity images** (fit first): the fitted
-    models `f1`–`f6a` (§3.1) with the error models (§3.2) and model selection (§4), `trapezoid` (§3.3),
-    the single time point models (§3.4), the ROI table (§5), and `radot dose` on the ROI table (§6).
-    Planned: voxel level, dose-rate images (fit after).
+    Implemented: `radot integrate` at **ROI level** on **activity images** (fit first) and on
+    **dose-rate images** (fit after): the fitted models `f1`–`f6a` (§3.1) with the error models (§3.2)
+    and model selection (§4), `trapezoid` (§3.3), the single time point models (§3.4), the ROI table
+    (§5), and `radot dose` on the ROI TIA table (§6).
+    Planned: voxel level (needs registered images), hybrid (one dose-rate map + ROI kinetics).
 
 Time integration turns a series of images acquired at several times after injection into one
 time-integrated image or one value per ROI:
@@ -43,11 +44,15 @@ through the non-linearity of the fit, changes of the anatomy between time points
   `time_from_injection`), as everywhere in radot. All images must have the same unit and radionuclide.
 * **Decay correction** of each image: sidecar key `decay_correction` (section 2). Required.
 * **Fit level**:
-    * **ROI** (`-l labels.nii.gz`): the ROI total (Bq, or mass-weighted mean dose rate) at each time point
-      is fitted, one curve per ROI. One label image for registered time points, or one per time point
-      (JSON config). Output: a table.
+    * **ROI** (`-l labels.nii.gz`): the ROI total (Bq), or the mass-weighted mean dose rate (Gy/h), at
+      each time point is fitted, one curve per ROI. One label image for registered time points, or one
+      per time point (repeat `-l`). Output: a table.
     * **Voxel** (no labels): one curve per voxel. The images must be registered (same grid, aligned
       anatomy): radot does not register them. Output: an image.
+* **CT** (dose-rate images only, `--ct`, once or once per time point): the voxel masses of the
+  mass-weighted ROI mean dose rate, with the CT density of that time point (as the ROI mean dose of
+  `radot dose`); without a CT, water density 1 g/mL with a WARNING. A CT with activity images is an
+  error (the masses come with `radot dose --ct` on the TIA table).
 * **Radionuclide**: its physical decay constant $\lambda_{\text{phys}}$ is known and built into the
   models (from the sidecar `radionuclide`, or `--isotope`).
 
@@ -282,6 +287,12 @@ the options a model does not use are null. With `trapezoid`, `fits.trapezoid` ho
 `fits.<model>` holds `teff_h`, `teff_source` (`given`, `default` or `physical`) and `time_h`. Planned: the time-integrated activity coefficient (TIAC, $\tilde{a} = \tilde{A} / A_0$,
 in h) when the injected activity is in the sidecar.
 
+**Dose-rate images** (fit after, `"quantity": "dose_rate"`): each ROI entry gives `mean_dose_gy` (the
+integral of the mean dose rate, Gy), `mean_dose_se_gy` (from the fit only), `dose_rates_gy_h` (at the
+acquisition times), `volumes_ml` and `masses_g` (per time point), and the fits with `dose_gy`,
+`dose_se_gy` and `parts_gy` in place of the TIA keys (the amplitudes are in Gy/h). It is the result:
+`radot dose` on it is an error.
+
 ---
 
 ## 6. Command line
@@ -304,10 +315,11 @@ radot dose tia.nii.gz -l labels.nii.gz --ct ct.nii.gz -m ldm
 radot integrate tp1.nii.gz tp2.nii.gz tp3.nii.gz -l labels.nii.gz \
     --model trapezoid --head ramp --tail phys -o tia_rois.json
 
-# fit after: dose rate per time point (works today), then integration of the dose rates
-radot dose tp1.nii.gz --ct ct1.nii.gz -m ldm --dose-rate -o dr1.nii.gz     # same for tp2, tp3
-radot integrate dr1.nii.gz dr2.nii.gz dr3.nii.gz -l labels.nii.gz --model auto --candidates f2,f4a --select best \
-    --error-model proportional -o dose_rois.json
+# fit after: dose rate at each time point with its own CT, then integration of the ROI mean dose rates
+radot dose tp1.nii.gz --ct ct1.nii.gz -m ldm --dose-rate -o dr1.nii.gz     # same for tp2, tp3, tp4
+radot integrate dr1.nii.gz dr2.nii.gz dr3.nii.gz dr4.nii.gz -l labels1.nii.gz -l labels2.nii.gz \
+    -l labels3.nii.gz -l labels4.nii.gz --ct ct1.nii.gz --ct ct2.nii.gz --ct ct3.nii.gz --ct ct4.nii.gz \
+    --model f4a --error-model proportional -o dose_rois.json
 
 # one time point, Hänscheid 2018 assumption
 radot integrate tp1.nii.gz -l labels.nii.gz --model hanscheid2018 -o tia_rois.json
@@ -333,6 +345,12 @@ the OpenDose self S-value of each ROI, scaled to the ROI mass, as `svalue` on a 
   without OpenDose data, is an error; without `--rois`, skipped with a WARNING);
 * results: as any `radot dose` ROI table, plus `mean_dose_fit_se_gy` (the dose uncertainty from the
   TIA fit only: S-value and mass not included), `tia_se_mbq_h` and `tia_model`.
+
+**Dose-rate images** (fit after): `radot dose -m ldm --dose-rate` writes a `gy/h` image whose sidecar
+keeps the time from injection, the radionuclide and the patient data of the activity image, with
+`decay_correction: none` (the dose rate is computed from the activity at the acquisition time, an
+`admin` image brought back). An external dose-rate image (e.g. a Monte Carlo map, `gy/s`) needs the same
+keys in its sidecar. Activity and dose-rate images in the same run are an error.
 
 Time points with one label image each: repeat `-l`, one per image, in the same order as the images
 (they are then sorted by time from injection). `--resample like_labels` resamples each image to the grid

@@ -19,12 +19,22 @@
         "tia_vs_t5_map_pct": 0.818634297577181,
         "ldm_scaled": 2.318619465501354,
         "svalue": 2.414304194867959,
+        "ldm_fit_after": 2.146170650353956,
+        "ldm_fit_after_se": 0.06009967229608947,
+        "masses_g": [
+          2158.4494147488335,
+          2300.2415304312613,
+          2165.0888862898996,
+          2405.625115782614
+        ],
         "svalue_fit_se": 0.10381170743513346,
         "mass_g": 2158.4494147488335,
         "svalue_diff_pct": 14.966866422283754,
         "svalue_in_iqr": true,
         "ldm_scaled_diff_pct": 10.410450738159716,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": 2.1986023978074254,
+        "ldm_fit_after_in_iqr": true
       },
       "f4a": {
         "tia_mbq_h": 56915.363599427255,
@@ -44,12 +54,22 @@
         "tia_vs_t5_map_pct": -2.1752106359848256,
         "ldm_scaled": 2.2497672420209147,
         "svalue": 2.3426105795731065,
+        "ldm_fit_after": 2.1138613069435657,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          2158.4494147488335,
+          2300.2415304312613,
+          2165.0888862898996,
+          2405.625115782614
+        ],
         "svalue_fit_se": null,
         "mass_g": 2158.4494147488335,
         "svalue_diff_pct": 11.552884741576497,
         "svalue_in_iqr": true,
         "ldm_scaled_diff_pct": 7.131773429567367,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": 0.6600622354078878,
+        "ldm_fit_after_in_iqr": true
       },
       "trapezoid ramp/phys": {
         "tia_mbq_h": 73669.89724317615,
@@ -69,12 +89,22 @@
         "tia_vs_t5_map_pct": 26.622088035907264,
         "ldm_scaled": 2.91204537859462,
         "svalue": 3.032219593509981,
+        "ldm_fit_after": 2.698825913543634,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          2158.4494147488335,
+          2300.2415304312613,
+          2165.0888862898996,
+          2405.625115782614
+        ],
         "svalue_fit_se": null,
         "mass_g": 2158.4494147488335,
         "svalue_diff_pct": 44.39140921476099,
         "svalue_in_iqr": false,
         "ldm_scaled_diff_pct": 38.66882755212475,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": 28.515519692553994,
+        "ldm_fit_after_in_iqr": false
       },
       "trapezoid extrap/fit2": {
         "tia_mbq_h": 69180.55456415282,
@@ -94,12 +124,22 @@
         "tia_vs_t5_map_pct": 18.905911345036387,
         "ldm_scaled": 2.734589320006342,
         "svalue": 2.847440282791232,
+        "ldm_fit_after": 1.9220936062695566,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          2158.4494147488335,
+          2300.2415304312613,
+          2165.0888862898996,
+          2405.625115782614
+        ],
         "svalue_fit_se": null,
         "mass_g": 2158.4494147488335,
         "svalue_diff_pct": 35.59239441863009,
         "svalue_in_iqr": false,
         "ldm_scaled_diff_pct": 30.218539047921045,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": -8.471733034783025,
+        "ldm_fit_after_in_iqr": true
       },
       "challenge": {
         "q1": 1.42,
@@ -127,12 +167,22 @@
         "tia_vs_t5_map_pct": 3.987031066470248,
         "ldm_scaled": 2.694006722873679,
         "svalue": 2.7235442613626497,
+        "ldm_fit_after": 2.5730796502212043,
+        "ldm_fit_after_se": 0.03212300401433245,
+        "masses_g": [
+          252.53052751738332,
+          258.44573526816214,
+          274.6767925615969,
+          268.79952124074094
+        ],
         "svalue_fit_se": 0.028656612801291097,
         "mass_g": 252.53052751738332,
         "svalue_diff_pct": -2.73056209419108,
         "svalue_in_iqr": true,
         "ldm_scaled_diff_pct": -3.785474183082882,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": -8.104298206385552,
+        "ldm_fit_after_in_iqr": false
       },
       "f4a": {
         "tia_mbq_h": 7918.868030253372,
@@ -152,12 +202,22 @@
         "tia_vs_t5_map_pct": 3.271301431414031,
         "ldm_scaled": 2.675464213977845,
         "svalue": 2.70479844931039,
+        "ldm_fit_after": 2.5516266358024464,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          252.53052751738332,
+          258.44573526816214,
+          274.6767925615969,
+          268.79952124074094
+        ],
         "svalue_fit_se": null,
         "mass_g": 252.53052751738332,
         "svalue_diff_pct": -3.4000553817717827,
         "svalue_in_iqr": true,
         "ldm_scaled_diff_pct": -4.447706643648386,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": -8.870477292769763,
+        "ldm_fit_after_in_iqr": false
       },
       "trapezoid ramp/phys": {
         "tia_mbq_h": 11286.724447298628,
@@ -177,12 +237,22 @@
         "tia_vs_t5_map_pct": 47.19208832843653,
         "ldm_scaled": 3.8133262527434946,
         "svalue": 3.8551361970190845,
+        "ldm_fit_after": 3.652210901559705,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          252.53052751738332,
+          258.44573526816214,
+          274.6767925615969,
+          268.79952124074094
+        ],
         "svalue_fit_se": null,
         "mass_g": 252.53052751738332,
         "svalue_diff_pct": 37.68343560782446,
         "svalue_in_iqr": false,
         "ldm_scaled_diff_pct": 36.19022331226767,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": 30.436103627132315,
+        "ldm_fit_after_in_iqr": true
       },
       "trapezoid extrap/fit2": {
         "tia_mbq_h": 8377.008114833514,
@@ -202,12 +272,22 @@
         "tia_vs_t5_map_pct": 9.245983998636387,
         "ldm_scaled": 2.8302511603696936,
         "svalue": 2.861282505567563,
+        "ldm_fit_after": 2.7693941588669495,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          252.53052751738332,
+          258.44573526816214,
+          274.6767925615969,
+          268.79952124074094
+        ],
         "svalue_fit_se": null,
         "mass_g": 252.53052751738332,
         "svalue_diff_pct": 2.1886609131272605,
         "svalue_in_iqr": true,
         "ldm_scaled_diff_pct": 1.0803985846319142,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": -1.0930657547517986,
+        "ldm_fit_after_in_iqr": true
       },
       "challenge": {
         "q1": 2.6,
@@ -235,12 +315,22 @@
         "tia_vs_t5_map_pct": -2.5672743627880856,
         "ldm_scaled": 2.345104843839767,
         "svalue": 2.373765620424072,
+        "ldm_fit_after": 2.4451397077396506,
+        "ldm_fit_after_se": 0.06613936978185776,
+        "masses_g": [
+          264.3982700422192,
+          244.22670889142086,
+          260.65791602862254,
+          246.00922990592127
+        ],
         "svalue_fit_se": 0.05198104716575967,
         "mass_g": 264.3982700422192,
         "svalue_diff_pct": -11.094920583368095,
         "svalue_in_iqr": false,
         "ldm_scaled_diff_pct": -12.168357908622951,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": -8.421733792522446,
+        "ldm_fit_after_in_iqr": false
       },
       "f4a": {
         "tia_mbq_h": 7216.518109165092,
@@ -260,12 +350,22 @@
         "tia_vs_t5_map_pct": -3.2476281773459625,
         "ldm_scaled": 2.3287294318248617,
         "svalue": 2.3571900757684157,
+        "ldm_fit_after": 2.456111324666194,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          264.3982700422192,
+          244.22670889142086,
+          260.65791602862254,
+          246.00922990592127
+        ],
         "svalue_fit_se": null,
         "mass_g": 264.3982700422192,
         "svalue_diff_pct": -11.715727499310269,
         "svalue_in_iqr": false,
         "ldm_scaled_diff_pct": -12.781669220042636,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": -8.010811810254914,
+        "ldm_fit_after_in_iqr": false
       },
       "trapezoid ramp/phys": {
         "tia_mbq_h": 10147.158873550885,
@@ -285,12 +385,22 @@
         "tia_vs_t5_map_pct": 36.04368109746523,
         "ldm_scaled": 3.2744305717504263,
         "svalue": 3.314449133523594,
+        "ldm_fit_after": 3.472065075936708,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          264.3982700422192,
+          244.22670889142086,
+          260.65791602862254,
+          246.00922990592127
+        ],
         "svalue_fit_se": null,
         "mass_g": 264.3982700422192,
         "svalue_diff_pct": 24.136671667550335,
         "svalue_in_iqr": true,
         "ldm_scaled_diff_pct": 22.63784912922946,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": 30.039890484520914,
+        "ldm_fit_after_in_iqr": false
       },
       "trapezoid extrap/fit2": {
         "tia_mbq_h": 7387.4204973762835,
@@ -310,12 +420,22 @@
         "tia_vs_t5_map_pct": -0.9563276970507961,
         "ldm_scaled": 2.383878662433888,
         "svalue": 2.413013314527412,
+        "ldm_fit_after": 2.564864800316586,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          264.3982700422192,
+          244.22670889142086,
+          260.65791602862254,
+          246.00922990592127
+        ],
         "svalue_fit_se": null,
         "mass_g": 264.3982700422192,
         "svalue_diff_pct": -9.624969493355351,
         "svalue_in_iqr": false,
         "ldm_scaled_diff_pct": -10.716154965022916,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": -3.937647928217758,
+        "ldm_fit_after_in_iqr": true
       },
       "challenge": {
         "q1": 2.56,
@@ -343,12 +463,22 @@
         "tia_vs_t5_map_pct": -0.24543590248190528,
         "ldm_scaled": 3.007548338060989,
         "svalue": 3.0399144124672057,
+        "ldm_fit_after": 3.276085782015769,
+        "ldm_fit_after_se": 0.08732871599725042,
+        "masses_g": [
+          286.61638061212074,
+          301.9025179342234,
+          268.207050476262,
+          254.8027693088677
+        ],
         "svalue_fit_se": 0.14153063490957196,
         "mass_g": 286.61638061212074,
         "svalue_diff_pct": -13.145302500936983,
         "svalue_in_iqr": false,
         "ldm_scaled_diff_pct": -14.070047483971749,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": -6.397549085263742,
+        "ldm_fit_after_in_iqr": true
       },
       "f4a": {
         "tia_mbq_h": 9982.286233492241,
@@ -368,12 +498,22 @@
         "tia_vs_t5_map_pct": -1.440360556631537,
         "ldm_scaled": 2.971521979866665,
         "svalue": 3.003500352510903,
+        "ldm_fit_after": 3.22241698557658,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          286.61638061212074,
+          301.9025179342234,
+          268.207050476262,
+          254.8027693088677
+        ],
         "svalue_fit_se": null,
         "mass_g": 286.61638061212074,
         "svalue_diff_pct": -14.185704213974205,
         "svalue_in_iqr": false,
         "ldm_scaled_diff_pct": -15.099372003809563,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": -7.930943269240576,
+        "ldm_fit_after_in_iqr": true
       },
       "trapezoid ramp/phys": {
         "tia_mbq_h": 14014.979553895784,
@@ -393,12 +533,22 @@
         "tia_vs_t5_map_pct": 38.37624962141626,
         "ldm_scaled": 4.171972113167276,
         "svalue": 4.216869266814519,
+        "ldm_fit_after": 4.407273025676199,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          286.61638061212074,
+          301.9025179342234,
+          268.207050476262,
+          254.8027693088677
+        ],
         "svalue_fit_se": null,
         "mass_g": 286.61638061212074,
         "svalue_diff_pct": 20.48197905184339,
         "svalue_in_iqr": true,
         "ldm_scaled_diff_pct": 19.199203233350737,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": 25.922086447891402,
+        "ldm_fit_after_in_iqr": true
       },
       "trapezoid extrap/fit2": {
         "tia_mbq_h": 10433.707527914212,
@@ -418,12 +568,22 @@
         "tia_vs_t5_map_pct": 3.0167266250614055,
         "ldm_scaled": 3.105900845306738,
         "svalue": 3.1393253514353217,
+        "ldm_fit_after": 3.5327481211915925,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          286.61638061212074,
+          301.9025179342234,
+          268.207050476262,
+          254.8027693088677
+        ],
         "svalue_fit_se": null,
         "mass_g": 286.61638061212074,
         "svalue_diff_pct": -10.304989958990806,
         "svalue_in_iqr": false,
         "ldm_scaled_diff_pct": -11.259975848378911,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": 0.9356606054740757,
+        "ldm_fit_after_in_iqr": true
       },
       "challenge": {
         "q1": 3.14,
@@ -451,12 +611,22 @@
         "tia_vs_t5_map_pct": -4.60488836192372,
         "ldm_scaled": 1.2130243403591896,
         "svalue": 1.2630834505604156,
+        "ldm_fit_after": 1.143503406090526,
+        "ldm_fit_after_se": 0.03280485835167538,
+        "masses_g": [
+          2039.4574979624763,
+          2173.910329728931,
+          2039.848491054999,
+          2280.2407261692015
+        ],
         "svalue_fit_se": 0.05448239412844204,
         "mass_g": 2039.4574979624763,
         "svalue_diff_pct": -39.85316902093259,
         "svalue_in_iqr": false,
         "ldm_scaled_diff_pct": -42.23693617337193,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": -45.54745685283209,
+        "ldm_fit_after_in_iqr": false
       },
       "f4a": {
         "tia_mbq_h": 28982.286269517834,
@@ -476,12 +646,22 @@
         "tia_vs_t5_map_pct": -4.649160931714147,
         "ldm_scaled": 1.2124613795969046,
         "svalue": 1.2624972575233109,
+        "ldm_fit_after": 1.1435016317699425,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          2039.4574979624763,
+          2173.910329728931,
+          2039.848491054999,
+          2280.2407261692015
+        ],
         "svalue_fit_se": null,
         "mass_g": 2039.4574979624763,
         "svalue_diff_pct": -39.88108297508044,
         "svalue_in_iqr": false,
         "ldm_scaled_diff_pct": -42.26374382871884,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": -45.547541344288454,
+        "ldm_fit_after_in_iqr": false
       },
       "trapezoid ramp/phys": {
         "tia_mbq_h": 39894.891028821425,
@@ -501,12 +681,22 @@
         "tia_vs_t5_map_pct": 31.252976344272334,
         "ldm_scaled": 1.6689854680839067,
         "svalue": 1.7378611902695944,
+        "ldm_fit_after": 1.5467733450275416,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          2039.4574979624763,
+          2173.910329728931,
+          2039.848491054999,
+          2280.2407261692015
+        ],
         "svalue_fit_se": null,
         "mass_g": 2039.4574979624763,
         "svalue_diff_pct": -17.244705225257416,
         "svalue_in_iqr": true,
         "ldm_scaled_diff_pct": -20.524501519813974,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": -26.34412642725993,
+        "ldm_fit_after_in_iqr": true
       },
       "trapezoid extrap/fit2": {
         "failed": "ROI 'Liver': Tail fit on the last 2 points slower than the physical decay (Teff 222.3 h > T_phys 159.5 h): use tail 'phys'."
@@ -537,8 +727,18 @@
         "tia_vs_t5_map_pct": 16.8843396976464,
         "ldm_scaled": 22.92381889403495,
         "svalue": null,
+        "ldm_fit_after": 22.300996041090745,
+        "ldm_fit_after_se": 4.058142744777207,
+        "masses_g": [
+          119.0578564781905,
+          122.43092738643385,
+          121.52340993680549,
+          121.65819624669804
+        ],
         "ldm_scaled_diff_pct": 9.1610423525474,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": 6.195219243289252,
+        "ldm_fit_after_in_iqr": true
       },
       "f4a": {
         "tia_mbq_h": 27044.909792663166,
@@ -558,8 +758,18 @@
         "tia_vs_t5_map_pct": -1.2136843328541702,
         "ldm_scaled": 19.37436285665408,
         "svalue": null,
+        "ldm_fit_after": 19.065898536975602,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          119.0578564781905,
+          122.43092738643385,
+          121.52340993680549,
+          121.65819624669804
+        ],
         "ldm_scaled_diff_pct": -7.7411292540281895,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": -9.210006966782846,
+        "ldm_fit_after_in_iqr": false
       },
       "trapezoid ramp/phys": {
         "tia_mbq_h": 32061.771858841716,
@@ -579,8 +789,18 @@
         "tia_vs_t5_map_pct": 17.111291550869833,
         "ldm_scaled": 22.968329588918607,
         "svalue": null,
+        "ldm_fit_after": 22.48328358537541,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          119.0578564781905,
+          122.43092738643385,
+          121.52340993680549,
+          121.65819624669804
+        ],
         "ldm_scaled_diff_pct": 9.372998042469561,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": 7.063255168454341,
+        "ldm_fit_after_in_iqr": true
       },
       "trapezoid extrap/fit2": {
         "tia_mbq_h": 25267.710943252816,
@@ -600,8 +820,18 @@
         "tia_vs_t5_map_pct": -7.705217411983412,
         "ldm_scaled": 18.10121771988438,
         "svalue": null,
+        "ldm_fit_after": 17.66558331115322,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          119.0578564781905,
+          122.43092738643385,
+          121.52340993680549,
+          121.65819624669804
+        ],
         "ldm_scaled_diff_pct": -13.803725143407707,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": -15.878174708794191,
+        "ldm_fit_after_in_iqr": false
       },
       "challenge": {
         "q1": 19.12,
@@ -629,8 +859,18 @@
         "tia_vs_t5_map_pct": 20.89691085292309,
         "ldm_scaled": 34.54230718664309,
         "svalue": null,
+        "ldm_fit_after": 34.22690168026225,
+        "ldm_fit_after_se": 18.82989623721845,
+        "masses_g": [
+          3.726553222792179,
+          3.9002733158966167,
+          3.7511229897670924,
+          3.726193366714928
+        ],
         "ldm_scaled_diff_pct": -13.83809631667975,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": -14.624839909547893,
+        "ldm_fit_after_in_iqr": true
       },
       "f4a": {
         "tia_mbq_h": 1765.280324151923,
@@ -650,8 +890,18 @@
         "tia_vs_t5_map_pct": 41.455602985947834,
         "ldm_scaled": 40.41627579348772,
         "svalue": null,
+        "ldm_fit_after": 39.64906435178738,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          3.726553222792179,
+          3.9002733158966167,
+          3.7511229897670924,
+          3.726193366714928
+        ],
         "ldm_scaled_diff_pct": 0.8138583025385726,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": -1.0998644255740153,
+        "ldm_fit_after_in_iqr": true
       },
       "trapezoid ramp/phys": {
         "tia_mbq_h": 1756.8715272995535,
@@ -671,8 +921,18 @@
         "tia_vs_t5_map_pct": 40.78178851418133,
         "ldm_scaled": 40.22375551893017,
         "svalue": null,
+        "ldm_fit_after": 39.85294401818828,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          3.726553222792179,
+          3.9002733158966167,
+          3.7511229897670924,
+          3.726193366714928
+        ],
         "ldm_scaled_diff_pct": 0.3336381115743636,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": -0.5913095081359954,
+        "ldm_fit_after_in_iqr": true
       },
       "trapezoid extrap/fit2": {
         "tia_mbq_h": 1686.7039213309733,
@@ -692,8 +952,18 @@
         "tia_vs_t5_map_pct": 35.15911155088691,
         "ldm_scaled": 38.61726091532814,
         "svalue": null,
+        "ldm_fit_after": 39.894740390182626,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          3.726553222792179,
+          3.9002733158966167,
+          3.7511229897670924,
+          3.726193366714928
+        ],
         "ldm_scaled_diff_pct": -3.6735821518380285,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": -0.4870531549448165,
+        "ldm_fit_after_in_iqr": true
       },
       "challenge": {
         "q1": 29.95,
@@ -708,40 +978,52 @@
         "tia_vs_t5_map_pct": 0.7552165326489169,
         "svalue": 2.5446398027546784,
         "ldm_scaled": 2.5155507096409355,
+        "ldm_fit_after": 2.51032001809545,
         "svalue_diff_pct": -7.467643536193513,
         "svalue_in_iqr": false,
         "ldm_scaled_diff_pct": -8.525428740329621,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": -8.715635705619995,
+        "ldm_fit_after_in_iqr": false
       },
       "f4a": {
         "tia_mbq_h": 15135.386139418464,
         "tia_vs_t5_map_pct": 0.05693010222611594,
         "svalue": 2.527004037080842,
         "ldm_scaled": 2.4981166254710745,
+        "ldm_fit_after": 2.504772575428358,
         "svalue_diff_pct": -8.108944106151196,
         "svalue_in_iqr": false,
         "ldm_scaled_diff_pct": -9.159395437415474,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": -8.917360893514259,
+        "ldm_fit_after_in_iqr": false
       },
       "trapezoid ramp/phys": {
         "tia_mbq_h": 21433.883320849513,
         "tia_vs_t5_map_pct": 41.695001732933015,
         "svalue": 3.578586073456849,
         "ldm_scaled": 3.537692383861349,
+        "ldm_fit_after": 3.563842206640841,
         "svalue_diff_pct": 30.13040267115814,
         "svalue_in_iqr": false,
         "ldm_scaled_diff_pct": 28.64335941313998,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": 29.594262059666953,
+        "ldm_fit_after_in_iqr": false
       },
       "trapezoid extrap/fit2": {
         "tia_mbq_h": 15764.428612209798,
         "tia_vs_t5_map_pct": 4.215400732023489,
         "svalue": 2.6320021906847733,
         "ldm_scaled": 2.601940964337122,
+        "ldm_fit_after": 2.6690643709011006,
         "svalue_diff_pct": -4.290829429644605,
         "svalue_in_iqr": true,
         "ldm_scaled_diff_pct": -5.383964933195562,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": -2.9431137854145195,
+        "ldm_fit_after_in_iqr": true
       },
       "challenge": {
         "q1": 2.61,
@@ -771,12 +1053,22 @@
         "tia_vs_t5_map_pct": 17.506207638862392,
         "ldm_scaled": 1.7458236353078969,
         "svalue": 1.8078521150498552,
+        "ldm_fit_after": 1.5841224729396062,
+        "ldm_fit_after_se": 0.0373667978888533,
+        "masses_g": [
+          1704.3115619173968,
+          1925.472195188975,
+          1889.6218851930055,
+          1914.6135862021508
+        ],
         "svalue_fit_se": 0.09999216456096725,
         "mass_g": 1704.3115619173968,
         "svalue_diff_pct": 9.566794851506376,
         "svalue_in_iqr": true,
         "ldm_scaled_diff_pct": 5.807493048963441,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": -3.992577397599617,
+        "ldm_fit_after_in_iqr": true
       },
       "f4a": {
         "tia_mbq_h": 35167.80130539705,
@@ -796,12 +1088,22 @@
         "tia_vs_t5_map_pct": 18.496790578446575,
         "ldm_scaled": 1.7605410118908758,
         "svalue": 1.8230923946780038,
+        "ldm_fit_after": 1.5815830420591868,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          1704.3115619173968,
+          1925.472195188975,
+          1889.6218851930055,
+          1914.6135862021508
+        ],
         "svalue_fit_se": null,
         "mass_g": 1704.3115619173968,
         "svalue_diff_pct": 10.490448162303267,
         "svalue_in_iqr": true,
         "ldm_scaled_diff_pct": 6.699455266113685,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": -4.146482299443221,
+        "ldm_fit_after_in_iqr": true
       },
       "trapezoid ramp/phys": {
         "tia_mbq_h": 42090.39501622143,
@@ -821,12 +1123,22 @@
         "tia_vs_t5_map_pct": 41.822250424164565,
         "ldm_scaled": 2.1070940997773735,
         "svalue": 2.1819583879214566,
+        "ldm_fit_after": 1.9015187492478565,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          1704.3115619173968,
+          1925.472195188975,
+          1889.6218851930055,
+          1914.6135862021508
+        ],
         "svalue_fit_se": null,
         "mass_g": 1704.3115619173968,
         "svalue_diff_pct": 32.239902298270096,
         "svalue_in_iqr": false,
         "ldm_scaled_diff_pct": 27.702672713780217,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": 15.243560560476155,
+        "ldm_fit_after_in_iqr": false
       },
       "trapezoid extrap/fit2": {
         "tia_mbq_h": 36123.92377859934,
@@ -846,12 +1158,22 @@
         "tia_vs_t5_map_pct": 21.71841491289168,
         "ldm_scaled": 1.808405614282292,
         "svalue": 1.8726576090096803,
+        "ldm_fit_after": 1.6335241987269655,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          1704.3115619173968,
+          1925.472195188975,
+          1889.6218851930055,
+          1914.6135862021508
+        ],
         "svalue_fit_se": null,
         "mass_g": 1704.3115619173968,
         "svalue_diff_pct": 13.49440054604123,
         "svalue_in_iqr": false,
         "ldm_scaled_diff_pct": 9.600340259532846,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": -0.9985334104869348,
+        "ldm_fit_after_in_iqr": true
       },
       "challenge": {
         "q1": 1.58,
@@ -879,12 +1201,22 @@
         "tia_vs_t5_map_pct": -9.36719059110358,
         "ldm_scaled": 3.285000523514967,
         "svalue": 3.321717808451248,
+        "ldm_fit_after": 3.412371005586806,
+        "ldm_fit_after_se": 0.3468821223248883,
+        "masses_g": [
+          93.21034545800869,
+          81.71511715686749,
+          96.49412815525193,
+          85.84262149709294
+        ],
         "svalue_fit_se": 0.29354739473500957,
         "mass_g": 93.21034545800869,
         "svalue_diff_pct": -7.730060876354217,
         "svalue_in_iqr": false,
         "ldm_scaled_diff_pct": -8.749985457917585,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": -5.21191651147761,
+        "ldm_fit_after_in_iqr": true
       },
       "f4a": {
         "tia_mbq_h": 3852.3147549011255,
@@ -904,12 +1236,22 @@
         "tia_vs_t5_map_pct": -2.712382091395804,
         "ldm_scaled": 3.5262051109928216,
         "svalue": 3.5656184008469,
+        "ldm_fit_after": 3.7538762445334104,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          93.21034545800869,
+          81.71511715686749,
+          96.49412815525193,
+          85.84262149709294
+        ],
         "svalue_fit_se": null,
         "mass_g": 93.21034545800869,
         "svalue_diff_pct": -0.9550444209194486,
         "svalue_in_iqr": true,
         "ldm_scaled_diff_pct": -2.0498580279771805,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": 4.274340125928067,
+        "ldm_fit_after_in_iqr": true
       },
       "trapezoid ramp/phys": {
         "tia_mbq_h": 4512.1059787595495,
@@ -929,12 +1271,22 @@
         "tia_vs_t5_map_pct": 13.950201464250389,
         "ldm_scaled": 4.130143089528404,
         "svalue": 4.176306747512715,
+        "ldm_fit_after": 4.384202399677528,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          93.21034545800869,
+          81.71511715686749,
+          96.49412815525193,
+          85.84262149709294
+        ],
         "svalue_fit_se": null,
         "mass_g": 93.21034545800869,
         "svalue_diff_pct": 16.008520764242085,
         "svalue_in_iqr": true,
         "ldm_scaled_diff_pct": 14.726196931344537,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": 21.78339999104244,
+        "ldm_fit_after_in_iqr": false
       },
       "trapezoid extrap/fit2": {
         "tia_mbq_h": 3932.211334382405,
@@ -954,12 +1306,22 @@
         "tia_vs_t5_map_pct": -0.694647718343866,
         "ldm_scaled": 3.5993382127362077,
         "svalue": 3.6395689298374854,
+        "ldm_fit_after": 3.8290807796914597,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          93.21034545800869,
+          81.71511715686749,
+          96.49412815525193,
+          85.84262149709294
+        ],
         "svalue_fit_se": null,
         "mass_g": 93.21034545800869,
         "svalue_diff_pct": 1.0991369399301565,
         "svalue_in_iqr": true,
         "ldm_scaled_diff_pct": -0.0183829795497914,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": 6.363354991429437,
+        "ldm_fit_after_in_iqr": true
       },
       "challenge": {
         "q1": 3.35,
@@ -987,12 +1349,22 @@
         "tia_vs_t5_map_pct": -10.108274142860363,
         "ldm_scaled": 4.165111040734834,
         "svalue": 4.2082469545819015,
+        "ldm_fit_after": 4.563558111004414,
+        "ldm_fit_after_se": 0.635950752565111,
+        "masses_g": [
+          194.17696478895564,
+          170.2217038594219,
+          154.37646531898721,
+          176.30875048800345
+        ],
         "svalue_fit_se": 0.4180401194323176,
         "mass_g": 194.17696478895564,
         "svalue_diff_pct": -17.323242542595253,
         "svalue_in_iqr": false,
         "ldm_scaled_diff_pct": -18.170706468863774,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": -10.342669724864162,
+        "ldm_fit_after_in_iqr": true
       },
       "f4a": {
         "tia_mbq_h": 10298.620026603552,
@@ -1012,12 +1384,22 @@
         "tia_vs_t5_map_pct": -2.3382674760697997,
         "ldm_scaled": 4.525132391374663,
         "svalue": 4.571996861270398,
+        "ldm_fit_after": 5.2667433111251105,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          194.17696478895564,
+          170.2217038594219,
+          154.37646531898721,
+          176.30875048800345
+        ],
         "svalue_fit_se": null,
         "mass_g": 194.17696478895564,
         "svalue_diff_pct": -10.176878953430302,
         "svalue_in_iqr": true,
         "ldm_scaled_diff_pct": -11.097595454328824,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": 3.472363676328305,
+        "ldm_fit_after_in_iqr": true
       },
       "trapezoid ramp/phys": {
         "tia_mbq_h": 12188.65101945465,
@@ -1037,12 +1419,22 @@
         "tia_vs_t5_map_pct": 15.584881529228255,
         "ldm_scaled": 5.355597098719841,
         "svalue": 5.411062264663947,
+        "ldm_fit_after": 6.108811103970302,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          194.17696478895564,
+          170.2217038594219,
+          154.37646531898721,
+          176.30875048800345
+        ],
         "svalue_fit_se": null,
         "mass_g": 194.17696478895564,
         "svalue_diff_pct": 6.307706574930205,
         "svalue_in_iqr": true,
         "ldm_scaled_diff_pct": 5.218017656578411,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": 20.01593524499612,
+        "ldm_fit_after_in_iqr": false
       },
       "trapezoid extrap/fit2": {
         "tia_mbq_h": 10646.888770400661,
@@ -1062,12 +1454,22 @@
         "tia_vs_t5_map_pct": 0.9643622758092496,
         "ldm_scaled": 4.678158929822397,
         "svalue": 4.726608216908896,
+        "ldm_fit_after": 5.302496041973898,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          194.17696478895564,
+          170.2217038594219,
+          154.37646531898721,
+          176.30875048800345
+        ],
         "svalue_fit_se": null,
         "mass_g": 194.17696478895564,
         "svalue_diff_pct": -7.139327762104209,
         "svalue_in_iqr": true,
         "ldm_scaled_diff_pct": -8.091180160660183,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": 4.174774891432187,
+        "ldm_fit_after_in_iqr": true
       },
       "challenge": {
         "q1": 4.49,
@@ -1095,12 +1497,22 @@
         "tia_vs_t5_map_pct": 11.610096984507079,
         "ldm_scaled": 1.5685287118313724,
         "svalue": 1.6242579924648188,
+        "ldm_fit_after": 1.4545316864733162,
+        "ldm_fit_after_se": 0.02786324381143973,
+        "masses_g": [
+          1681.6701779604184,
+          1865.32804264909,
+          1803.2566978200737,
+          1846.570629968727
+        ],
         "svalue_fit_se": 0.05786613824997383,
         "mass_g": 1681.6701779604184,
         "svalue_diff_pct": -1.5601216687988528,
         "svalue_in_iqr": true,
         "ldm_scaled_diff_pct": -4.9376538284016664,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": -11.846564456162644,
+        "ldm_fit_after_in_iqr": false
       },
       "f4a": {
         "tia_mbq_h": 30849.036866752675,
@@ -1120,12 +1532,22 @@
         "tia_vs_t5_map_pct": 11.368331316153647,
         "ldm_scaled": 1.5651310228893038,
         "svalue": 1.6207395848141097,
+        "ldm_fit_after": 1.454197533445624,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          1681.6701779604184,
+          1865.32804264909,
+          1803.2566978200737,
+          1846.570629968727
+        ],
         "svalue_fit_se": null,
         "mass_g": 1681.6701779604184,
         "svalue_diff_pct": -1.773358496114552,
         "svalue_in_iqr": true,
         "ldm_scaled_diff_pct": -5.143574370345217,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": -11.866816154810655,
+        "ldm_fit_after_in_iqr": false
       },
       "trapezoid ramp/phys": {
         "tia_mbq_h": 37251.29572405823,
@@ -1145,12 +1567,22 @@
         "tia_vs_t5_map_pct": 34.4811723643818,
         "ldm_scaled": 1.889950692217008,
         "svalue": 1.9570999842353622,
+        "ldm_fit_after": 1.7442333008837694,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          1681.6701779604184,
+          1865.32804264909,
+          1803.2566978200737,
+          1846.570629968727
+        ],
         "svalue_fit_se": null,
         "mass_g": 1681.6701779604184,
         "svalue_diff_pct": 18.612120256688634,
         "svalue_in_iqr": false,
         "ldm_scaled_diff_pct": 14.542466194970194,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": 5.711109144470883,
+        "ldm_fit_after_in_iqr": true
       },
       "trapezoid extrap/fit2": {
         "tia_mbq_h": 32354.822224107542,
@@ -1170,12 +1602,22 @@
         "tia_vs_t5_map_pct": 16.804377935477554,
         "ldm_scaled": 1.641527293761168,
         "svalue": 1.6998501886699051,
+        "ldm_fit_after": 1.5110919488872727,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          1681.6701779604184,
+          1865.32804264909,
+          1803.2566978200737,
+          1846.570629968727
+        ],
         "svalue_fit_se": null,
         "mass_g": 1681.6701779604184,
         "svalue_diff_pct": 3.0212235557518285,
         "svalue_in_iqr": true,
         "ldm_scaled_diff_pct": -0.5134973478079896,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": -8.418669764407705,
+        "ldm_fit_after_in_iqr": false
       },
       "challenge": {
         "q1": 1.58,
@@ -1203,8 +1645,18 @@
         "tia_vs_t5_map_pct": 6.092168802616538,
         "ldm_scaled": 3.2084749060766473,
         "svalue": null,
+        "ldm_fit_after": 3.223077390409346,
+        "ldm_fit_after_se": 0.37151494419417636,
+        "masses_g": [
+          13.354029371313853,
+          12.899607717994328,
+          13.01442613531562,
+          13.483652524296925
+        ],
         "ldm_scaled_diff_pct": -1.881501343221792,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": -1.4349421893166348,
+        "ldm_fit_after_in_iqr": true
       },
       "f4a": {
         "tia_mbq_h": 514.1503497331289,
@@ -1224,8 +1676,18 @@
         "tia_vs_t5_map_pct": 8.62065584617826,
         "ldm_scaled": 3.2849422582023364,
         "svalue": null,
+        "ldm_fit_after": 3.3340704294421357,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          13.354029371313853,
+          12.899607717994328,
+          13.01442613531562,
+          13.483652524296925
+        ],
         "ldm_scaled_diff_pct": 0.4569497921203869,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": 1.9593403499124085,
+        "ldm_fit_after_in_iqr": true
       },
       "trapezoid ramp/phys": {
         "tia_mbq_h": 618.376527657045,
@@ -1245,8 +1707,18 @@
         "tia_vs_t5_map_pct": 30.639732188949374,
         "ldm_scaled": 3.95085054057713,
         "svalue": null,
+        "ldm_fit_after": 4.001689581517109,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          13.354029371313853,
+          12.899607717994328,
+          13.01442613531562,
+          13.483652524296925
+        ],
         "ldm_scaled_diff_pct": 20.821117448841896,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": 22.37582818095134,
+        "ldm_fit_after_in_iqr": false
       },
       "trapezoid extrap/fit2": {
         "tia_mbq_h": 535.8298577974996,
@@ -1266,8 +1738,18 @@
         "tia_vs_t5_map_pct": 13.200721551855077,
         "ldm_scaled": 3.4234541394344586,
         "svalue": null,
+        "ldm_fit_after": 3.4483874793142477,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          13.354029371313853,
+          12.899607717994328,
+          13.01442613531562,
+          13.483652524296925
+        ],
         "ldm_scaled_diff_pct": 4.692787138668453,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": 5.45527459676598,
+        "ldm_fit_after_in_iqr": true
       },
       "challenge": {
         "q1": 2.8,
@@ -1295,8 +1777,18 @@
         "tia_vs_t5_map_pct": -22.501795220949205,
         "ldm_scaled": 22.71595416289474,
         "svalue": null,
+        "ldm_fit_after": 22.582682373753133,
+        "ldm_fit_after_se": 28.994208802890167,
+        "masses_g": [
+          3.9933518948872386,
+          3.5982227810423506,
+          4.114006142775925,
+          4.147583715355278
+        ],
         "ldm_scaled_diff_pct": -36.77719409158158,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": -37.14811474045886,
+        "ldm_fit_after_in_iqr": false
       },
       "f4a": {
         "tia_mbq_h": 1666.030961722443,
@@ -1316,8 +1808,18 @@
         "tia_vs_t5_map_pct": 21.43841828373556,
         "ldm_scaled": 35.59552832497965,
         "svalue": null,
+        "ldm_fit_after": 35.00566892503741,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          3.9933518948872386,
+          3.5982227810423506,
+          4.114006142775925,
+          4.147583715355278
+        ],
         "ldm_scaled_diff_pct": -0.9308980657399157,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": -2.5725885749028343,
+        "ldm_fit_after_in_iqr": true
       },
       "trapezoid ramp/phys": {
         "tia_mbq_h": 1997.5554951445233,
@@ -1337,8 +1839,18 @@
         "tia_vs_t5_map_pct": 45.60352438681052,
         "ldm_scaled": 42.67870456298362,
         "svalue": null,
+        "ldm_fit_after": 42.91393407571917,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          3.9933518948872386,
+          3.5982227810423506,
+          4.114006142775925,
+          4.147583715355278
+        ],
         "ldm_scaled_diff_pct": 18.78292391590208,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": 19.437612234119594,
+        "ldm_fit_after_in_iqr": false
       },
       "trapezoid extrap/fit2": {
         "tia_mbq_h": 1671.8722941274943,
@@ -1358,8 +1870,18 @@
         "tia_vs_t5_map_pct": 21.864197986656308,
         "ldm_scaled": 35.720331115478004,
         "svalue": null,
+        "ldm_fit_after": 36.129050755313784,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          3.9933518948872386,
+          3.5982227810423506,
+          4.114006142775925,
+          4.147583715355278
+        ],
         "ldm_scaled_diff_pct": -0.5835482452602125,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": 0.5539959791644344,
+        "ldm_fit_after_in_iqr": true
       },
       "challenge": {
         "q1": 25.13,
@@ -1387,8 +1909,18 @@
         "tia_vs_t5_map_pct": 6.78704714035363,
         "ldm_scaled": 3.071011229017819,
         "svalue": null,
+        "ldm_fit_after": 3.016336993433404,
+        "ldm_fit_after_se": 0.14869008030130584,
+        "masses_g": [
+          75.82158234585232,
+          77.69000042357773,
+          77.45301095501632,
+          77.78482930678179
+        ],
         "ldm_scaled_diff_pct": -3.122674163475747,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": -4.8474134563594955,
+        "ldm_fit_after_in_iqr": true
       },
       "f4a": {
         "tia_mbq_h": 2794.528616079995,
@@ -1408,8 +1940,18 @@
         "tia_vs_t5_map_pct": 9.345979651010982,
         "ldm_scaled": 3.1446017129292128,
         "svalue": null,
+        "ldm_fit_after": 3.076168160090251,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          75.82158234585232,
+          77.69000042357773,
+          77.45301095501632,
+          77.78482930678179
+        ],
         "ldm_scaled_diff_pct": -0.8012077940311446,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": -2.9599949498343547,
+        "ldm_fit_after_in_iqr": true
       },
       "trapezoid ramp/phys": {
         "tia_mbq_h": 3362.303590816245,
@@ -1429,8 +1971,18 @@
         "tia_vs_t5_map_pct": 31.562216935763153,
         "ldm_scaled": 3.7835023660985643,
         "svalue": null,
+        "ldm_fit_after": 3.7046557555705633,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          75.82158234585232,
+          77.69000042357773,
+          77.45301095501632,
+          77.78482930678179
+        ],
         "ldm_scaled_diff_pct": 19.353386943172367,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": 16.86611216310925,
+        "ldm_fit_after_in_iqr": false
       },
       "trapezoid extrap/fit2": {
         "tia_mbq_h": 2900.074726394219,
@@ -1450,8 +2002,18 @@
         "tia_vs_t5_map_pct": 13.4758507012676,
         "ldm_scaled": 3.2633696787955615,
         "svalue": null,
+        "ldm_fit_after": 3.1972449909530356,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          75.82158234585232,
+          77.69000042357773,
+          77.45301095501632,
+          77.78482930678179
+        ],
         "ldm_scaled_diff_pct": 2.945415734875767,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": 0.8594634370042709,
+        "ldm_fit_after_in_iqr": true
       },
       "challenge": {
         "q1": 2.86,
@@ -1479,8 +2041,18 @@
         "tia_vs_t5_map_pct": -2.6103231935255766,
         "ldm_scaled": 3.964704068921904,
         "svalue": null,
+        "ldm_fit_after": 3.933840179058278,
+        "ldm_fit_after_se": 0.31600605495155903,
+        "masses_g": [
+          24.79558658378994,
+          24.575777721782522,
+          25.415484820491248,
+          25.029065852938327
+        ],
         "ldm_scaled_diff_pct": -4.234201233770429,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": -4.979705819848346,
+        "ldm_fit_after_in_iqr": true
       },
       "f4a": {
         "tia_mbq_h": 1215.3864632261761,
@@ -1500,8 +2072,18 @@
         "tia_vs_t5_map_pct": 2.7287687096536173,
         "ldm_scaled": 4.182056873520957,
         "svalue": null,
+        "ldm_fit_after": 4.152065071201557,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          24.79558658378994,
+          24.575777721782522,
+          25.415484820491248,
+          25.029065852938327
+        ],
         "ldm_scaled_diff_pct": 1.0158665101680509,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": 0.29142684061733704,
+        "ldm_fit_after_in_iqr": true
       },
       "trapezoid ramp/phys": {
         "tia_mbq_h": 1441.734971697686,
@@ -1521,8 +2103,18 @@
         "tia_vs_t5_map_pct": 21.860546360708177,
         "ldm_scaled": 4.960905712392989,
         "svalue": null,
+        "ldm_fit_after": 4.930159337121509,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          24.79558658378994,
+          24.575777721782522,
+          25.415484820491248,
+          25.029065852938327
+        ],
         "ldm_scaled_diff_pct": 19.828640395965948,
-        "ldm_scaled_in_iqr": false
+        "ldm_scaled_in_iqr": false,
+        "ldm_fit_after_diff_pct": 19.085974326606504,
+        "ldm_fit_after_in_iqr": false
       },
       "trapezoid extrap/fit2": {
         "tia_mbq_h": 1235.7413795037098,
@@ -1542,8 +2134,18 @@
         "tia_vs_t5_map_pct": 4.449238329521332,
         "ldm_scaled": 4.25209666753219,
         "svalue": null,
+        "ldm_fit_after": 4.235403547008924,
+        "ldm_fit_after_se": null,
+        "masses_g": [
+          24.79558658378994,
+          24.575777721782522,
+          25.415484820491248,
+          25.029065852938327
+        ],
         "ldm_scaled_diff_pct": 2.7076489742074994,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": 2.3044335026310314,
+        "ldm_fit_after_in_iqr": true
       },
       "challenge": {
         "q1": 3.48,
@@ -1558,40 +2160,52 @@
         "tia_vs_t5_map_pct": -9.905964650210553,
         "svalue": 3.9207127105168302,
         "ldm_scaled": 3.879658595807278,
+        "ldm_fit_after": 4.172740248614974,
         "svalue_diff_pct": -14.76711498876455,
         "svalue_in_iqr": true,
         "ldm_scaled_diff_pct": -15.659595743320043,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": -9.28825546489186,
+        "ldm_fit_after_in_iqr": true
       },
       "f4a": {
         "tia_mbq_h": 14150.934781504679,
         "tia_vs_t5_map_pct": -2.440397577109099,
         "svalue": 4.2455910446943514,
         "ldm_scaled": 4.201143268519315,
+        "ldm_fit_after": 4.7531382939543665,
         "svalue_diff_pct": -7.704542506644529,
         "svalue_in_iqr": true,
         "ldm_scaled_diff_pct": -8.670798510449663,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": 3.3290933468340667,
+        "ldm_fit_after_in_iqr": true
       },
       "trapezoid ramp/phys": {
         "tia_mbq_h": 16700.7569982142,
         "tia_vs_t5_map_pct": 15.138627805465976,
         "svalue": 5.010585308233536,
         "ldm_scaled": 4.958136965900428,
+        "ldm_fit_after": 5.523321669543899,
         "svalue_diff_pct": 8.925767570294285,
         "svalue_in_iqr": false,
         "ldm_scaled_diff_pct": 7.785586215226692,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": 20.072210207476072,
+        "ldm_fit_after_in_iqr": false
       },
       "trapezoid extrap/fit2": {
         "tia_mbq_h": 14579.100104783065,
         "tia_vs_t5_map_pct": 0.5114666887698904,
         "svalue": 4.3740411061248725,
         "ldm_scaled": 4.328257405746165,
+        "ldm_fit_after": 4.802284564180888,
         "svalue_diff_pct": -4.912149866850591,
         "svalue_in_iqr": true,
         "ldm_scaled_diff_pct": -5.90744770117031,
-        "ldm_scaled_in_iqr": true
+        "ldm_scaled_in_iqr": true,
+        "ldm_fit_after_diff_pct": 4.397490525671488,
+        "ldm_fit_after_in_iqr": true
       },
       "challenge": {
         "q1": 3.78,

@@ -395,13 +395,13 @@ def compute_roi_dose_file(
                     image_out, table_out = output_path, _with_suffix(output_path, "_rois.json")
                 else:
                     table_out, image_out = output_path, _with_suffix(output_path, "_dose.nii.gz")
-                _write_dose_image(dose_image, image_out, image_path, dose_rate)
+                _write_dose_image(dose_image, image_out, image_path, dose_rate, isotope)
                 write_results(results_dict, table_out)
             pretty_print_dose(results_dict)
             return results
         if not output_path:
             output_path = Path("dose.nii.gz")
-        _write_dose_image(results, output_path, image_path, dose_rate)
+        _write_dose_image(results, output_path, image_path, dose_rate, isotope)
         return results
 
     # Print results to stdout
@@ -431,26 +431,34 @@ def _with_suffix(path: Path, suffix: str) -> Path:
     return path.with_name(name + suffix)
 
 
-def _write_dose_image(dose_image: sitk.Image, path: Path, image_path: Path, dose_rate: bool) -> None:
-    """Dose (or dose rate) image and its sidecar (unit, patient data of the activity image)."""
-    from radot.meta import read_metadata, write_metadata
+def _write_dose_image(dose_image: sitk.Image, path: Path, image_path: Path, dose_rate: bool,
+                      isotope: Optional[str] = None) -> None:
+    """Dose (or dose rate) image and its sidecar: unit, radionuclide, the patient data and the time of the
+    activity image (sidecar, else header). A dose-rate image is at the acquisition time
+    (`decay_correction: none`), so that `radot integrate` can fit it (fit after). An unreadable sidecar
+    of the activity image is an error (meta._read_sidecar)."""
+    import json
+
+    from radot.dose.compute import resolve_isotope
+    from radot.meta import get_metadata_case_insensitive, get_sidecar_path, get_time_from_injection_h, metadata_number
 
     logger.info(f"Saving dose image to: {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
     sitk.WriteImage(dose_image, str(path))
-    try:
-        orig_meta = read_metadata(image_path).get("metadata", {})
-    except Exception:
-        orig_meta = {}
-    write_metadata(
-        image_path=path,
-        modality="dose",
-        unit="gy/h" if dose_rate else "gy",
-        weight=orig_meta.get("weight"),
-        activity=orig_meta.get("activity"),
-        injection_date=orig_meta.get("injection_date"),
-        acquisition_date=orig_meta.get("acquisition_date"),
-    )
+    meta = {"modality": "dose", "unit": "gy/h" if dose_rate else "gy"}
+    for key in ("weight", "activity", "height", "sex", "injection_date", "acquisition_date"):
+        v = get_metadata_case_insensitive(None, key, image_path)
+        if v is not None:
+            meta[key] = metadata_number(v, key) if key in ("weight", "activity", "height") else v
+    t = get_metadata_case_insensitive(None, "time_from_injection", image_path)
+    if t is not None:
+        meta["time_from_injection"] = float(get_time_from_injection_h(None, image_path))
+    meta["radionuclide"] = resolve_isotope(isotope, [None], [image_path])
+    if dose_rate:
+        meta["decay_correction"] = "none"  # computed from the activity at the acquisition time
+    sidecar = get_sidecar_path(path)
+    logger.info(f"Saving metadata to sidecar: {sidecar}")
+    sidecar.write_text(json.dumps(meta, indent=4))
 
 
 # Format of the dose results file. Version 1: {"radot_results": 1, "radot_version": ..., "rois": {...}}.

@@ -132,6 +132,9 @@ def t4_section(t4, order):
         "map (marked *).",
         "- **TIA vs map**: radot TIA vs the TIA of the challenge map in the same VOI (the map is the "
         "organisers' time integration, the T5 input).",
+        "- **Fit after**: `radot dose -m ldm --dose-rate` at each time point with the CT of that time point, "
+        "then `radot integrate` on the 4 dose-rate images (VOI mean dose rate weighted by the masses of that "
+        "time point, `--ct`), with the same method. Every VOI, organs and lesions (LDM, no S-value).",
         "",
         "| Method | `radot integrate` |",
         "|---|---|",
@@ -185,14 +188,73 @@ def t4_section(t4, order):
             lines.append(f"| {pid} | {voi} | " + " | ".join(
                 "failed" if "failed" in per[label] else f"{per[label]['tia_vs_t5_map_pct']:+.0f}" for label in labels
             ) + " |")
+    def after_cell(r):
+        if "failed" in r or r.get("ldm_fit_after") is None:
+            return "failed"
+        flag = "" if r["ldm_fit_after_in_iqr"] else " ✗"
+        return f"{r['ldm_fit_after']:.2f} ({r['ldm_fit_after_diff_pct']:+.0f} %{flag})"
+
+    def mass_spread(per):
+        m = next((per[label].get("masses_g") for label in labels if per[label].get("masses_g")), None)
+        return "—" if not m else f"{100 * (max(m) - min(m)) / (sum(m) / len(m)):.0f} %"
+
+    lines += [
+        "",
+        "Fit after (LDM dose rate at each time point, then integrated), absorbed doses (Gy) and difference "
+        "with the participants' T4 median; mass spread: (max − min) / mean of the VOI mass over the 4 time "
+        "points (masks and CT of each scan):",
+        "",
+        "| Patient | VOI | " + " | ".join(labels) + " | Participants: median [Q1–Q3] (Gy) | Mass spread |",
+        "|---|---|" + "--:|" * len(labels) + "--:|--:|",
+    ]
+    inside_after = {label: [0, 0] for label in labels}
+    for name, results in t4.items():
+        pid = PATIENTS[name].challenge_id
+        for voi in sorted(results, key=lambda v: (order.index(v) if v in order else len(order), v)):
+            per = results[voi]
+            ch = per["challenge"]
+            for label in labels:
+                r = per[label]
+                if r.get("ldm_fit_after") is not None and checked(name, voi):
+                    inside_after[label][0] += r["ldm_fit_after_in_iqr"]
+                    inside_after[label][1] += 1
+            lines.append(
+                f"| {pid} | {voi} | " + " | ".join(after_cell(per[label]) for label in labels)
+                + f" | {ch['median']:.2f} [{ch['q1']:.2f}–{ch['q3']:.2f}] | {mass_spread(per)} |"
+            )
+
+    def after_vs_first(label):
+        """Range of fit after / fit first (LDM, ldm_scaled) - 1 (%) over the checked VOIs."""
+        d = [100.0 * (per[label]["ldm_fit_after"] / per[label]["ldm_scaled"] - 1.0)
+             for n, res in t4.items() for v, per in res.items()
+             if checked(n, v) and per[label].get("ldm_fit_after") is not None and "failed" not in per[label]]
+        return f"{min(d):+.0f} to {max(d):+.0f} %"
+
     failed = [f"{PATIENTS[n].challenge_id} {v} ({label}): {per[label]['failed'].rstrip('.')}"
               for n, res in t4.items() for v, per in res.items() for label in labels if "failed" in per[label]]
+    spreads = [100 * (max(m) - min(m)) / (sum(m) / len(m)) for res in t4.values() for v, per in res.items()
+               if not v.startswith("Lesion") and (m := per["f4a"].get("masses_g"))]
+    spread_lo, spread_hi = min(spreads), max(spreads)
+    la = t4["patient_4"]["Liver"]["trapezoid extrap/fit2"]
+    dt_a = la["times_h"][-1] - la["times_h"][-2]
+    liver_dm = 100 * (la["masses_g"][-1] / la["masses_g"][-2] - 1)
+    liver_diff = 100 * (la["ldm_fit_after"] / la["ldm_scaled"] - 1)
     lines += [
         "",
         "Findings:",
         "",
         "- Inside the participants' interquartile range (VOIs without the liver of A): "
-        + ", ".join(f"`{label}` {a} / {b}" for label, (a, b) in inside.items()) + ".",
+        + ", ".join(f"`{label}` {a} / {b}" for label, (a, b) in inside.items()) + "; fit after: "
+        + ", ".join(f"`{label}` {a} / {b}" for label, (a, b) in inside_after.items()) + ".",
+        "- Fit after vs fit first (both LDM; fit first: `ldm*`), over the same VOIs: "
+        + "; ".join(f"`{label}` {after_vs_first(label)}" for label in labels) + ". The engine is linear in "
+        "activity: the difference comes from the geometry of each time point. The organ masses change by "
+        f"{spread_lo:.0f} to {spread_hi:.0f} % between scans (each VOI is drawn again on each scan), and the "
+        "fit after carries this change into the dose-rate curve. A tail fitted on two close points "
+        f"(`extrap/fit2`, patient A: {dt_a:.0f} h between the last two scans) amplifies it: for the liver of A, "
+        f"{liver_dm:+.0f} % of mass between scans 3 and 4 gives {liver_diff:+.0f} % of dose (fit after vs fit "
+        "first). The geometry of each time point is more exact only when the VOIs are consistent between "
+        "scans.",
         "- `f4a` (uptake then washout) is the closest to the participants for the lesions and the kidneys of "
         "B; `f2` (no uptake) underestimates the VOIs whose uptake is still visible at the first scan.",
         "- `trapezoid ramp/phys` overestimates every VOI: the physical-decay tail ignores the biological "
@@ -366,6 +428,14 @@ def render(t5, t4=None):
         + (", and an external Monte Carlo dose-rate map (`--dose-rate-map`)." if has_gate else "."),
         "- Agreement with the community: radot falls in the narrow spread of the T5 participants "
         "(QCD 3–7 % for these targets).",
+    ]
+    if t4:
+        lines.append(
+            "- The **time integration** on real serial SPECT/CT (T4): `radot integrate` per VOI, fit first "
+            "(TIA, then `radot dose` on the table) and fit after (LDM dose rate at each time point with its "
+            "CT, then integrated)."
+        )
+    lines += [
         "",
         "## What this does not validate",
         "",

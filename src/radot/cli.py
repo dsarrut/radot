@@ -1043,7 +1043,8 @@ def dose(
     "--error-model",
     "error_model",
     help="Fitted models: variance of the points, constant or proportional (scale estimated from the data), "
-    "fsd:X (known fractional SD, e.g. fsd:0.1) or sd:X (known SD in MBq). No default.",
+    "fsd:X (known fractional SD, e.g. fsd:0.1) or sd:X (known SD, in MBq, or Gy/h for dose rates). No "
+    "default.",
 )
 @click.option(
     "--head",
@@ -1066,6 +1067,14 @@ def dose(
 )
 @click.option("--isotope", help="Radionuclide (default: the image sidecars).")
 @click.option(
+    "--ct",
+    "ct_paths",
+    multiple=True,
+    type=click.Path(exists=True, path_type=Path),
+    help="Dose-rate images only: CT once, or once per image (same order), for the mass-weighted ROI mean dose "
+    "rate (without: water density, with a WARNING).",
+)
+@click.option(
     "--rois",
     multiple=True,
     help="ROI names (repeat or comma-separated). Default: all the ROIs of the labels.",
@@ -1073,7 +1082,7 @@ def dose(
 @click.option(
     "--resample",
     type=click.Choice(["like_labels"]),
-    help="Resample each image to the grid of its labels (else a grid mismatch is an error).",
+    help="Resample each image (and CT) to the grid of its labels (else a grid mismatch is an error).",
 )
 @click.option(
     "-o",
@@ -1084,9 +1093,11 @@ def dose(
 )
 @click.option("--list-models", is_flag=True, help="List the models and exit.")
 def integrate(image_paths, labels_paths, model, candidates, select, error_model, head, tail, tail_points,
-              teff, isotope, rois, resample, output_path, list_models):
-    """Time integration of activity images: TIA per ROI (fit first). Times and decay correction from
-    the sidecars; fitted on the activities at the acquisition times, physical decay in the model."""
+              teff, isotope, ct_paths, rois, resample, output_path, list_models):
+    """Time integration per ROI. Activity images (bq, bqml): TIA per ROI (fit first; then radot dose on
+    the table). Dose-rate images (gy/h, gy/s, e.g. radot dose -m ldm --dose-rate at each time point, with
+    its CT): mean absorbed dose per ROI (fit after). Times and decay correction from the sidecars; fitted
+    on the values at the acquisition times, physical decay in the model."""
     from radot.integrate import TAC_MODELS, integrate_rois, write_integrate
 
     if list_models:
@@ -1099,7 +1110,7 @@ def integrate(image_paths, labels_paths, model, candidates, select, error_model,
         click.echo(f"{'madsen2018':<13} one image: A(t) e^(λeff t) / λeff (--teff per ROI)")
         return
     if not image_paths:
-        raise click.UsageError("Give the activity images (time points).")
+        raise click.UsageError("Give the activity or dose-rate images (time points).")
     if not labels_paths:
         raise click.UsageError(
             "Missing option '-l' / '--labels': only the ROI level is available (voxel level: later)."
@@ -1134,21 +1145,24 @@ def integrate(image_paths, labels_paths, model, candidates, select, error_model,
             tail=tail,
             tail_points=tail_points,
             teff=teff_map or None,
+            ct=list(ct_paths) or None,
         )
         if output_path:
             write_integrate(doc, output_path)
     except Exception as e:
         handle_cli_exception(e)
 
-    click.echo(
-        f"{'ROI':<28} {'model':<8} {'TIA (MBq.h)':>12} {'SE':>10} {'Teff term. (h)':>15}  issues"
+    value_key, se_key, title = (
+        ("mean_dose_gy", "mean_dose_se_gy", "Dose (Gy)") if doc["quantity"] == "dose_rate"
+        else ("tia_mbq_h", "tia_se_mbq_h", "TIA (MBq.h)")
     )
+    click.echo(f"{'ROI':<28} {'model':<8} {title:>12} {'SE':>10} {'Teff term. (h)':>15}  issues")
     for roi, r in doc["rois"].items():
         f = r["fits"].get(r["model"], {})
-        se = f"{r['tia_se_mbq_h']:.4g}" if r["tia_se_mbq_h"] is not None else "-"
+        se = f"{r[se_key]:.4g}" if r[se_key] is not None else "-"
         teff = f"{f['teff_terminal_h']:.4g}" if f.get("teff_terminal_h") else "-"
         issues = "; ".join(f.get("issues", []))
-        click.echo(f"{roi:<28} {r['model']:<8} {r['tia_mbq_h']:>12.5g} {se:>10} {teff:>15}  {issues}")
+        click.echo(f"{roi:<28} {r['model']:<8} {r[value_key]:>12.5g} {se:>10} {teff:>15}  {issues}")
 
 
 @main.command(name="check")
