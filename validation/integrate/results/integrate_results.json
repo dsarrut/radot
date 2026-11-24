@@ -1,0 +1,1718 @@
+{
+ "settings": {
+  "n_realisations": 1000,
+  "isotope": "Lu177",
+  "stp_time_h": 96.0,
+  "schedules": {
+   "3tp": [
+    4.0,
+    24.0,
+    96.0
+   ],
+   "4tp": [
+    4.0,
+    24.0,
+    96.0,
+    168.0
+   ],
+   "6tp": [
+    2.0,
+    20.0,
+    44.0,
+    68.0,
+    116.0,
+    164.0
+   ]
+  },
+  "noises": [
+   0.05,
+   0.1
+  ],
+  "shapes": {
+   "kidney": {
+    "model": "f4a",
+    "params": [
+     10.0,
+     0.012983691922102882,
+     0.9902102579427791
+    ],
+    "description": "uptake ~1 h, Teff 40 h (f4a)"
+   },
+   "liver": {
+    "model": "f4",
+    "params": [
+     30.0,
+     70.0,
+     0.2,
+     0.00555711498753204
+    ],
+    "description": "30 % fast (\u03bb 0.2/h), 70 % Teff 70 h (f4)"
+   },
+   "lesion": {
+    "model": "f4a",
+    "params": [
+     5.0,
+     0.0033566477476591975,
+     0.09902102579427789
+    ],
+    "description": "uptake ~7 h, Teff 90 h (f4a)"
+   }
+  }
+ },
+ "truth_mbq_h": {
+  "kidney": 567.0232707344671,
+  "liver": 7216.016250267299,
+  "lesion": 600.8409696220341
+ },
+ "noise_free_pct": {
+  "kidney": {
+   "3tp": {
+    "f2 proportional": 1.354489704892492,
+    "f2 fsd": 1.3544897060555394,
+    "f4a proportional": null,
+    "f4a fsd": 1.354482539096158,
+    "auto best": null,
+    "auto average": null,
+    "trapezoid ramp/phys": 61.80375548055741,
+    "trapezoid extrap/fit2": 7.624093279282063,
+    "hanscheid2018 (scan ~96 h)": -7.444358490669911
+   },
+   "4tp": {
+    "f2 proportional": 1.1221414686143572,
+    "f2 fsd": 1.1221414684886355,
+    "f4a proportional": 1.12213492972153,
+    "f4a fsd": 1.1221343360636515,
+    "auto best": null,
+    "auto average": null,
+    "trapezoid ramp/phys": 22.469362312682573,
+    "trapezoid extrap/fit2": 9.362517341934517,
+    "hanscheid2018 (scan ~96 h)": -7.444358490669911
+   },
+   "6tp": {
+    "f2 proportional": -1.7414660762378298,
+    "f2 fsd": -1.741466075438447,
+    "f4a proportional": 0.0,
+    "f4a fsd": 0.0,
+    "auto best": -1.741466075438447,
+    "auto average": -1.5575321344730386,
+    "trapezoid ramp/phys": 17.57618343405123,
+    "trapezoid extrap/fit2": 1.3298741362617106,
+    "hanscheid2018 (scan ~96 h)": -20.918544554115257
+   }
+  },
+  "liver": {
+   "3tp": {
+    "f2 proportional": -3.679447572784922,
+    "f2 fsd": -3.679447572784933,
+    "f4a proportional": null,
+    "f4a fsd": -3.679450057285427,
+    "auto best": null,
+    "auto average": null,
+    "trapezoid ramp/phys": 48.50761145063183,
+    "trapezoid extrap/fit2": 2.2706433721316976,
+    "hanscheid2018 (scan ~96 h)": 3.856855607186893
+   },
+   "4tp": {
+    "f2 proportional": 0.30698055954236914,
+    "f2 fsd": 0.30698055954236914,
+    "f4a proportional": 0.30698040220527023,
+    "f4a fsd": 0.30697634455074674,
+    "auto best": null,
+    "auto average": null,
+    "trapezoid ramp/phys": 24.629819343022152,
+    "trapezoid extrap/fit2": 3.2938778575502203,
+    "hanscheid2018 (scan ~96 h)": 3.856855607186893
+   },
+   "6tp": {
+    "f2 proportional": -0.7571596366448441,
+    "f2 fsd": -0.7571597235204841,
+    "f4a proportional": -0.757170773041238,
+    "f4a fsd": -0.7580567007095862,
+    "auto best": -0.7571597235204841,
+    "auto average": -0.7571597235204841,
+    "trapezoid ramp/phys": 25.363462194177377,
+    "trapezoid extrap/fit2": 1.9514779607238575,
+    "hanscheid2018 (scan ~96 h)": 2.9469191592006894
+   }
+  },
+  "lesion": {
+   "3tp": {
+    "f2 proportional": -18.21053556795914,
+    "f2 fsd": -18.210535567959152,
+    "f4a proportional": null,
+    "f4a fsd": 2.220446049250313e-14,
+    "auto best": null,
+    "auto average": null,
+    "trapezoid ramp/phys": 37.42412449464736,
+    "trapezoid extrap/fit2": 10.19390832337217,
+    "hanscheid2018 (scan ~96 h)": 10.038071632433464
+   },
+   "4tp": {
+    "f2 proportional": -13.154704978621378,
+    "f2 fsd": -13.154704978621423,
+    "f4a proportional": -2.220446049250313e-14,
+    "f4a fsd": -2.220446049250313e-14,
+    "auto best": null,
+    "auto average": null,
+    "trapezoid ramp/phys": 21.02893979140179,
+    "trapezoid extrap/fit2": -1.42695773285888,
+    "hanscheid2018 (scan ~96 h)": 10.038071632433464
+   },
+   "6tp": {
+    "f2 proportional": -43.71535192376134,
+    "f2 fsd": -43.71535192376134,
+    "f4a proportional": 0.0,
+    "f4a fsd": -2.220446049250313e-14,
+    "auto best": -2.220446049250313e-14,
+    "auto average": -2.220446049250313e-14,
+    "trapezoid ramp/phys": 22.090109996139653,
+    "trapezoid extrap/fit2": -1.3925935381213894,
+    "hanscheid2018 (scan ~96 h)": 13.991427085291752
+   }
+  }
+ },
+ "results": {
+  "kidney": {
+   "3tp": {
+    "0.05": {
+     "f2 proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 1.2939475879456668,
+      "sd_pct": 3.205739647769766,
+      "rmse_pct": 3.4555448605023416,
+      "median_pct": 1.2633494637454223
+     },
+     "f2 fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 1.2939475883775948,
+      "sd_pct": 3.2057396481716482,
+      "rmse_pct": 3.455544861036537,
+      "median_pct": 1.263349464297736,
+      "coverage_68": 0.635,
+      "coverage_95": 0.941,
+      "n_se": 1000
+     },
+     "f4a proportional": {
+      "applicable": false,
+      "reason": "Model f4a: J = 4 (parameters + 1 for the variance scale) for N = 3 time points: J <= N needed (Kletting 2013, Table I)."
+     },
+     "f4a fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 1.1396706568776016,
+      "sd_pct": 3.1706476147685803,
+      "rmse_pct": 3.367759269438431,
+      "median_pct": 1.0880987194746283
+     },
+     "auto best": {
+      "applicable": false,
+      "reason": "Candidate model(s) f2, f4a: the AICc needs J + 2 <= N (N = 3 time points, J = parameters; Kletting 2013, Table I). Remove them from the candidates."
+     },
+     "auto average": {
+      "applicable": false,
+      "reason": "Candidate model(s) f2, f4a: the AICc needs J + 2 <= N (N = 3 time points, J = parameters; Kletting 2013, Table I). Remove them from the candidates."
+     },
+     "trapezoid ramp/phys": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 61.87644369871799,
+      "sd_pct": 5.290342798763458,
+      "rmse_pct": 62.101964735442294,
+      "median_pct": 61.84024337483484
+     },
+     "trapezoid extrap/fit2": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 7.775093543046922,
+      "sd_pct": 3.2224075866878037,
+      "rmse_pct": 8.415795051402945,
+      "median_pct": 7.704800831236202
+     },
+     "hanscheid2018 (scan ~96 h)": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -7.484571573518588,
+      "sd_pct": 4.662649599863344,
+      "rmse_pct": 8.816879982677387,
+      "median_pct": -7.687470094550125
+     }
+    },
+    "0.1": {
+     "f2 proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 1.2037349928057774,
+      "sd_pct": 6.497082886142349,
+      "rmse_pct": 6.604456970582784,
+      "median_pct": 1.0347856616069406
+     },
+     "f2 fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 1.2037349940002864,
+      "sd_pct": 6.497082887145033,
+      "rmse_pct": 6.604456971785892,
+      "median_pct": 1.0347856290744528,
+      "coverage_68": 0.67,
+      "coverage_95": 0.958,
+      "n_se": 1000
+     },
+     "f4a proportional": {
+      "applicable": false,
+      "reason": "Model f4a: J = 4 (parameters + 1 for the variance scale) for N = 3 time points: J <= N needed (Kletting 2013, Table I)."
+     },
+     "f4a fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 1.2274074994420183,
+      "sd_pct": 6.410454854220423,
+      "rmse_pct": 6.5237540324759875,
+      "median_pct": 1.0780578484657632
+     },
+     "auto best": {
+      "applicable": false,
+      "reason": "Candidate model(s) f2, f4a: the AICc needs J + 2 <= N (N = 3 time points, J = parameters; Kletting 2013, Table I). Remove them from the candidates."
+     },
+     "auto average": {
+      "applicable": false,
+      "reason": "Candidate model(s) f2, f4a: the AICc needs J + 2 <= N (N = 3 time points, J = parameters; Kletting 2013, Table I). Remove them from the candidates."
+     },
+     "trapezoid ramp/phys": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 62.02178656661475,
+      "sd_pct": 10.61334639442777,
+      "rmse_pct": 62.92243230741433,
+      "median_pct": 61.80110319856077
+     },
+     "trapezoid extrap/fit2": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 8.179553944414575,
+      "sd_pct": 6.438567070343943,
+      "rmse_pct": 10.407631503035939,
+      "median_pct": 8.003696000283577
+     },
+     "hanscheid2018 (scan ~96 h)": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -7.4239965629331275,
+      "sd_pct": 9.359589631078435,
+      "rmse_pct": 11.942781966969491,
+      "median_pct": -7.623849161241175
+     }
+    }
+   },
+   "4tp": {
+    "0.05": {
+     "f2 proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 0.9766171758556104,
+      "sd_pct": 2.6063930300939604,
+      "rmse_pct": 2.7821345134395,
+      "median_pct": 1.05983145112023,
+      "coverage_68": 0.554,
+      "coverage_95": 0.791,
+      "n_se": 1000
+     },
+     "f2 fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 0.9766171755086942,
+      "sd_pct": 2.606393030157817,
+      "rmse_pct": 2.782134513377484,
+      "median_pct": 1.059831449958304,
+      "coverage_68": 0.657,
+      "coverage_95": 0.937,
+      "n_se": 1000
+     },
+     "f4a proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 1.0258137043347537,
+      "sd_pct": 2.632772199330909,
+      "rmse_pct": 2.824332083894727,
+      "median_pct": 1.0882886924394986
+     },
+     "f4a fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 1.0272070029753049,
+      "sd_pct": 2.6308439074754935,
+      "rmse_pct": 2.823043136899776,
+      "median_pct": 1.0882934216457696,
+      "coverage_68": 0.65625,
+      "coverage_95": 0.9375,
+      "n_se": 32
+     },
+     "auto best": {
+      "applicable": false,
+      "reason": "Candidate model(s) f4a: the AICc needs J + 2 <= N (N = 4 time points, J = parameters; Kletting 2013, Table I). Remove them from the candidates."
+     },
+     "auto average": {
+      "applicable": false,
+      "reason": "Candidate model(s) f4a: the AICc needs J + 2 <= N (N = 4 time points, J = parameters; Kletting 2013, Table I). Remove them from the candidates."
+     },
+     "trapezoid ramp/phys": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 22.597005389303884,
+      "sd_pct": 3.453661829596038,
+      "rmse_pct": 22.859144883774725,
+      "median_pct": 22.62886861882243
+     },
+     "trapezoid extrap/fit2": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 9.525207262398839,
+      "sd_pct": 3.2338932754799705,
+      "rmse_pct": 10.058686844868616,
+      "median_pct": 9.550401504846029
+     },
+     "hanscheid2018 (scan ~96 h)": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -7.436447262750027,
+      "sd_pct": 4.499456597015447,
+      "rmse_pct": 8.69054730442334,
+      "median_pct": -7.466295700256887
+     }
+    },
+    "0.1": {
+     "f2 proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 0.05685931958509196,
+      "sd_pct": 5.572222457897566,
+      "rmse_pct": 5.5697258854813825,
+      "median_pct": 0.13131896785544273,
+      "coverage_68": 0.568,
+      "coverage_95": 0.805,
+      "n_se": 1000
+     },
+     "f2 fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 0.05685932124773256,
+      "sd_pct": 5.572222458708774,
+      "rmse_pct": 5.569725886309116,
+      "median_pct": 0.13131896785543162,
+      "coverage_68": 0.661,
+      "coverage_95": 0.922,
+      "n_se": 1000
+     },
+     "f4a proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 0.7395282389035337,
+      "sd_pct": 5.543096280050832,
+      "rmse_pct": 5.5894626279884205,
+      "median_pct": 0.7559980108132525
+     },
+     "f4a fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 0.7391431400260114,
+      "sd_pct": 5.543285824600939,
+      "rmse_pct": 5.589599475538118,
+      "median_pct": 0.755998521354373,
+      "coverage_68": 0.6909090909090909,
+      "coverage_95": 0.9636363636363636,
+      "n_se": 220
+     },
+     "auto best": {
+      "applicable": false,
+      "reason": "Candidate model(s) f4a: the AICc needs J + 2 <= N (N = 4 time points, J = parameters; Kletting 2013, Table I). Remove them from the candidates."
+     },
+     "auto average": {
+      "applicable": false,
+      "reason": "Candidate model(s) f4a: the AICc needs J + 2 <= N (N = 4 time points, J = parameters; Kletting 2013, Table I). Remove them from the candidates."
+     },
+     "trapezoid ramp/phys": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 22.51238710363742,
+      "sd_pct": 6.7941847245537055,
+      "rmse_pct": 23.51430114269416,
+      "median_pct": 22.679046333162333
+     },
+     "trapezoid extrap/fit2": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 9.556019087023252,
+      "sd_pct": 6.339077911238988,
+      "rmse_pct": 11.465654174426595,
+      "median_pct": 9.669211677333722
+     },
+     "hanscheid2018 (scan ~96 h)": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -7.43861195685306,
+      "sd_pct": 9.243620685512106,
+      "rmse_pct": 11.861366982725345,
+      "median_pct": -7.417258982381175
+     }
+    }
+   },
+   "6tp": {
+    "0.05": {
+     "f2 proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -2.0413285316862586,
+      "sd_pct": 2.0718721715473074,
+      "rmse_pct": 2.9078142676610725,
+      "median_pct": -2.041300891595632,
+      "coverage_68": 0.667,
+      "coverage_95": 0.925,
+      "n_se": 1000
+     },
+     "f2 fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -2.041328531740518,
+      "sd_pct": 2.071872171366639,
+      "rmse_pct": 2.9078142675705627,
+      "median_pct": -2.0413008876276395,
+      "coverage_68": 0.48,
+      "coverage_95": 0.82,
+      "n_se": 1000
+     },
+     "f4a proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -0.43977100500701727,
+      "sd_pct": 2.33506554450624,
+      "rmse_pct": 2.3749688635617865,
+      "median_pct": -0.4896340717469305,
+      "coverage_68": 0.6289893617021277,
+      "coverage_95": 0.8377659574468085,
+      "n_se": 752
+     },
+     "f4a fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -0.44033264939324535,
+      "sd_pct": 2.335084703380179,
+      "rmse_pct": 2.3750917442300654,
+      "median_pct": -0.4896340706036062,
+      "coverage_68": 0.701195219123506,
+      "coverage_95": 0.9482071713147411,
+      "n_se": 753
+     },
+     "auto best": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -1.2875008316467043,
+      "sd_pct": 2.3831566470939527,
+      "rmse_pct": 2.7076585014499996,
+      "median_pct": -1.3182944818708742,
+      "coverage_68": 0.553,
+      "coverage_95": 0.86,
+      "n_se": 1000
+     },
+     "auto average": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -1.2302511277990669,
+      "sd_pct": 2.269098337174819,
+      "rmse_pct": 2.580150440179145,
+      "median_pct": -1.3039901107629703,
+      "coverage_68": 0.592,
+      "coverage_95": 0.894,
+      "n_se": 1000
+     },
+     "trapezoid ramp/phys": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 17.60747960507239,
+      "sd_pct": 2.48500167802983,
+      "rmse_pct": 17.781799575676008,
+      "median_pct": 17.64094967578803
+     },
+     "trapezoid extrap/fit2": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 1.435316090400506,
+      "sd_pct": 2.2187068968054056,
+      "rmse_pct": 2.6415658070546972,
+      "median_pct": 1.4641165461457883
+     },
+     "hanscheid2018 (scan ~96 h)": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -21.0894253167876,
+      "sd_pct": 4.086299584859038,
+      "rmse_pct": 21.48127106679872,
+      "median_pct": -20.962501705619005
+     }
+    },
+    "0.1": {
+     "f2 proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -3.1651667959603498,
+      "sd_pct": 4.28405354574438,
+      "rmse_pct": 5.324757507555822,
+      "median_pct": -3.1225368016852775,
+      "coverage_68": 0.566,
+      "coverage_95": 0.857,
+      "n_se": 1000
+     },
+     "f2 fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -3.1651667950096902,
+      "sd_pct": 4.284053545790597,
+      "rmse_pct": 5.324757507027874,
+      "median_pct": -3.1225368016852775,
+      "coverage_68": 0.548,
+      "coverage_95": 0.835,
+      "n_se": 1000
+     },
+     "f4a proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -1.2574739792699696,
+      "sd_pct": 4.598547283448723,
+      "rmse_pct": 4.765158055042517,
+      "median_pct": -1.1935745041475876,
+      "coverage_68": 0.589622641509434,
+      "coverage_95": 0.8569182389937107,
+      "n_se": 636
+     },
+     "f4a fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -1.2585300427357198,
+      "sd_pct": 4.598804226984447,
+      "rmse_pct": 4.765684545401664,
+      "median_pct": -1.193574505361522,
+      "coverage_68": 0.6786833855799373,
+      "coverage_95": 0.9341692789968652,
+      "n_se": 638
+     },
+     "auto best": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -2.8838110050370123,
+      "sd_pct": 4.399458387405807,
+      "rmse_pct": 5.258540175864911,
+      "median_pct": -2.9590555159391796,
+      "coverage_68": 0.557,
+      "coverage_95": 0.844,
+      "n_se": 1000
+     },
+     "auto average": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -2.7912433926723126,
+      "sd_pct": 4.290134005547405,
+      "rmse_pct": 5.116432762472845,
+      "median_pct": -2.8503417924827854,
+      "coverage_68": 0.587,
+      "coverage_95": 0.863,
+      "n_se": 1000
+     },
+     "trapezoid ramp/phys": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 17.343292439043704,
+      "sd_pct": 4.859305453255812,
+      "rmse_pct": 18.010525513286506,
+      "median_pct": 17.39249124644968
+     },
+     "trapezoid extrap/fit2": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 1.4413377630207627,
+      "sd_pct": 4.442531542974939,
+      "rmse_pct": 4.668383550108824,
+      "median_pct": 1.3191603358493453
+     },
+     "hanscheid2018 (scan ~96 h)": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -21.109048577956884,
+      "sd_pct": 7.892782061450222,
+      "rmse_pct": 22.534987120640306,
+      "median_pct": -21.153008173183537
+     }
+    }
+   }
+  },
+  "liver": {
+   "3tp": {
+    "0.05": {
+     "f2 proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -3.4705958548254756,
+      "sd_pct": 4.422412910991218,
+      "rmse_pct": 5.619894465813241,
+      "median_pct": -3.6448624973455357
+     },
+     "f2 fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -3.47059585579119,
+      "sd_pct": 4.422412908249149,
+      "rmse_pct": 5.619894464253989,
+      "median_pct": -3.6448625847064986,
+      "coverage_68": 0.543,
+      "coverage_95": 0.849,
+      "n_se": 1000
+     },
+     "f4a proportional": {
+      "applicable": false,
+      "reason": "Model f4a: J = 4 (parameters + 1 for the variance scale) for N = 3 time points: J <= N needed (Kletting 2013, Table I)."
+     },
+     "f4a fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -3.485168947245859,
+      "sd_pct": 4.421359951615574,
+      "rmse_pct": 5.6280794227493915,
+      "median_pct": -3.670046784477327
+     },
+     "auto best": {
+      "applicable": false,
+      "reason": "Candidate model(s) f2, f4a: the AICc needs J + 2 <= N (N = 3 time points, J = parameters; Kletting 2013, Table I). Remove them from the candidates."
+     },
+     "auto average": {
+      "applicable": false,
+      "reason": "Candidate model(s) f2, f4a: the AICc needs J + 2 <= N (N = 3 time points, J = parameters; Kletting 2013, Table I). Remove them from the candidates."
+     },
+     "trapezoid ramp/phys": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 48.58394041316053,
+      "sd_pct": 5.360278634262226,
+      "rmse_pct": 48.87845251764242,
+      "median_pct": 48.486829088101615
+     },
+     "trapezoid extrap/fit2": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 2.9199099756184013,
+      "sd_pct": 5.569029532010343,
+      "rmse_pct": 6.285614536717217,
+      "median_pct": 2.486490539332853
+     },
+     "hanscheid2018 (scan ~96 h)": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 3.9292270437658403,
+      "sd_pct": 5.276123030145838,
+      "rmse_pct": 6.5763562796176815,
+      "median_pct": 3.900402972011119
+     }
+    },
+    "0.1": {
+     "f2 proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -2.4557917943276624,
+      "sd_pct": 9.615952589171476,
+      "rmse_pct": 9.919928981100798,
+      "median_pct": -2.876063229163467
+     },
+     "f2 fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -2.4557917923727284,
+      "sd_pct": 9.61595258830071,
+      "rmse_pct": 9.919928979773593,
+      "median_pct": -2.876064029940084,
+      "coverage_68": 0.632,
+      "coverage_95": 0.899,
+      "n_se": 1000
+     },
+     "f4a proportional": {
+      "applicable": false,
+      "reason": "Model f4a: J = 4 (parameters + 1 for the variance scale) for N = 3 time points: J <= N needed (Kletting 2013, Table I)."
+     },
+     "f4a fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -2.6900917164386295,
+      "sd_pct": 9.587328570443423,
+      "rmse_pct": 9.952966677899349,
+      "median_pct": -3.1808903104459665
+     },
+     "auto best": {
+      "applicable": false,
+      "reason": "Candidate model(s) f2, f4a: the AICc needs J + 2 <= N (N = 3 time points, J = parameters; Kletting 2013, Table I). Remove them from the candidates."
+     },
+     "auto average": {
+      "applicable": false,
+      "reason": "Candidate model(s) f2, f4a: the AICc needs J + 2 <= N (N = 3 time points, J = parameters; Kletting 2013, Table I). Remove them from the candidates."
+     },
+     "trapezoid ramp/phys": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 49.05450167259985,
+      "sd_pct": 11.18282155209239,
+      "rmse_pct": 50.31177373851152,
+      "median_pct": 49.006205256692496
+     },
+     "trapezoid extrap/fit2": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 4,
+      "bias_pct": 4.866692484147609,
+      "sd_pct": 12.39968896964296,
+      "rmse_pct": 13.314751688016484,
+      "median_pct": 3.1208733580335046
+     },
+     "hanscheid2018 (scan ~96 h)": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 4.328216294508391,
+      "sd_pct": 10.964049502949306,
+      "rmse_pct": 11.782343884544693,
+      "median_pct": 4.416407475215456
+     }
+    }
+   },
+   "4tp": {
+    "0.05": {
+     "f2 proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 0.06441089705256042,
+      "sd_pct": 2.6221720684354346,
+      "rmse_pct": 2.6216520237792045,
+      "median_pct": -0.013055420305324583,
+      "coverage_68": 0.888,
+      "coverage_95": 0.975,
+      "n_se": 1000
+     },
+     "f2 fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 0.06441089712647394,
+      "sd_pct": 2.622172069184021,
+      "rmse_pct": 2.6216520245290065,
+      "median_pct": -0.013055412792140064,
+      "coverage_68": 0.685,
+      "coverage_95": 0.954,
+      "n_se": 1000
+     },
+     "f4a proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 0.059024826796807754,
+      "sd_pct": 2.6265401820204235,
+      "rmse_pct": 2.62589004808246,
+      "median_pct": -0.013057097223939662
+     },
+     "f4a fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 0.05826022495129456,
+      "sd_pct": 2.6264149196156916,
+      "rmse_pct": 2.6257478036668513,
+      "median_pct": -0.01305711358994266,
+      "coverage_68": 0.2,
+      "coverage_95": 0.8,
+      "n_se": 5
+     },
+     "auto best": {
+      "applicable": false,
+      "reason": "Candidate model(s) f4a: the AICc needs J + 2 <= N (N = 4 time points, J = parameters; Kletting 2013, Table I). Remove them from the candidates."
+     },
+     "auto average": {
+      "applicable": false,
+      "reason": "Candidate model(s) f4a: the AICc needs J + 2 <= N (N = 4 time points, J = parameters; Kletting 2013, Table I). Remove them from the candidates."
+     },
+     "trapezoid ramp/phys": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 24.563314412326058,
+      "sd_pct": 3.2965207537749563,
+      "rmse_pct": 24.783312872773365,
+      "median_pct": 24.527301453681527
+     },
+     "trapezoid extrap/fit2": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 3.458563962167009,
+      "sd_pct": 3.1881699909949752,
+      "rmse_pct": 4.702757504272337,
+      "median_pct": 3.200091366753599
+     },
+     "hanscheid2018 (scan ~96 h)": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 3.943178300540636,
+      "sd_pct": 5.2183905428644755,
+      "rmse_pct": 6.538579613941707,
+      "median_pct": 3.850373143406838
+     }
+    },
+    "0.1": {
+     "f2 proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -0.25845533808586185,
+      "sd_pct": 5.525117725008792,
+      "rmse_pct": 5.528399235865315,
+      "median_pct": -0.2150840498783113,
+      "coverage_68": 0.693,
+      "coverage_95": 0.868,
+      "n_se": 1000
+     },
+     "f2 fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -0.25845533570266627,
+      "sd_pct": 5.525117723934092,
+      "rmse_pct": 5.528399234680911,
+      "median_pct": -0.21508404990101537,
+      "coverage_68": 0.667,
+      "coverage_95": 0.937,
+      "n_se": 1000
+     },
+     "f4a proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -0.2783186969370792,
+      "sd_pct": 5.515504727789269,
+      "rmse_pct": 5.519767468555923,
+      "median_pct": -0.218206329021986
+     },
+     "f4a fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -0.279259536315109,
+      "sd_pct": 5.51540509445629,
+      "rmse_pct": 5.519715531729998,
+      "median_pct": -0.21820672448490397,
+      "coverage_68": 0.6666666666666666,
+      "coverage_95": 0.896551724137931,
+      "n_se": 87
+     },
+     "auto best": {
+      "applicable": false,
+      "reason": "Candidate model(s) f4a: the AICc needs J + 2 <= N (N = 4 time points, J = parameters; Kletting 2013, Table I). Remove them from the candidates."
+     },
+     "auto average": {
+      "applicable": false,
+      "reason": "Candidate model(s) f4a: the AICc needs J + 2 <= N (N = 4 time points, J = parameters; Kletting 2013, Table I). Remove them from the candidates."
+     },
+     "trapezoid ramp/phys": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 24.936914697717686,
+      "sd_pct": 6.755262720705694,
+      "rmse_pct": 25.83481479501215,
+      "median_pct": 25.210560355938583
+     },
+     "trapezoid extrap/fit2": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 8,
+      "bias_pct": 4.497635227660241,
+      "sd_pct": 6.598516192509738,
+      "rmse_pct": 7.982809470078447,
+      "median_pct": 4.2765423965173355
+     },
+     "hanscheid2018 (scan ~96 h)": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 3.8345444111205715,
+      "sd_pct": 10.252577849222966,
+      "rmse_pct": 10.941387848105883,
+      "median_pct": 3.8187661212861213
+     }
+    }
+   },
+   "6tp": {
+    "0.05": {
+     "f2 proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -0.9417069893061739,
+      "sd_pct": 2.205313390857102,
+      "rmse_pct": 2.3969471830747238,
+      "median_pct": -0.9282743930062121,
+      "coverage_68": 0.922,
+      "coverage_95": 0.996,
+      "n_se": 1000
+     },
+     "f2 fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -0.9417069903504752,
+      "sd_pct": 2.2053133923952672,
+      "rmse_pct": 2.396947184898782,
+      "median_pct": -0.9282743922740311,
+      "coverage_68": 0.653,
+      "coverage_95": 0.923,
+      "n_se": 1000
+     },
+     "f4a proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -0.9426102696698154,
+      "sd_pct": 2.2051551640679414,
+      "rmse_pct": 2.3971567968751852,
+      "median_pct": -0.9295717201428411
+     },
+     "f4a fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -0.9426365136071497,
+      "sd_pct": 2.2052803357653756,
+      "rmse_pct": 2.3972821475036215,
+      "median_pct": -0.9303740535977156
+     },
+     "auto best": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -0.9417069903504752,
+      "sd_pct": 2.2053133923952672,
+      "rmse_pct": 2.396947184898782,
+      "median_pct": -0.9282743922740311,
+      "coverage_68": 0.653,
+      "coverage_95": 0.923,
+      "n_se": 1000
+     },
+     "auto average": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -0.9417069903504752,
+      "sd_pct": 2.2053133923952672,
+      "rmse_pct": 2.396947184898782,
+      "median_pct": -0.9282743922740311,
+      "coverage_68": 0.653,
+      "coverage_95": 0.923,
+      "n_se": 1000
+     },
+     "trapezoid ramp/phys": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 25.491092149180222,
+      "sd_pct": 2.9291593975824393,
+      "rmse_pct": 25.658666640331617,
+      "median_pct": 25.48839711514136
+     },
+     "trapezoid extrap/fit2": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 2.660416890144735,
+      "sd_pct": 4.1182437150643425,
+      "rmse_pct": 4.901100834989796,
+      "median_pct": 2.089242137848546
+     },
+     "hanscheid2018 (scan ~96 h)": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 2.9726098891865442,
+      "sd_pct": 5.02291393460957,
+      "rmse_pct": 5.834453212031967,
+      "median_pct": 3.1778279688115862
+     }
+    },
+    "0.1": {
+     "f2 proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -1.90898337841065,
+      "sd_pct": 4.665388874083404,
+      "rmse_pct": 5.038680882147919,
+      "median_pct": -1.9541531296253134,
+      "coverage_68": 0.719,
+      "coverage_95": 0.933,
+      "n_se": 1000
+     },
+     "f2 fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -1.9089833772843516,
+      "sd_pct": 4.66538887600671,
+      "rmse_pct": 5.038680883500239,
+      "median_pct": -1.9541530966038945,
+      "coverage_68": 0.621,
+      "coverage_95": 0.901,
+      "n_se": 1000
+     },
+     "f4a proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -1.9153421026080564,
+      "sd_pct": 4.663910544178566,
+      "rmse_pct": 5.039726666453148,
+      "median_pct": -1.9555058268891479,
+      "coverage_68": 0.35294117647058826,
+      "coverage_95": 0.7058823529411765,
+      "n_se": 17
+     },
+     "f4a fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -1.91525938373793,
+      "sd_pct": 4.663760567514095,
+      "rmse_pct": 5.039556575281648,
+      "median_pct": -1.9541912705399844,
+      "coverage_68": 0.47058823529411764,
+      "coverage_95": 0.8823529411764706,
+      "n_se": 17
+     },
+     "auto best": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -1.9089833772843516,
+      "sd_pct": 4.66538887600671,
+      "rmse_pct": 5.038680883500239,
+      "median_pct": -1.9541530966038945,
+      "coverage_68": 0.621,
+      "coverage_95": 0.901,
+      "n_se": 1000
+     },
+     "auto average": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -1.908979186705283,
+      "sd_pct": 4.665389178410572,
+      "rmse_pct": 5.038679575555326,
+      "median_pct": -1.9541530966038945,
+      "coverage_68": 0.621,
+      "coverage_95": 0.901,
+      "n_se": 1000
+     },
+     "trapezoid ramp/phys": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 25.133187449841,
+      "sd_pct": 5.93901328397403,
+      "rmse_pct": 25.82467266583021,
+      "median_pct": 25.07461664899051
+     },
+     "trapezoid extrap/fit2": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 24,
+      "bias_pct": 3.1817865725641643,
+      "sd_pct": 8.343474530810722,
+      "rmse_pct": 8.925581642860026,
+      "median_pct": 2.1077345060116937
+     },
+     "hanscheid2018 (scan ~96 h)": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 3.2704129111324307,
+      "sd_pct": 10.440510655751833,
+      "rmse_pct": 10.935760563372645,
+      "median_pct": 3.2609522422843873
+     }
+    }
+   }
+  },
+  "lesion": {
+   "3tp": {
+    "0.05": {
+     "f2 proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -18.471654098062462,
+      "sd_pct": 3.780424396883992,
+      "rmse_pct": 18.854159279331526,
+      "median_pct": -18.458182472095263
+     },
+     "f2 fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -18.471654098062462,
+      "sd_pct": 3.7804243968839932,
+      "rmse_pct": 18.854159279331526,
+      "median_pct": -18.458182472095288,
+      "coverage_68": 0.409,
+      "coverage_95": 1.0,
+      "n_se": 1000
+     },
+     "f4a proportional": {
+      "applicable": false,
+      "reason": "Model f4a: J = 4 (parameters + 1 for the variance scale) for N = 3 time points: J <= N needed (Kletting 2013, Table I)."
+     },
+     "f4a fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 1.530624696100799,
+      "sd_pct": 12.004881116994456,
+      "rmse_pct": 12.096109515991106,
+      "median_pct": -0.7175273148747108
+     },
+     "auto best": {
+      "applicable": false,
+      "reason": "Candidate model(s) f2, f4a: the AICc needs J + 2 <= N (N = 3 time points, J = parameters; Kletting 2013, Table I). Remove them from the candidates."
+     },
+     "auto average": {
+      "applicable": false,
+      "reason": "Candidate model(s) f2, f4a: the AICc needs J + 2 <= N (N = 3 time points, J = parameters; Kletting 2013, Table I). Remove them from the candidates."
+     },
+     "trapezoid ramp/phys": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 37.526042322879334,
+      "sd_pct": 5.366170722678539,
+      "rmse_pct": 37.907398286551384,
+      "median_pct": 37.51632634829842
+     },
+     "trapezoid extrap/fit2": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 34,
+      "bias_pct": 11.02104015750733,
+      "sd_pct": 11.672119496209795,
+      "rmse_pct": 16.04869671263729,
+      "median_pct": 9.673225011364217
+     },
+     "hanscheid2018 (scan ~96 h)": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 10.123323631055818,
+      "sd_pct": 5.376730230853805,
+      "rmse_pct": 11.461326279558357,
+      "median_pct": 10.193424757914038
+     }
+    },
+    "0.1": {
+     "f2 proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -18.812728471151136,
+      "sd_pct": 7.787673037943135,
+      "rmse_pct": 20.359419343974942,
+      "median_pct": -18.56244049476559
+     },
+     "f2 fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -18.812728471151132,
+      "sd_pct": 7.787673037943133,
+      "rmse_pct": 20.35941934397494,
+      "median_pct": -18.562440494765568,
+      "coverage_68": 0.969,
+      "coverage_95": 1.0,
+      "n_se": 1000
+     },
+     "f4a proportional": {
+      "applicable": false,
+      "reason": "Model f4a: J = 4 (parameters + 1 for the variance scale) for N = 3 time points: J <= N needed (Kletting 2013, Table I)."
+     },
+     "f4a fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 3.1518142598364904,
+      "sd_pct": 21.24130135466798,
+      "rmse_pct": 21.463355364087146,
+      "median_pct": -0.44881159066164633
+     },
+     "auto best": {
+      "applicable": false,
+      "reason": "Candidate model(s) f2, f4a: the AICc needs J + 2 <= N (N = 3 time points, J = parameters; Kletting 2013, Table I). Remove them from the candidates."
+     },
+     "auto average": {
+      "applicable": false,
+      "reason": "Candidate model(s) f2, f4a: the AICc needs J + 2 <= N (N = 3 time points, J = parameters; Kletting 2013, Table I). Remove them from the candidates."
+     },
+     "trapezoid ramp/phys": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 37.26558838004414,
+      "sd_pct": 11.055779642614421,
+      "rmse_pct": 38.869423851575455,
+      "median_pct": 37.26163585420012
+     },
+     "trapezoid extrap/fit2": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 159,
+      "bias_pct": 7.582871218937944,
+      "sd_pct": 17.89827405555704,
+      "rmse_pct": 19.428516068850755,
+      "median_pct": 6.674312599687338
+     },
+     "hanscheid2018 (scan ~96 h)": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 9.85867521057808,
+      "sd_pct": 11.182459861777483,
+      "rmse_pct": 14.903551189544423,
+      "median_pct": 10.201428790048805
+     }
+    }
+   },
+   "4tp": {
+    "0.05": {
+     "f2 proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -13.239264074277878,
+      "sd_pct": 3.444789490614649,
+      "rmse_pct": 13.679649896414723,
+      "median_pct": -13.264258657369998,
+      "coverage_68": 1.0,
+      "coverage_95": 1.0,
+      "n_se": 1000
+     },
+     "f2 fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -13.239264074277875,
+      "sd_pct": 3.4447894906146503,
+      "rmse_pct": 13.679649896414722,
+      "median_pct": -13.264258657369988,
+      "coverage_68": 0.051,
+      "coverage_95": 0.559,
+      "n_se": 1000
+     },
+     "f4a proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 0.08388093293428764,
+      "sd_pct": 3.8958549898914336,
+      "rmse_pct": 3.8948099346527356,
+      "median_pct": -0.09437759225569553
+     },
+     "f4a fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 0.08388093396593531,
+      "sd_pct": 3.895854990181555,
+      "rmse_pct": 3.8948099349648624,
+      "median_pct": -0.09437759231486487,
+      "coverage_68": 0.671,
+      "coverage_95": 0.943,
+      "n_se": 1000
+     },
+     "auto best": {
+      "applicable": false,
+      "reason": "Candidate model(s) f4a: the AICc needs J + 2 <= N (N = 4 time points, J = parameters; Kletting 2013, Table I). Remove them from the candidates."
+     },
+     "auto average": {
+      "applicable": false,
+      "reason": "Candidate model(s) f4a: the AICc needs J + 2 <= N (N = 4 time points, J = parameters; Kletting 2013, Table I). Remove them from the candidates."
+     },
+     "trapezoid ramp/phys": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 21.040736848810607,
+      "sd_pct": 3.7058863475539074,
+      "rmse_pct": 21.364280169672508,
+      "median_pct": 20.93474526078657
+     },
+     "trapezoid extrap/fit2": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -0.8662298784058552,
+      "sd_pct": 5.306677792312266,
+      "rmse_pct": 5.374292750164601,
+      "median_pct": -1.2315308785730283
+     },
+     "hanscheid2018 (scan ~96 h)": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 10.161896322675283,
+      "sd_pct": 5.500262532015039,
+      "rmse_pct": 11.553647558497222,
+      "median_pct": 10.176956029180262
+     }
+    },
+    "0.1": {
+     "f2 proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -13.94157857718183,
+      "sd_pct": 7.077621937505855,
+      "rmse_pct": 15.633625708123795,
+      "median_pct": -13.698155562145498,
+      "coverage_68": 1.0,
+      "coverage_95": 1.0,
+      "n_se": 1000
+     },
+     "f2 fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -13.94157857718183,
+      "sd_pct": 7.077621937505856,
+      "rmse_pct": 15.633625708123793,
+      "median_pct": -13.698155562145498,
+      "coverage_68": 0.527,
+      "coverage_95": 0.952,
+      "n_se": 1000
+     },
+     "f4a proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 0.42112748449241233,
+      "sd_pct": 7.658469690726839,
+      "rmse_pct": 7.666215115946901,
+      "median_pct": -0.2191323872409945
+     },
+     "f4a fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 0.4211274796656569,
+      "sd_pct": 7.658469691032021,
+      "rmse_pct": 7.666215115986323,
+      "median_pct": -0.21913238724098338,
+      "coverage_68": 0.701,
+      "coverage_95": 0.952,
+      "n_se": 1000
+     },
+     "auto best": {
+      "applicable": false,
+      "reason": "Candidate model(s) f4a: the AICc needs J + 2 <= N (N = 4 time points, J = parameters; Kletting 2013, Table I). Remove them from the candidates."
+     },
+     "auto average": {
+      "applicable": false,
+      "reason": "Candidate model(s) f4a: the AICc needs J + 2 <= N (N = 4 time points, J = parameters; Kletting 2013, Table I). Remove them from the candidates."
+     },
+     "trapezoid ramp/phys": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 20.893499003592304,
+      "sd_pct": 7.108533446445218,
+      "rmse_pct": 22.06850736059382,
+      "median_pct": 20.87214058621535
+     },
+     "trapezoid extrap/fit2": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 45,
+      "bias_pct": -0.17574639314384502,
+      "sd_pct": 9.437972922126482,
+      "rmse_pct": 9.434667300632421,
+      "median_pct": -1.094841331907448
+     },
+     "hanscheid2018 (scan ~96 h)": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 9.653443020859836,
+      "sd_pct": 10.911665178779034,
+      "rmse_pct": 14.564832120343596,
+      "median_pct": 9.287245739882023
+     }
+    }
+   },
+   "6tp": {
+    "0.05": {
+     "f2 proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -43.79835542515537,
+      "sd_pct": 3.0295970687503626,
+      "rmse_pct": 43.902906713437766,
+      "median_pct": -43.69091405540593,
+      "coverage_68": 1.0,
+      "coverage_95": 1.0,
+      "n_se": 1000
+     },
+     "f2 fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -43.79835542515537,
+      "sd_pct": 3.029597068750363,
+      "rmse_pct": 43.902906713437766,
+      "median_pct": -43.69091405540591,
+      "coverage_68": 0.0,
+      "coverage_95": 0.0,
+      "n_se": 1000
+     },
+     "f4a proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -0.07705204179208072,
+      "sd_pct": 3.598435321224302,
+      "rmse_pct": 3.5974609158985924,
+      "median_pct": -0.20661085959109982,
+      "coverage_68": 0.61,
+      "coverage_95": 0.85,
+      "n_se": 1000
+     },
+     "f4a fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -0.0770520409035998,
+      "sd_pct": 3.5984353215225937,
+      "rmse_pct": 3.5974609161776367,
+      "median_pct": -0.2066108514832965,
+      "coverage_68": 0.698,
+      "coverage_95": 0.945,
+      "n_se": 1000
+     },
+     "auto best": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -0.0770520409035998,
+      "sd_pct": 3.5984353215225937,
+      "rmse_pct": 3.5974609161776367,
+      "median_pct": -0.2066108514832965,
+      "coverage_68": 0.698,
+      "coverage_95": 0.945,
+      "n_se": 1000
+     },
+     "auto average": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -0.0770520409035998,
+      "sd_pct": 3.5984353215225937,
+      "rmse_pct": 3.5974609161776367,
+      "median_pct": -0.2066108514832965,
+      "coverage_68": 0.698,
+      "coverage_95": 0.945,
+      "n_se": 1000
+     },
+     "trapezoid ramp/phys": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 22.09653486135774,
+      "sd_pct": 3.317024207305174,
+      "rmse_pct": 22.343869401279953,
+      "median_pct": 22.126351273608535
+     },
+     "trapezoid extrap/fit2": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 13,
+      "bias_pct": -0.5288306658725567,
+      "sd_pct": 7.0127788202850585,
+      "rmse_pct": 7.029146594005826,
+      "median_pct": -1.2689120386106367
+     },
+     "hanscheid2018 (scan ~96 h)": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 14.023363434027438,
+      "sd_pct": 5.556187705174176,
+      "rmse_pct": 15.082939786266182,
+      "median_pct": 14.139021289927722
+     }
+    },
+    "0.1": {
+     "f2 proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -43.97384947787183,
+      "sd_pct": 6.250011119254861,
+      "rmse_pct": 44.415346607387264,
+      "median_pct": -43.99089401646866,
+      "coverage_68": 1.0,
+      "coverage_95": 1.0,
+      "n_se": 1000
+     },
+     "f2 fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": -43.97384947787183,
+      "sd_pct": 6.250011119254861,
+      "rmse_pct": 44.415346607387264,
+      "median_pct": -43.99089401646866,
+      "coverage_68": 0.0,
+      "coverage_95": 0.0,
+      "n_se": 1000
+     },
+     "f4a proportional": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 0.31013552903473324,
+      "sd_pct": 7.831613573176256,
+      "rmse_pct": 7.83383820580746,
+      "median_pct": -0.3568606897230375,
+      "coverage_68": 0.598,
+      "coverage_95": 0.845,
+      "n_se": 1000
+     },
+     "f4a fsd": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 0.3101355342495945,
+      "sd_pct": 7.831613571428697,
+      "rmse_pct": 7.833838204268598,
+      "median_pct": -0.3568606897230375,
+      "coverage_68": 0.667,
+      "coverage_95": 0.934,
+      "n_se": 1000
+     },
+     "auto best": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 111,
+      "bias_pct": -1.212820566678773,
+      "sd_pct": 6.49400098350754,
+      "rmse_pct": 6.602692244500613,
+      "median_pct": -1.4760077052181741,
+      "coverage_68": 0.6996625421822272,
+      "coverage_95": 0.9257592800899888,
+      "n_se": 889
+     },
+     "auto average": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 111,
+      "bias_pct": -1.212820566678773,
+      "sd_pct": 6.49400098350754,
+      "rmse_pct": 6.602692244500613,
+      "median_pct": -1.4760077052181741,
+      "coverage_68": 0.6996625421822272,
+      "coverage_95": 0.9257592800899888,
+      "n_se": 889
+     },
+     "trapezoid ramp/phys": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 22.429424971179962,
+      "sd_pct": 6.728092863145791,
+      "rmse_pct": 23.41582949372773,
+      "median_pct": 22.378623487183635
+     },
+     "trapezoid extrap/fit2": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 117,
+      "bias_pct": -0.6189241245499901,
+      "sd_pct": 11.107495284934448,
+      "rmse_pct": 11.118443883752406,
+      "median_pct": -2.516983090337732
+     },
+     "hanscheid2018 (scan ~96 h)": {
+      "applicable": true,
+      "n": 1000,
+      "failures": 0,
+      "bias_pct": 13.996824760681365,
+      "sd_pct": 11.294966632433058,
+      "rmse_pct": 17.982207827120988,
+      "median_pct": 13.526439243598475
+     }
+    }
+   }
+  }
+ }
+}

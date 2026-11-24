@@ -16,6 +16,9 @@ from cases import PATIENTS, challenge_stats, has_nifti  # noqa: E402
 
 # |radot - participants' median| / median accepted for T5 (the participants' QCD is 3-7 %)
 T5_TOLERANCE_PCT = 8.0
+# T4, f4a: the participants' spread is larger (QCD up to ~25 %, fit choices); kidney R of A is -12 %
+T4_TOLERANCE_PCT = 15.0
+T5_STORED = Path(__file__).resolve().parent / "results" / "t5_radot.json"
 
 
 def test_challenge_stats():
@@ -61,6 +64,52 @@ def test_t5_liver_a(t5_results):
     c = r["Liver"]["challenge"]
     assert r["Liver"]["svalue"] == pytest.approx(c["median"], rel=0.08)
     assert r["Liver (no lesions)"]["svalue"] == pytest.approx(c["q1"], rel=0.08)
+
+
+@pytest.fixture(scope="module")
+def t4_results():
+    from cases import has_t4_nifti
+
+    if not all(has_t4_nifti(name) for name in PATIENTS) or not T5_STORED.exists():
+        pytest.skip("SNMMI challenge T4 data not prepared (see validation/snmmi/README.md)")
+    import json
+
+    from t4 import compare, run_patient
+
+    t5 = json.loads(T5_STORED.read_text())
+    return compare({name: run_patient(name, t5[name]) for name in PATIENTS})
+
+
+def test_t4_reproduces_the_stored_results(t4_results):
+    """results/t4_radot.json (the page) is what t4.py computes now."""
+    import json
+
+    from t4 import METHODS
+
+    stored = json.loads((T5_STORED.parent / "t4_radot.json").read_text())
+    for name, results in t4_results.items():
+        for voi, per in results.items():
+            for label in METHODS:
+                a, b = per[label], stored[name][voi][label]
+                assert ("failed" in a) == ("failed" in b), (name, voi, label)
+                if "failed" not in a:
+                    assert a["tia_mbq_h"] == pytest.approx(b["tia_mbq_h"], rel=1e-6), (name, voi, label)
+
+
+def test_t4_f4a_with_the_participants(t4_results):
+    """f4a (uptake then washout) is inside the participants' interquartile range for most VOIs (the
+    liver of A, whose definition differs between participants, excluded)."""
+    inside, total = 0, 0
+    for name, results in t4_results.items():
+        for voi, per in results.items():
+            if voi == "Liver (no lesions)" or (voi == "Liver" and PATIENTS[name].challenge_id == "A"):
+                continue
+            r = per["f4a"]
+            k = "ldm_scaled" if voi.startswith("Lesion") else "svalue"
+            inside += r[f"{k}_in_iqr"]
+            total += 1
+            assert abs(r[f"{k}_diff_pct"]) < T4_TOLERANCE_PCT, (name, voi, r[f"{k}_diff_pct"])
+    assert inside >= 10 and total == 14
 
 
 def test_validation_page_is_up_to_date():

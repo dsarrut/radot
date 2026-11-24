@@ -22,6 +22,7 @@ from cases import PATIENTS, RESULTS_DIR  # noqa: E402
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / "docs" / "8_validation_snmmi.md"
 T5_RESULTS = RESULTS_DIR / "t5_radot.json"
+T4_RESULTS = RESULTS_DIR / "t4_radot.json"
 REPO_URL = "https://github.com/dsarrut/radot/tree/main/validation/snmmi"
 DATA_URL = "https://deepblue.lib.umich.edu/data/collections/hm50ts030"
 
@@ -112,7 +113,101 @@ def mass_section(t5, order):
     return lines
 
 
-def render(t5):
+def t4_section(t4, order):
+    """T4: radot integrate (time integration per VOI) then the dose, against the participants' T4."""
+    from t4 import METHODS
+
+    lines = [
+        "",
+        "## T4: time integration and dose from the serial SPECT/CT",
+        "",
+        "- **Input**: the 4 SPECT (Bq/mL) and the organ and lesion VOIs of each time point (no registration "
+        "needed: each VOI is drawn on its own scan). Patient A's images are decay-corrected to the injection "
+        "(`decay_correction` `admin`): radot brings them back to the activity at each acquisition time.",
+        "- **Time integration**: `radot integrate`, one TIA per VOI, with each method below (4 time points: "
+        "with the noise level estimated, `f2` has a standard error and `f4a` none; no model selection, the "
+        "AICc needs more points).",
+        "- **Dose**: organs, `radot dose -m svalue` on the TIA table (mass from the CT of time point 1, "
+        "as T5); lesions (no S-value), the radot T5 `ldm` dose of the VOI scaled by the TIA ratio T4 / T5 "
+        "map (marked *).",
+        "- **TIA vs map**: radot TIA vs the TIA of the challenge map in the same VOI (the map is the "
+        "organisers' time integration, the T5 input).",
+        "",
+        "| Method | `radot integrate` |",
+        "|---|---|",
+    ]
+    for label, opts in METHODS.items():
+        lines.append(f"| {label} | " + " ".join(f"`--{k.replace('_', '-')} {v}`" for k, v in opts.items()) + " |")
+    labels = list(METHODS)
+
+    def dose_cell(r, is_organ):
+        if "failed" in r:
+            return "failed"
+        k = "svalue" if is_organ else "ldm_scaled"
+        flag = "" if r[f"{k}_in_iqr"] else " ✗"
+        return f"{r[k]:.2f}{'' if is_organ else '*'} ({r[f'{k}_diff_pct']:+.0f} %{flag})"
+
+    lines += [
+        "",
+        "Absorbed doses (Gy) and difference with the participants' T4 median (✗: outside [Q1–Q3]):",
+        "",
+        "| Patient | VOI | " + " | ".join(labels) + " | Participants: median [Q1–Q3] (Gy) | QCD |",
+        "|---|---|" + "--:|" * len(labels) + "--:|--:|",
+    ]
+    inside = {label: [0, 0] for label in labels}
+    for name, results in t4.items():
+        pid = PATIENTS[name].challenge_id
+        for voi in sorted(results, key=lambda v: (order.index(v) if v in order else len(order), v)):
+            per = results[voi]
+            ch = per["challenge"]
+            is_organ = not voi.startswith("Lesion")
+            for label in labels:
+                r = per[label]
+                if "failed" not in r and checked(name, voi):
+                    k = "svalue" if is_organ else "ldm_scaled"
+                    inside[label][0] += r[f"{k}_in_iqr"]
+                    inside[label][1] += 1
+            lines.append(
+                f"| {pid} | {voi} | " + " | ".join(dose_cell(per[label], is_organ) for label in labels)
+                + f" | {ch['median']:.2f} [{ch['q1']:.2f}–{ch['q3']:.2f}] | {ch['qcd_pct']:.0f} % |"
+            )
+    lines += [
+        "",
+        "TIA vs the challenge map (%):",
+        "",
+        "| Patient | VOI | " + " | ".join(labels) + " |",
+        "|---|---|" + "--:|" * len(labels),
+    ]
+    for name, results in t4.items():
+        pid = PATIENTS[name].challenge_id
+        for voi in sorted(results, key=lambda v: (order.index(v) if v in order else len(order), v)):
+            per = results[voi]
+            lines.append(f"| {pid} | {voi} | " + " | ".join(
+                "failed" if "failed" in per[label] else f"{per[label]['tia_vs_t5_map_pct']:+.0f}" for label in labels
+            ) + " |")
+    failed = [f"{PATIENTS[n].challenge_id} {v} ({label}): {per[label]['failed'].rstrip('.')}"
+              for n, res in t4.items() for v, per in res.items() for label in labels if "failed" in per[label]]
+    lines += [
+        "",
+        "Findings:",
+        "",
+        "- Inside the participants' interquartile range (VOIs without the liver of A): "
+        + ", ".join(f"`{label}` {a} / {b}" for label, (a, b) in inside.items()) + ".",
+        "- `f4a` (uptake then washout) is the closest to the participants for the lesions and the kidneys of "
+        "B; `f2` (no uptake) underestimates the VOIs whose uptake is still visible at the first scan.",
+        "- `trapezoid ramp/phys` overestimates every VOI: the physical-decay tail ignores the biological "
+        "clearance after the last scan (as on the [synthetic curves](9_validation_time_integration.md)); "
+        "a fitted tail (`extrap/fit2`) removes most of it.",
+        "- The challenge TIA map and the participants differ: for some lesions the map TIA is far from radot "
+        "while the radot dose is at the participants' median. The map is one time integration among others, "
+        "not a reference.",
+    ]
+    if failed:
+        lines.append("- Refused (radot does not extrapolate silently): " + "; ".join(failed) + ".")
+    return lines
+
+
+def render(t5, t4=None):
     methods = methods_in(t5)
     has_gate = "gate" in methods
     diffs = [
@@ -183,7 +278,8 @@ def render(t5):
         "|---|---|---|---|",
         "| T1 | serial SPECT/CT | segmentation, registration, fit, dose | not yet |",
         "| T2, T3 | planar (+ 1 SPECT/CT) | everything | out of scope |",
-        "| T4 | serial SPECT/CT + VOIs at each time point | time integration, dose | not yet |",
+        "| T4 | serial SPECT/CT + VOIs at each time point | time integration, dose | "
+        + ("below |" if t4 else "not yet |"),
         "| T5 | time-integrated activity (TIA) map + VOIs | dose only | below |",
         "",
         "## T5: dose from the TIA map",
@@ -259,6 +355,8 @@ def render(t5):
             "and transports the electrons beyond the voxel and the VOI boundary.",
         ]
     lines += mass_section(t5, order)
+    if t4:
+        lines += t4_section(t4, order)
     lines += [
         "",
         "## What this validates",
@@ -271,7 +369,8 @@ def render(t5):
         "",
         "## What this does not validate",
         "",
-        "- **Time integration** (T4) and **segmentation** (T1): not yet done.",
+        ("- **Segmentation** (T1): not yet done." if t4 else
+         "- **Time integration** (T4) and **segmentation** (T1): not yet done."),
         "- **Accuracy**: the participants' median is not a ground truth; a common bias of the "
         "participants and radot would not be seen.",
         "- **Lesion doses with S-value methods**: no S-values for lesions.",
@@ -291,7 +390,8 @@ def render(t5):
         "python validation/snmmi/prepare_data.py    # extract the zips and convert to NIfTI",
         "python validation/snmmi/run_gate.py        # optional: OpenGATE dose-rate maps (needs opengate)",
         "python validation/snmmi/t5.py              # T5 doses, writes results/t5_radot.json",
-        "pytest validation/snmmi                    # tests (T5 skipped without the data)",
+        "python validation/snmmi/t4.py              # T4 integrate + doses, writes results/t4_radot.json",
+        "pytest validation/snmmi                    # tests (T4, T5 skipped without the data)",
         "python validation/snmmi/report.py          # regenerate this page",
         "```",
         "",
@@ -308,7 +408,8 @@ def main():
     )
     args = parser.parse_args()
 
-    page = render(json.loads(T5_RESULTS.read_text(encoding="utf-8")))
+    t4 = json.loads(T4_RESULTS.read_text(encoding="utf-8")) if T4_RESULTS.exists() else None
+    page = render(json.loads(T5_RESULTS.read_text(encoding="utf-8")), t4)
 
     if args.check:
         current = OUTPUT.read_text(encoding="utf-8") if OUTPUT.exists() else ""

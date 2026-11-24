@@ -11,8 +11,9 @@ Evaluation of radot with the data of the SNMMI 2021 177Lu Dosimetry Challenge (2
 | `prepare_data.py` | Extracts the Deep Blue zips and converts the images and masks to NIfTI with radot |
 | `run_gate.py` | Optional: OpenGATE Monte Carlo dose-rate map with the TIA map as source (needs opengate) |
 | `t5.py` | Task 5: doses from the provided TIA map and VOIs (`svalue`, `ldm`, and `gate` when the map exists), compared with the participants |
+| `t4.py` | Task 4: `radot integrate` per VOI on the 4 SPECT (VOIs of each scan), then the dose (organs: `svalue` on the TIA table; lesions: T5 `ldm` dose × TIA ratio), compared with the participants and the challenge TIA map |
 | `test_snmmi.py` | Tests (the T5 test is skipped without the data) |
-| `results/t5_radot.json` | radot T5 results |
+| `results/t5_radot.json`, `results/t4_radot.json` | radot T5 and T4 results (per VOI, no image), committed: the page and the tests use them without the data; source and licence in `results/README.md` |
 | `report.py` | Writes `docs/8_validation_snmmi.md` from the stored results |
 
 ## Data
@@ -32,6 +33,7 @@ Then:
 python validation/snmmi/prepare_data.py    # extract + convert (data/snmmi_challenge/nifti/)
 python validation/snmmi/run_gate.py        # optional: OpenGATE maps in data/.../gate/ (~10 min per patient)
 python validation/snmmi/t5.py              # T5 table, writes results/t5_radot.json
+python validation/snmmi/t4.py              # T4 table, writes results/t4_radot.json (after t5.py)
 pytest validation/snmmi
 python validation/snmmi/report.py          # regenerate docs/8_validation_snmmi.md
 ```
