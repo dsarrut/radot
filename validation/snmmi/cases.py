@@ -98,6 +98,25 @@ def nifti_dir(patient: str) -> Path:
     return NIFTI_DIR / patient
 
 
+SCANS = (1, 2, 3, 4)  # SPECT/CT time points
+
+
+def spect_path(patient: str, scan: int) -> Path:
+    return nifti_dir(patient) / f"spect_scan{scan}.nii.gz"
+
+
+def mask_path(patient: str, scan: int, voi: str) -> Path:
+    return nifti_dir(patient) / ("masks" if scan == 1 else f"masks_scan{scan}") / f"{voi}.nii.gz"
+
+
+def has_t4_nifti(patient: str) -> bool:
+    """The 4 SPECT and the masks of every time point (prepare_data.py)."""
+    p = PATIENTS[patient]
+    return all(spect_path(patient, k).exists() for k in SCANS) and all(
+        mask_path(patient, k, v).exists() for k in SCANS for v in p.organs + p.lesions
+    )
+
+
 def has_nifti(patient: str) -> bool:
     d = nifti_dir(patient)
     return (d / "tia.nii.gz").exists() and (d / "ct_scan1.nii.gz").exists()
