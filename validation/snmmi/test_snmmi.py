@@ -94,6 +94,9 @@ def test_t4_reproduces_the_stored_results(t4_results):
                 assert ("failed" in a) == ("failed" in b), (name, voi, label)
                 if "failed" not in a:
                     assert a["tia_mbq_h"] == pytest.approx(b["tia_mbq_h"], rel=1e-6), (name, voi, label)
+                    assert (a["ldm_fit_after"] is None) == (b["ldm_fit_after"] is None), (name, voi, label)
+                    if a["ldm_fit_after"] is not None:
+                        assert a["ldm_fit_after"] == pytest.approx(b["ldm_fit_after"], rel=1e-5), (name, voi, label)
 
 
 def test_t4_f4a_with_the_participants(t4_results):
@@ -109,6 +112,8 @@ def test_t4_f4a_with_the_participants(t4_results):
             inside += r[f"{k}_in_iqr"]
             total += 1
             assert abs(r[f"{k}_diff_pct"]) < T4_TOLERANCE_PCT, (name, voi, r[f"{k}_diff_pct"])
+            # fit after (LDM dose rate per time point with its CT): the same tolerance
+            assert abs(r["ldm_fit_after_diff_pct"]) < T4_TOLERANCE_PCT, (name, voi, r["ldm_fit_after_diff_pct"])
     assert inside >= 10 and total == 14
 
 

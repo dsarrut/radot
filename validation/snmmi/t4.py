@@ -9,7 +9,11 @@ For each patient, VOI and time-integration method (METHODS), the radot chain fit
 - organs: `radot dose -m svalue` on the TIA table (OpenDose self S-value, mass from the CT of time
   point 1, as T5);
 - every VOI (lesions have no S-value): `ldm_scaled` = the T5 radot LDM dose of the VOI × TIA(T4) /
-  TIA(T5 map), i.e. the radot LDM dose per unit TIA of the same VOI and CT (results/t5_radot.json).
+  TIA(T5 map), i.e. the radot LDM dose per unit TIA of the same VOI and CT (results/t5_radot.json);
+- every VOI, fit after: `ldm_fit_after` = `radot dose -m ldm --dose-rate` at each time point with the CT
+  of that time point, then `radot integrate` of the VOI mean dose rate (mass-weighted, CT of each time
+  point) with the same method. The dose-rate images are written next to the converted data (never
+  committed).
 
 Compared with the participants' T4 doses (challenge_stats.json), and the TIA with the TIA of the
 challenge map (T5, made by the organisers). Writes results/t4_radot.json and prints a table. Run
@@ -31,13 +35,15 @@ from cases import (  # noqa: E402
     RESULTS_DIR,
     SCANS,
     challenge_stats,
+    ct_path,
+    dose_rate_path,
     has_t4_nifti,
     mask_path,
     nifti_dir,
     spect_path,
 )
 
-from radot.dose import compute_roi_dose_tia_table  # noqa: E402
+from radot.dose import compute_roi_dose_file, compute_roi_dose_tia_table  # noqa: E402
 from radot.integrate import integrate_rois  # noqa: E402
 from radot.log import configure_logging  # noqa: E402
 from radot.resampling import resample_image  # noqa: E402
@@ -50,6 +56,7 @@ METHODS = {
     "trapezoid extrap/fit2": {"model": "trapezoid", "head": "extrap", "tail": "fit", "tail_points": 2},
 }
 T5_RESULTS = RESULTS_DIR / "t5_radot.json"
+DOSES = ("svalue", "ldm_scaled", "ldm_fit_after")
 
 
 def read_mask(path: Path) -> np.ndarray:
@@ -62,8 +69,22 @@ def label_image(mask: np.ndarray, like: sitk.Image) -> sitk.Image:
     return img
 
 
-def voi_t4(spects, spect_paths, masks, ct, roi, is_organ, sex, t5_voi):
-    """TIA and doses of one VOI for every method. masks: one boolean array per scan."""
+def dose_rate_images(name: str):
+    """LDM dose rate (Gy/h) at each time point, with the CT of that time point (resampled to the SPECT
+    grid); computed once, then read. Returns (images, paths)."""
+    paths = []
+    for k in SCANS:
+        out = dose_rate_path(name, k)
+        if not out.exists():
+            compute_roi_dose_file(image_path=spect_path(name, k), method="ldm", ct_path=ct_path(name, k),
+                                  resample_target="like_activity", dose_rate=True, output_path=out)
+        paths.append(out)
+    return [sitk.ReadImage(str(x)) for x in paths], paths
+
+
+def voi_t4(spects, spect_paths, masks, ct, roi, is_organ, sex, t5_voi, rates, rate_paths, cts):
+    """TIA and doses of one VOI for every method. masks: one boolean array per scan; rates: the dose-rate
+    images, cts: the CT of each time point on its SPECT grid (fit after)."""
     labels = [label_image(m, s) for m, s in zip(masks, spects)]
     out = {}
     for label, opts in METHODS.items():
@@ -72,6 +93,11 @@ def voi_t4(spects, spect_paths, masks, ct, roi, is_organ, sex, t5_voi):
         except ValueError as e:
             out[label] = {"failed": str(e)}
             continue
+        try:
+            after = integrate_rois(rates, labels, image_paths=rate_paths, labels_map={1: roi}, rois=[roi], ct=cts,
+                                   **opts)["rois"][roi]
+        except ValueError as e:
+            after = {"failed": str(e)}
         r = doc["rois"][roi]
         res = {
             "tia_mbq_h": r["tia_mbq_h"],
@@ -81,13 +107,18 @@ def voi_t4(spects, spect_paths, masks, ct, roi, is_organ, sex, t5_voi):
             "tia_vs_t5_map_pct": 100.0 * (r["tia_mbq_h"] / t5_voi["tia_mbq_h"] - 1.0),
             "ldm_scaled": t5_voi["ldm"] * r["tia_mbq_h"] / t5_voi["tia_mbq_h"],
             "svalue": None,
+            "ldm_fit_after": after.get("mean_dose_gy"),
+            "ldm_fit_after_se": after.get("mean_dose_se_gy"),
+            "masses_g": after.get("masses_g"),
         }
+        if "failed" in after:
+            res["ldm_fit_after_failed"] = after["failed"]
         if is_organ:
             d = compute_roi_dose_tia_table(doc, labels[0], labels_map={1: roi}, ct_image=ct,
                                            method_params={"phantom": sex}, rois=[roi])[roi]
             res["svalue"] = d["mean_dose_gy"]
             res["svalue_fit_se"] = d["mean_dose_fit_se_gy"]
-            res["mass_g"] = d["roi_mass_g"]
+            res["mass_g"] = d["roi_mass_g"]  # (CT of time point 1)
         out[label] = res
     return out
 
@@ -99,19 +130,25 @@ def run_patient(name: str, t5: dict) -> dict:
     ct = resample_image(sitk.ReadImage(str(nifti_dir(name) / "ct_scan1.nii.gz")), image_type="ct",
                         reference_image=spects[0])
     masks = {v: [read_mask(mask_path(name, k, v)) for k in SCANS] for v in p.organs + p.lesions}
+    rates, rate_paths = dose_rate_images(name)
+    cts = [resample_image(sitk.ReadImage(str(ct_path(name, k))), image_type="ct", reference_image=s)
+           for k, s in zip(SCANS, spects)]
+    extra = (rates, rate_paths, cts)
     results = {}
     for v in p.organs:
         roi = ORGAN_NAMES[v]
-        results[roi] = voi_t4(spects, paths, masks[v], ct, roi, True, p.sex, t5[roi])
+        results[roi] = voi_t4(spects, paths, masks[v], ct, roi, True, p.sex, t5[roi], *extra)
     no_lesion = []
     for i in range(len(SCANS)):
         m = masks["liver"][i].copy()
         for v in p.lesions:
             m &= ~masks[v][i]
         no_lesion.append(m)
-    results["Liver (no lesions)"] = voi_t4(spects, paths, no_lesion, ct, "Liver", True, p.sex, t5["Liver (no lesions)"])
+    results["Liver (no lesions)"] = voi_t4(spects, paths, no_lesion, ct, "Liver", True, p.sex,
+                                           t5["Liver (no lesions)"], *extra)
     for v in p.lesions:
-        results[v.capitalize()] = voi_t4(spects, paths, masks[v], ct, v.capitalize(), False, p.sex, t5[v.capitalize()])
+        results[v.capitalize()] = voi_t4(spects, paths, masks[v], ct, v.capitalize(), False, p.sex,
+                                         t5[v.capitalize()], *extra)
     # total kidney: mass-weighted mean of the two kidneys (masses of T5, CT of time point 1)
     kl, kr = results["Kidney_L"], results["Kidney_R"]
     ml, mr = t5["Kidney_L"]["mass_g"], t5["Kidney_R"]["mass_g"]
@@ -126,7 +163,12 @@ def run_patient(name: str, t5: dict) -> dict:
             "tia_vs_t5_map_pct": 100.0 * ((a["tia_mbq_h"] + b["tia_mbq_h"]) / t5["Kidneys (total)"]["tia_mbq_h"] - 1),
             "svalue": (a["svalue"] * ml + b["svalue"] * mr) / (ml + mr),
             "ldm_scaled": (a["ldm_scaled"] * ml + b["ldm_scaled"] * mr) / (ml + mr),
+            "ldm_fit_after": None,
         }
+        if a["ldm_fit_after"] is not None and b["ldm_fit_after"] is not None:
+            # mass-weighted with the masses of each time point: mean over the time points of the masses
+            wl, wr = float(np.mean(a["masses_g"])), float(np.mean(b["masses_g"]))
+            total[label]["ldm_fit_after"] = (a["ldm_fit_after"] * wl + b["ldm_fit_after"] * wr) / (wl + wr)
     results["Kidneys (total)"] = total
     return results
 
@@ -140,7 +182,7 @@ def compare(all_results: dict) -> dict:
             per_method["challenge"] = {k: s[k] for k in ("q1", "median", "q3", "qcd_pct")}
             for label in METHODS:
                 r = per_method[label]
-                for dose in ("svalue", "ldm_scaled"):
+                for dose in DOSES:
                     if r.get(dose) is not None:
                         r[f"{dose}_diff_pct"] = 100.0 * (r[dose] / s["median"] - 1.0)
                         r[f"{dose}_in_iqr"] = bool(s["q1"] <= r[dose] <= s["q3"])
@@ -149,7 +191,7 @@ def compare(all_results: dict) -> dict:
 
 def print_table(all_results: dict) -> None:
     print(f"\n{'Pat.':4} {'VOI':19} {'method':22} {'TIA vs map':>10} {'svalue (Gy)':>15} {'ldm* (Gy)':>15} "
-          f"{'T4 median [IQR] (Gy)':>22}")
+          f"{'ldm after (Gy)':>15} {'T4 median [IQR] (Gy)':>22}")
     for name, results in all_results.items():
         pid = PATIENTS[name].challenge_id
         for voi, per_method in results.items():
@@ -167,9 +209,10 @@ def print_table(all_results: dict) -> None:
                     return f"{r[k]:.2f} ({r[k + '_diff_pct']:+.0f}%){'' if r[k + '_in_iqr'] else ' *'}"
 
                 print(f"{pid:4} {voi:19} {label:22} {r['tia_vs_t5_map_pct']:+9.1f}% {cell('svalue'):>15} "
-                      f"{cell('ldm_scaled'):>15} {iqr:>22}")
+                      f"{cell('ldm_scaled'):>15} {cell('ldm_fit_after'):>15} {iqr:>22}")
     print("(TIA vs map: radot T4 TIA vs the TIA of the challenge map in the VOI; ldm*: T5 radot LDM dose x "
-          "TIA ratio; * outside the participants' interquartile range)")
+          "TIA ratio; ldm after: LDM dose rate per time point with its CT, then integrated; * outside the "
+          "participants' interquartile range)")
 
 
 def main() -> None:

@@ -59,6 +59,10 @@ radot dose spect.nii.gz --ct ct.nii.gz -m ldm --isotope Lu177 --dose-rate -o dos
 radot dose spect.nii.gz --ct ct.nii.gz -m ldm --isotope Ac225 --cascade -o dose.nii.gz             # decay chain
 ```
 
+Several time points, fit after: a dose-rate image per time point (each with its CT), then `radot integrate`
+on them gives the mean absorbed dose per ROI, with the masses of each time point (see
+[time integration](6e_time_integration.md)).
+
 ### Python API: `dose_ldm`
 The core calculation on numpy arrays:
 

@@ -96,6 +96,11 @@ def compute_roi_dose_tia_table(
     else:
         table_name = "TIA table"
         doc = table
+    if doc.get("quantity", "activity") == "dose_rate":
+        raise ValueError(
+            f"{table_name} integrates dose-rate images (fit after): it already gives the mean absorbed dose "
+            f"per ROI (mean_dose_gy), there is no dose to compute on it."
+        )
     if doc.get("quantity", "activity") != "activity":
         raise ValueError(f"{table_name}: quantity '{doc.get('quantity')}', a TIA table is 'activity'.")
 

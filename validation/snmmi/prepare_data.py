@@ -5,7 +5,7 @@ images needed for T4 and T5 to NIfTI with radot:
 
   <DATA_DIR>/nifti/<patient>/tia.nii.gz                 TIA map (Bq/mL.s), sidecar unit bqsml (T5)
   <DATA_DIR>/nifti/<patient>/spect_scan<k>.nii.gz       SPECT of time point k = 1..4 (Bq/mL)
-  <DATA_DIR>/nifti/<patient>/ct_scan1.nii.gz            CT of time point 1 (masses)
+  <DATA_DIR>/nifti/<patient>/ct_scan<k>.nii.gz          CT of time point k (masses; T4 fit after: each)
   <DATA_DIR>/nifti/<patient>/masks/<voi>.nii.gz         organ and lesion masks of time point 1
   <DATA_DIR>/nifti/<patient>/masks_scan<k>/<voi>.nii.gz masks of time point k = 2..4 (T4)
 
@@ -82,7 +82,8 @@ def main() -> None:
             convert(src("spect_ct", "SPECT_Cts", f"scan{k}", "spect"), out / f"spect_scan{k}.nii.gz")
             set_unit(out / f"spect_scan{k}.nii.gz", "bqml")
             check_spect_sidecar(out / f"spect_scan{k}.nii.gz")
-        convert(src("spect_ct", "SPECT_Cts", "scan1", "ct"), out / "ct_scan1.nii.gz")
+        for k in SCANS:
+            convert(src("spect_ct", "SPECT_Cts", f"scan{k}", "ct"), out / f"ct_scan{k}.nii.gz")
         for k in SCANS:
             masks = out / ("masks" if k == 1 else f"masks_scan{k}")
             for kind, vois in (("Organs", patient.organs), ("Lesions", patient.lesions)):

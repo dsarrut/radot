@@ -100,6 +100,7 @@ radot computes the VOI mass from the CT (density = 1 + HU/1000, CT resampled to 
 - **Time integration**: `radot integrate`, one TIA per VOI, with each method below (4 time points: with the noise level estimated, `f2` has a standard error and `f4a` none; no model selection, the AICc needs more points).
 - **Dose**: organs, `radot dose -m svalue` on the TIA table (mass from the CT of time point 1, as T5); lesions (no S-value), the radot T5 `ldm` dose of the VOI scaled by the TIA ratio T4 / T5 map (marked *).
 - **TIA vs map**: radot TIA vs the TIA of the challenge map in the same VOI (the map is the organisers' time integration, the T5 input).
+- **Fit after**: `radot dose -m ldm --dose-rate` at each time point with the CT of that time point, then `radot integrate` on the 4 dose-rate images (VOI mean dose rate weighted by the masses of that time point, `--ct`), with the same method. Every VOI, organs and lesions (LDM, no S-value).
 
 | Method | `radot integrate` |
 |---|---|
@@ -152,9 +153,32 @@ TIA vs the challenge map (%):
 | B | Lesion3 | +7 | +9 | +32 | +13 |
 | B | Lesion4 | -3 | +3 | +22 | +4 |
 
+Fit after (LDM dose rate at each time point, then integrated), absorbed doses (Gy) and difference with the participants' T4 median; mass spread: (max − min) / mean of the VOI mass over the 4 time points (masks and CT of each scan):
+
+| Patient | VOI | f2 | f4a | trapezoid ramp/phys | trapezoid extrap/fit2 | Participants: median [Q1–Q3] (Gy) | Mass spread |
+|---|---|--:|--:|--:|--:|--:|--:|
+| A | Liver | 2.15 (+2 %) | 2.11 (+1 %) | 2.70 (+29 % ✗) | 1.92 (-8 %) | 2.10 [1.42–2.61] | 11 % |
+| A | Liver (no lesions) | 1.14 (-46 % ✗) | 1.14 (-46 % ✗) | 1.55 (-26 %) | failed | 2.10 [1.42–2.61] | 11 % |
+| A | Spleen | 3.28 (-6 %) | 3.22 (-8 %) | 4.41 (+26 %) | 3.53 (+1 %) | 3.50 [3.14–5.21] | 17 % |
+| A | Kidney_L | 2.57 (-8 % ✗) | 2.55 (-9 % ✗) | 3.65 (+30 %) | 2.77 (-1 %) | 2.80 [2.60–3.70] | 8 % |
+| A | Kidney_R | 2.45 (-8 % ✗) | 2.46 (-8 % ✗) | 3.47 (+30 % ✗) | 2.56 (-4 %) | 2.67 [2.56–3.45] | 8 % |
+| A | Kidneys (total) | 2.51 (-9 % ✗) | 2.50 (-9 % ✗) | 3.56 (+30 % ✗) | 2.67 (-3 %) | 2.75 [2.61–3.27] | — |
+| A | Lesion1 | 22.30 (+6 %) | 19.07 (-9 % ✗) | 22.48 (+7 %) | 17.67 (-16 % ✗) | 21.00 [19.12–25.06] | 3 % |
+| A | Lesion2 | 34.23 (-15 %) | 39.65 (-1 %) | 39.85 (-1 %) | 39.89 (-0 %) | 40.09 [29.95–47.06] | 5 % |
+| B | Liver | 1.58 (-4 %) | 1.58 (-4 %) | 1.90 (+15 % ✗) | 1.63 (-1 %) | 1.65 [1.58–1.87] | 12 % |
+| B | Liver (no lesions) | 1.45 (-12 % ✗) | 1.45 (-12 % ✗) | 1.74 (+6 %) | 1.51 (-8 % ✗) | 1.65 [1.58–1.87] | 10 % |
+| B | Kidney_L | 3.41 (-5 %) | 3.75 (+4 %) | 4.38 (+22 % ✗) | 3.83 (+6 %) | 3.60 [3.35–4.26] | 17 % |
+| B | Kidney_R | 4.56 (-10 %) | 5.27 (+3 %) | 6.11 (+20 % ✗) | 5.30 (+4 %) | 5.09 [4.49–5.59] | 23 % |
+| B | Kidneys (total) | 4.17 (-9 %) | 4.75 (+3 %) | 5.52 (+20 % ✗) | 4.80 (+4 %) | 4.60 [3.78–4.98] | — |
+| B | Lesion1 | 3.22 (-1 %) | 3.33 (+2 %) | 4.00 (+22 % ✗) | 3.45 (+5 %) | 3.27 [2.80–3.60] | 4 % |
+| B | Lesion2 | 22.58 (-37 % ✗) | 35.01 (-3 %) | 42.91 (+19 % ✗) | 36.13 (+1 %) | 35.93 [25.13–42.09] | 14 % |
+| B | Lesion3 | 3.02 (-5 %) | 3.08 (-3 %) | 3.70 (+17 % ✗) | 3.20 (+1 %) | 3.17 [2.86–3.44] | 3 % |
+| B | Lesion4 | 3.93 (-5 %) | 4.15 (+0 %) | 4.93 (+19 % ✗) | 4.24 (+2 %) | 4.14 [3.48–4.50] | 3 % |
+
 Findings:
 
-- Inside the participants' interquartile range (VOIs without the liver of A): `f2` 8 / 14, `f4a` 11 / 14, `trapezoid ramp/phys` 6 / 14, `trapezoid extrap/fit2` 10 / 14.
+- Inside the participants' interquartile range (VOIs without the liver of A): `f2` 8 / 14, `f4a` 11 / 14, `trapezoid ramp/phys` 6 / 14, `trapezoid extrap/fit2` 10 / 14; fit after: `f2` 10 / 14, `f4a` 10 / 14, `trapezoid ramp/phys` 4 / 14, `trapezoid extrap/fit2` 13 / 14.
+- Fit after vs fit first (both LDM; fit first: `ldm*`), over the same VOIs: `f2` -9 to +10 %; `f4a` -10 to +16 %; `trapezoid ramp/phys` -10 to +14 %; `trapezoid extrap/fit2` -10 to +14 %. The engine is linear in activity: the difference comes from the geometry of each time point. The organ masses change by 8 to 23 % between scans (each VOI is drawn again on each scan), and the fit after carries this change into the dose-rate curve. A tail fitted on two close points (`extrap/fit2`, patient A: 21 h between the last two scans) amplifies it: for the liver of A, +11 % of mass between scans 3 and 4 gives -30 % of dose (fit after vs fit first). The geometry of each time point is more exact only when the VOIs are consistent between scans.
 - `f4a` (uptake then washout) is the closest to the participants for the lesions and the kidneys of B; `f2` (no uptake) underestimates the VOIs whose uptake is still visible at the first scan.
 - `trapezoid ramp/phys` overestimates every VOI: the physical-decay tail ignores the biological clearance after the last scan (as on the [synthetic curves](9_validation_time_integration.md)); a fitted tail (`extrap/fit2`) removes most of it.
 - The challenge TIA map and the participants differ: for some lesions the map TIA is far from radot while the radot dose is at the participants' median. The map is one time integration among others, not a reference.
@@ -164,6 +188,7 @@ Findings:
 
 - The **dose step** on real images: TIA image as input, VOI masses from the CT, OpenDose S-values with mass scaling, local deposition, and an external Monte Carlo dose-rate map (`--dose-rate-map`).
 - Agreement with the community: radot falls in the narrow spread of the T5 participants (QCD 3–7 % for these targets).
+- The **time integration** on real serial SPECT/CT (T4): `radot integrate` per VOI, fit first (TIA, then `radot dose` on the table) and fit after (LDM dose rate at each time point with its CT, then integrated).
 
 ## What this does not validate
 

@@ -27,7 +27,7 @@ A dose calculation combines two independent parts:
 ## 2. Which one?
 
 * **One SPECT/PET time point, organ doses**: `hanscheid2018` (no effective half-life needed) or `madsen2018` (with a known $T_{\text{eff}}$ per ROI). `hanscheid2017` for Lu-177 when only the mean concentration is available.
-* **Several time points**: `radot integrate` (fit per ROI, model selection), then `radot dose` on its ROI TIA table with `svalue` (see [time integration](6e_time_integration.md)); `jackson2013` for exactly three time points.
+* **Several time points**: `radot integrate` (fit per ROI, model selection), then `radot dose` on its ROI TIA table with `svalue` (fit first); or `radot dose -m ldm --dose-rate` at each time point with its own CT, then `radot integrate` on the dose-rate images (fit after: the masses and densities of each time point). See [time integration](6e_time_integration.md). `jackson2013` for exactly three time points.
 * **A TIA image from another software** (unit `bqs` or `bqsml`): `svalue` (organ) or `ldm` (voxel).
 * **A dose map** (dose distribution, DVH, lesion heterogeneity): `ldm`, or a Monte Carlo map; view it and its DVH with [vvv](viewing.md).
 * **Cross-doses, photons, patient anatomy**: the organ methods give the self-dose only (the S-value of the organ to itself), and LDM the local dose only. A Monte Carlo map (OpenGATE `opengate_dose_rate`) includes all of them.
@@ -52,7 +52,7 @@ The validation against Monte Carlo and the SNMMI challenge is in [OpenGATE valid
     ```
 
     Read it with `radot.dose.read_results(path)` (the `rois` table; a file of another format is an error). Other top-level keys (e.g. how the result was obtained) may be added without a new format version. The Python functions return the table itself (`{roi: {...}}`).
-* **Dose image**: `unit` `gy` (or `gy/h` with `--dose-rate`) and `modality` `dose` in its sidecar.
+* **Dose image**: `unit` `gy` (or `gy/h` with `--dose-rate`) and `modality` `dose` in its sidecar, with the radionuclide, the time from injection and the patient data of the activity image; a dose-rate image also gets `decay_correction: none` (it is at the acquisition time), so that `radot integrate` can integrate a series of them (fit after).
 
 `-o` sets the output: a `.json` file for the ROI table, an image file (`.nii.gz`, `.mhd`, ...) for the dose image. For `ldm` with labels, both are written: `-o dose.nii.gz` writes `dose.nii.gz` (+ its sidecar `dose.json`) and the table `dose_rois.json`; `-o results.json` writes `results.json` and the image `results_dose.nii.gz`. Without `-o`, the ROI table is printed; `ldm` without labels writes `dose.nii.gz`.
 

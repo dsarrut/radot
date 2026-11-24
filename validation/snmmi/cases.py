@@ -109,10 +109,19 @@ def mask_path(patient: str, scan: int, voi: str) -> Path:
     return nifti_dir(patient) / ("masks" if scan == 1 else f"masks_scan{scan}") / f"{voi}.nii.gz"
 
 
+def ct_path(patient: str, scan: int) -> Path:
+    return nifti_dir(patient) / f"ct_scan{scan}.nii.gz"
+
+
+def dose_rate_path(patient: str, scan: int) -> Path:
+    """LDM dose-rate image of time point k (t4.py, fit after; voxel-level output, never committed)."""
+    return nifti_dir(patient) / f"dose_rate_ldm_scan{scan}.nii.gz"
+
+
 def has_t4_nifti(patient: str) -> bool:
-    """The 4 SPECT and the masks of every time point (prepare_data.py)."""
+    """The 4 SPECT, the 4 CT and the masks of every time point (prepare_data.py)."""
     p = PATIENTS[patient]
-    return all(spect_path(patient, k).exists() for k in SCANS) and all(
+    return all(spect_path(patient, k).exists() and ct_path(patient, k).exists() for k in SCANS) and all(
         mask_path(patient, k, v).exists() for k in SCANS for v in p.organs + p.lesions
     )
 
