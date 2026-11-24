@@ -9,7 +9,7 @@ pip install -e ".[dev]"          # core + pytest; ".[seg]" adds TotalSegmentator
 pytest -q                         # unit tests + validation levels that need no data (CI: Python 3.11–3.14)
 ```
 
-*   Never commit patient data or anything under `data/`. The SNMMI challenge data (CC BY-NC) and the outputs derived from it are never committed or redistributed.
+*   Never commit patient data or anything under `data/`. The SNMMI challenge data (CC BY-NC) are never committed or redistributed: no image, mask or voxel-level output derived from them. Only the per-VOI results `validation/snmmi/results/*.json` are committed (section 4).
 *   Commits use conventional prefixes (`feat:`, `fix:`, `docs:`, `test:`, ...).
 *   If present, read `docs_dev/` first (local, gitignored): direction notes that decide what belongs in radot. Planning and status notes are in `docs_wip/` (gitignored); start with `docs_wip/dev_readme_000_status.md` (work in progress, next steps, open plans).
 
@@ -139,7 +139,8 @@ The code never makes a choice that can change a result without saying so. Inputs
 
 ## 4. SNMMI Challenge Evaluation (`validation/snmmi/`)
 
-*   **Data**: SNMMI 177Lu Dosimetry Challenge (Deep Blue, CC BY-NC 4.0, research only). Downloaded by hand into `data/snmmi_challenge/` (gitignored, or `$RADOT_SNMMI_DATA`), converted by `prepare_data.py`. Never commit or redistribute the images.
+*   **Data**: SNMMI 177Lu Dosimetry Challenge (Deep Blue, CC BY-NC 4.0, research only). Downloaded by hand into `data/snmmi_challenge/` (gitignored, or `$RADOT_SNMMI_DATA`), converted by `prepare_data.py`. Never commit or redistribute the images, the masks, or any voxel-level output derived from them (converted NIfTI, TIA or dose maps, OpenGATE outputs).
+*   **Committed results**: the per-VOI values in `validation/snmmi/results/*.json` (`t5_radot.json`, `t4_radot.json`): needed to generate the page and run the tests without the data, and to check that a rerun reproduces them. Source, licence (CC BY-NC 4.0) and the data owners' acknowledgement in `validation/snmmi/results/README.md`; nothing voxel-level in them.
 *   **Reference**: no ground truth; radot is compared with the participants' statistics (`challenge_stats.json`, parsed from Brosch-Lenz 2023 Supplemental Table 1). Patient 4 = A, patient 6 = B.
 *   **Single source of truth**: `cases.py` (patients, VOIs, paths, statistics access). `t5.py` computes task 5 (TIA map + VOIs → doses; adds `gate` when `run_gate.py` has produced the OpenGATE map, used through `--dose-rate-map`). `test_snmmi.py`: the statistics and page tests run in CI, the T5 tests are skipped without the data.
 *   **Report**: `python validation/snmmi/report.py` writes `docs/8_validation_snmmi.md` from the stored `results/t5_radot.json` and `results/t4_radot.json` (no data needed); a test fails when the page is out of date. After rerunning `t5.py` or `t4.py` (T4 reads the T5 results: run T5 first), regenerate the page.
@@ -173,7 +174,7 @@ Refer to these Markdown documents in the `docs/` directory for detailed specific
 *   [7_validation_opengate.md](docs/7_validation_opengate.md): Generated comparison with OpenGATE (do not edit).
 *   [8_validation_snmmi.md](docs/8_validation_snmmi.md): Generated comparison with the SNMMI challenge participants (do not edit).
 *   [validation/opengate/README.md](validation/opengate/README.md): How the OpenGATE reference was produced and how to run each validation level.
-*   [validation/snmmi/README.md](validation/snmmi/README.md): SNMMI challenge data, how to prepare them and run T5.
+*   [validation/snmmi/README.md](validation/snmmi/README.md): SNMMI challenge data, how to prepare them and run T4 and T5.
 *   [docs_wip/dev_readme_000_status.md](docs_wip/dev_readme_000_status.md): Start here: work in progress, next steps, open plans.
 *   [docs_wip/dev_readme_999_later.md](docs_wip/dev_readme_999_later.md): Postponed items, by closed note.
 *   [docs_wip/dev_readme_082_snmmi_challenge.md](docs_wip/dev_readme_082_snmmi_challenge.md): Plan and status (T5 done) to evaluate radot with the SNMMI 177Lu Dosimetry Challenge data.

@@ -13,7 +13,7 @@ Evaluation of radot with the data of the SNMMI 2021 177Lu Dosimetry Challenge (2
 | `t5.py` | Task 5: doses from the provided TIA map and VOIs (`svalue`, `ldm`, and `gate` when the map exists), compared with the participants |
 | `t4.py` | Task 4: `radot integrate` per VOI on the 4 SPECT (VOIs of each scan), then the dose (organs: `svalue` on the TIA table; lesions: T5 `ldm` dose × TIA ratio), compared with the participants and the challenge TIA map |
 | `test_snmmi.py` | Tests (the T5 test is skipped without the data) |
-| `results/t5_radot.json`, `results/t4_radot.json` | radot T5 and T4 results (per VOI, no image) |
+| `results/t5_radot.json`, `results/t4_radot.json` | radot T5 and T4 results (per VOI, no image), committed: the page and the tests use them without the data; source and licence in `results/README.md` |
 | `report.py` | Writes `docs/8_validation_snmmi.md` from the stored results |
 
 ## Data
